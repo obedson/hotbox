@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node --dns-result-order=ipv4first src/index.js",
-    "test": "node --test tests/unit/",
+    "test": "node --test --experimental-test-coverage tests/unit/",
     "test:integration": "NODE_ENV=test node --dns-result-order=ipv4first tests/verify_api.js",
     "test:all": "npm run test && npm run test:integration",
     "migrate": "node src/scripts/seed_ndaps_postcodes.js"

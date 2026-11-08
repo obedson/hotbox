@@ -17,6 +17,7 @@ function calculateDistanceKm(lat1, lon1, lat2, lon2) {
  * Ranks hubs based on proximity, remaining capacity, rating, and postcode relevance.
  */
 async function rankHubs({ userLat, userLng, targetPostcode = null, maxRadiusKm = 25 }) {
+  const hasCoordinates = userLat != null && userLng != null;
   const result = await db.query(`
     SELECT 
       h.*,
@@ -31,7 +32,7 @@ async function rankHubs({ userLat, userLng, targetPostcode = null, maxRadiusKm =
   const ranked = result.rows.map(hub => {
     const lat = parseFloat(hub.lat);
     const lng = parseFloat(hub.lng);
-    const distanceKm = (userLat && userLng)
+    const distanceKm = hasCoordinates
       ? calculateDistanceKm(userLat, userLng, lat, lng)
       : 0;
 
@@ -69,7 +70,7 @@ async function rankHubs({ userLat, userLng, targetPostcode = null, maxRadiusKm =
 
   // Filter within radius if coordinates were provided, then sort by composite score
   return ranked
-    .filter(h => (userLat && userLng) ? h.distanceKm <= maxRadiusKm : true)
+    .filter(h => hasCoordinates ? h.distanceKm <= maxRadiusKm : true)
     .sort((a, b) => b.compositeScore - a.compositeScore);
 }
 

@@ -15,7 +15,14 @@
   - Database TLS validates against the bundled Supabase root CA.
   - Frontend uses a centralized auth-token helper; all `x-user-id` usages removed.
 - **Phase 1:** In progress.
-  - Unit test suite added (`backend/tests/unit/`); `npm test` passes 14/14.
+  - Unit test suite added (`backend/tests/unit/`): 33 tests covering auth/RBAC,
+    payments, postcodes, validation, ranking, and wallet idempotency. `npm test`
+    runs them with coverage reporting.
+  - Fixed a `rankingService` bug where coordinates `(0, 0)` were treated as
+    "not provided"; radius filtering now uses an explicit null check.
+  - Coverage is 71.9% lines and 86.0% branches overall. `postcodeService`
+    database paths and route handlers are not unit-covered yet, so the 80%
+    target needs route and integration tests (Phase 2).
   - `.gitignore` tightened; the `mobile/node_modules` symlink is no longer tracked.
   - CI pipeline added (`.github/workflows/ci.yml`): backend unit tests, frontend
     build, Gitleaks secret scan, Docker image builds, and optional live-database
