@@ -1,0 +1,53 @@
+# DROPBOXZ — UI IMPLEMENTATION INSTRUCTION 
+
+You are implementing DROPBOXZ, a production-oriented Nigerian postcode-powered community logistics platform.
+
+The reference images supplied with this task are the visual design authority for layout, visual hierarchy, colors, spacing, component appearance, and responsive behavior. They are not a replacement for the functional requirements, data model, API contracts, or business rules.
+
+## Required application surfaces
+
+1. React Native mobile app for customers, riders, and community hub owners.
+2. Desktop/web frontend for Dropboxz operations and administration.
+3. Desktop/web portal for courier partners and enterprise shippers.
+4. Backend API, database, authentication, authorization, file storage, notifications, payment integration, and audit trail.
+
+## Before implementation
+
+* Inspect the existing repository, architecture, dependencies, and available ECC guidance.
+* Produce a screen inventory and route map.
+* Define the shared design system and reusable component library.
+* Map every screen to its user role, API endpoints, permissions, data requirements, loading states, error states, and acceptance tests.
+* Define database entities and shipment state transitions before implementing dependent screens.
+* Document architectural decisions and unresolved external integrations.
+
+## Functional requirements
+
+* Every button and form must have a defined action.
+* Connect application screens to real backend endpoints and persistent database records.
+* Implement server-side authorization; hiding a button is not sufficient security.
+* Use explicit shipment state transitions and an auditable parcel-custody ledger.
+* Make postcode lookup and address validation separate from identity verification and regulatory compliance.
+* Always enforce Nigeria's official National Digital Alphanumeric Postcode format (NDAPS, e.g., `FC-01-A03-FK-01`) across all UI forms, validation masks, hub addresses, rider operational zones, and tracking references (`DBX-FC01A0-xxxx`). Do not use legacy 6-digit numeric codes (such as 900211) as references or defaults.
+* Keep Dropboxz accreditation distinct from any government-issued licence or regulatory approval.
+* Prevent unauthorized riders or hubs from accepting or handling shipments.
+* Use transactional validation for parcel intake, handover, payment, and settlement operations.
+* Include loading, empty, error, retry, and success states.
+* Never use mock data as if it were confirmed production data. Clearly isolate demo fixtures and test accounts.
+
+## Engineering workflow
+
+Follow applicable ECC guidance and the capabilities available in this agent environment:
+
+1. Plan and identify dependencies.
+2. Define contracts and write tests before implementation where practical.
+3. Implement incrementally in reviewable milestones.
+4. Run unit, integration, and end-to-end tests.
+5. Review accessibility, security, performance, and authorization.
+6. Verify all critical user journeys in the running applications.
+7. Document incomplete integrations, deployment requirements, and remaining risks.
+
+## Acceptance criteria
+
+A screen is not complete merely because it resembles its reference image. It is complete when the layout is implemented, its controls work, the correct role can access it, data is connected to the intended backend, important states are handled, and its critical workflow passes tests.
+
+Do not attempt to build the entire platform in one unverified code-generation pass. Establish the architecture and shared design system first, then implement and verify one coherent workflow at a time.

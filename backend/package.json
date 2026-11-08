@@ -1,0 +1,23 @@
+{
+  "name": "dropzone-backend",
+  "version": "1.0.0",
+  "description": "Stateless Node.js Express REST API for Dropzone",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node --dns-result-order=ipv4first src/index.js",
+    "test": "NODE_ENV=test node --dns-result-order=ipv4first tests/verify_api.js",
+    "migrate": "node src/scripts/seed_ndaps_postcodes.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.3",
+    "nodemailer": "^10.2.1",
+    "pg": "^8.11.3",
+    "zod": "^4.6.7"
+  }
+}
