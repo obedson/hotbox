@@ -14,7 +14,17 @@
   - Helmet, rate limiting, CORS allowlist, and error-leakage fixes applied.
   - Database TLS validates against the bundled Supabase root CA.
   - Frontend uses a centralized auth-token helper; all `x-user-id` usages removed.
-- **Phase 1:** Not started.
+- **Phase 1:** In progress.
+  - Unit test suite added (`backend/tests/unit/`); `npm test` passes 14/14.
+  - `.gitignore` tightened; the `mobile/node_modules` symlink is no longer tracked.
+  - CI pipeline added (`.github/workflows/ci.yml`): backend unit tests, frontend
+    build, Gitleaks secret scan, Docker image builds, and optional live-database
+    integration tests.
+  - Multi-stage `backend/Dockerfile` and `frontend/Dockerfile` (nginx static
+    hosting with an `/api` proxy) added, plus `docker-compose.yml`.
+  - `README.md` and `LICENSE` (MIT) added.
+  - Docker is not installed on this machine, so the images have not been built
+    locally yet; CI builds them on every push.
 - **Phase 2:** Not started.
 
 ### Phase 0 verification results
