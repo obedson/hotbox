@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../../config/db');
 const { authenticate } = require('../../middleware/auth');
+const { paginate } = require('../../utils/pagination');
 // POST /api/v1/customer/tickets
 router.post('/tickets', authenticate, async (req, res) => {
   const { category = 'GENERAL_ENQUIRY', subject, message, priority = 'MEDIUM', shipmentId = null } = req.body;
@@ -25,11 +26,20 @@ router.post('/tickets', authenticate, async (req, res) => {
 // GET /api/v1/customer/tickets
 router.get('/tickets', authenticate, async (req, res) => {
   try {
-    const result = await db.query(
+    const result = await paginate(
+      db,
+      'SELECT COUNT(*) FROM support_tickets WHERE user_id = $1',
       'SELECT * FROM support_tickets WHERE user_id = $1 ORDER BY created_at DESC',
-      [req.user.id]
+      [req.user.id],
+      req
     );
-    res.json({ tickets: result.rows });
+    res.json({
+      tickets: result.items,
+      page: result.page,
+      limit: result.limit,
+      total: result.total,
+      totalPages: result.totalPages
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

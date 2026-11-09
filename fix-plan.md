@@ -49,7 +49,17 @@
     `EnterprisePortal.jsx` split into `frontend/src/components/enterprise/`
     (20 modules, shell 108 lines). All resulting files are under 800 lines;
     frontend build passes and the Vitest suite is 28/28 green.
-  - Remaining: frontend production config (5.3) and database operations (5.4).
+  - Frontend production config (5.3): `frontend/src/lib/api.js` now exposes a
+    shared `apiFetch` client with `VITE_API_BASE` support (Docker build arg and
+    `frontend/.env.example` documented); all components migrated off raw
+    `fetch`; backend unit tests now 53/53 (95.07% coverage).
+  - Database operations (5.4): `npm run migrate` now runs the real schema
+    runner (`scripts/migrate.js`) and the postcode seed moved to
+    `npm run seed:postcodes`; added `db:backup` / `db:restore` scripts; added
+    `backend/src/utils/pagination.js` and paginated the customer list
+    endpoints; added `supabase/migrations/03_audit_triggers.sql`; documented
+    the service-role decision, pagination convention, audit design, and
+    migration/backup/restore runbooks in `docs/database-operations.md`.
 
 ### Phase 0 verification results
 
@@ -184,6 +194,7 @@ This plan converts the production-readiness audit into an ordered set of fixes. 
 
 ### 5.4 Database operations
 - Add RLS policies or document why a single service-role connection is used. Add pagination to list endpoints, audit triggers, and a backup/restore plus migration runbook. Note: `npm run migrate` currently runs a seed script, so fix the naming and add a real migration runner.
+- Status: complete. See `docs/database-operations.md`.
 
 ### 5.5 Observability
 - Structured logging, a readiness endpoint, uptime monitoring, and alerting on authentication failures.

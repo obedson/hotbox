@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../../config/db');
 const { authenticate } = require('../../middleware/auth');
+const { paginate } = require('../../utils/pagination');
 // POST /api/v1/customer/claims
 router.post('/claims', authenticate, async (req, res) => {
   const {
@@ -34,15 +35,28 @@ router.post('/claims', authenticate, async (req, res) => {
 // GET /api/v1/customer/claims
 router.get('/claims', authenticate, async (req, res) => {
   try {
-    const result = await db.query(`
+    const baseSql = `
       SELECT c.*, s.tracking_code, s.package_description
       FROM claims c
       JOIN shipments s ON c.shipment_id = s.id
       WHERE c.claimant_id = $1
       ORDER BY c.created_at DESC
-    `, [req.user.id]);
+    `;
+    const result = await paginate(
+      db,
+      'SELECT COUNT(*) FROM claims WHERE claimant_id = $1',
+      baseSql,
+      [req.user.id],
+      req
+    );
 
-    res.json({ claims: result.rows });
+    res.json({
+      claims: result.items,
+      page: result.page,
+      limit: result.limit,
+      total: result.total,
+      totalPages: result.totalPages
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

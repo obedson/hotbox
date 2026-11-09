@@ -12,6 +12,12 @@
 -- 10. Enterprise API & Webhooks
 -- 11. Notifications & Audit Logs
 
+-- CONNECTION MODEL: the backend uses a single service-role connection
+-- (DATABASE_URL). Row-level security is intentionally not enabled; routes
+-- scope every query by the authenticated user. See
+-- docs/database-operations.md for the full rationale and production
+-- recommendations before exposing the database beyond the API.
+
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "postgis";
 

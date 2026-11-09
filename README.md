@@ -151,6 +151,12 @@ configuration.
 - Point an uptime monitor (for example UptimeRobot or Better Stack) at
   `https://<host>/api/ready`.
 
+## Database operations
+
+Connection model (service role vs. RLS), pagination conventions, audit
+triggers, and the migration/backup/restore runbooks are documented in
+[`docs/database-operations.md`](docs/database-operations.md).
+
 ## Security
 
 - `.env` is gitignored. Rotate any credential that has ever been committed or

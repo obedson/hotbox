@@ -3,14 +3,24 @@ const router = express.Router();
 const db = require('../../config/db');
 const { authenticate } = require('../../middleware/auth');
 const { normalizePostcode, resolvePostcode } = require('../../services/postcodeService');
+const { paginate } = require('../../utils/pagination');
 // GET /api/v1/customer/addresses
 router.get('/addresses', authenticate, async (req, res) => {
   try {
-    const result = await db.query(
+    const result = await paginate(
+      db,
+      'SELECT COUNT(*) FROM addresses WHERE user_id = $1',
       'SELECT * FROM addresses WHERE user_id = $1 ORDER BY is_default DESC, created_at DESC',
-      [req.user.id]
+      [req.user.id],
+      req
     );
-    res.json({ addresses: result.rows });
+    res.json({
+      addresses: result.items,
+      page: result.page,
+      limit: result.limit,
+      total: result.total,
+      totalPages: result.totalPages
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

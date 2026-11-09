@@ -1,6 +1,7 @@
 node_modules/
 mobile/node_modules
 dist/
+backend/backups/
 build/
 .expo/
 .env

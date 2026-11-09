@@ -3,18 +3,32 @@ const router = express.Router();
 const crypto = require('crypto');
 const db = require('../../config/db');
 const { authenticate } = require('../../middleware/auth');
+const { paginate } = require('../../utils/pagination');
 // GET /api/v1/customer/shipments
 router.get('/shipments', authenticate, async (req, res) => {
   try {
-    const result = await db.query(`
+    const baseSql = `
       SELECT s.*, h.business_name as destination_hub_name, h.address_text as destination_hub_address
       FROM shipments s
       LEFT JOIN hubs h ON s.destination_hub_id = h.id
       WHERE s.sender_id = $1 OR s.recipient_phone = $2
       ORDER BY s.created_at DESC
-    `, [req.user.id, req.user.phone]);
+    `;
+    const result = await paginate(
+      db,
+      'SELECT COUNT(*) FROM shipments WHERE sender_id = $1 OR recipient_phone = $2',
+      baseSql,
+      [req.user.id, req.user.phone],
+      req
+    );
 
-    res.json({ shipments: result.rows });
+    res.json({
+      shipments: result.items,
+      page: result.page,
+      limit: result.limit,
+      total: result.total,
+      totalPages: result.totalPages
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
