@@ -8,6 +8,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const db = require('./config/db');
+const logger = require('./lib/logger');
 
 // Import modular API v1 routers
 const authRouter = require('./routes/auth');
@@ -78,10 +79,14 @@ app.use(express.json());
 app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
-    const duration = Date.now() - start;
-    if (process.env.NODE_ENV !== 'test') {
-      console.log(`${req.method} ${req.originalUrl} [${res.statusCode}] - ${duration}ms`);
-    }
+    if (process.env.NODE_ENV === 'test') return;
+    logger.info('request completed', {
+      method: req.method,
+      url: req.originalUrl,
+      statusCode: res.statusCode,
+      durationMs: Date.now() - start,
+      ip: req.ip
+    });
   });
   next();
 });
@@ -98,12 +103,23 @@ app.get('/api/health', async (req, res) => {
       version: '2.0.0-production'
     });
   } catch (err) {
-    console.error('Database health check error:', err);
+    logger.error('Database health check failed', { error: err.message });
     res.status(503).json({
       status: 'DEGRADED',
       database: 'DISCONNECTED',
       error: err.message || String(err)
     });
+  }
+});
+
+// Readiness endpoint for orchestrators and uptime monitors
+app.get('/api/ready', async (req, res) => {
+  try {
+    await db.query('SELECT 1');
+    res.json({ status: 'READY', timestamp: new Date().toISOString() });
+  } catch (err) {
+    logger.error('Readiness check failed', { error: err.message });
+    res.status(503).json({ status: 'NOT_READY', timestamp: new Date().toISOString() });
   }
 });
 
@@ -163,7 +179,7 @@ app.use((req, res) => {
 
 // Centralized error handler
 app.use((err, req, res, next) => {
-  console.error('Unhandled server error:', err);
+  logger.error('Unhandled server error', { error: err.message });
   const status = err.status || 500;
   const message = status === 500 ? 'Internal server error occurred.' : err.message;
   res.status(status).json({ error: message });

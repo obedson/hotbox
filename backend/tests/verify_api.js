@@ -52,6 +52,10 @@ async function testBackend() {
     const health = await req('/api/health');
     assert('Health Check UP', health.status === 200 && health.data.status === 'UP', JSON.stringify(health.data));
 
+    // 1b. Readiness check
+    const ready = await req('/api/ready');
+    assert('Readiness Check UP', ready.status === 200 && ready.data.status === 'READY', JSON.stringify(ready.data));
+
     // 2. Postcode Lookup (Abuja Wuse 2 - NDAPS Alphanumeric)
     const pc = await req('/api/v1/postcodes/FC-01-A03-FK-01');
     assert('Postcode FC-01-A03-FK-01 Resolved', pc.status === 200 && pc.data.postcode === 'FC-01-A03-FK-01', JSON.stringify(pc.data));

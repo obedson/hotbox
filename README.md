@@ -130,8 +130,20 @@ Recommended production setup:
 4. Point `DATABASE_URL` at the Supabase pooler and keep the bundled CA in place.
 5. Set `PAYSTACK_SECRET_KEY` before enabling wallet top-ups.
 
-Phase 2 adds structured logging, readiness probes, RLS review, pagination,
-backup runbooks, and mobile API configuration.
+Phase 2 adds RLS review, pagination, backup runbooks, and mobile API
+configuration.
+
+## Observability
+
+- The backend emits structured JSON logs (one object per line) with `timestamp`,
+  `level`, `message`, and request context (`method`, `url`, `statusCode`,
+  `durationMs`, `ip`).
+- `GET /api/health` is the liveness probe; `GET /api/ready` is the readiness
+  probe and returns `503` when the database is unreachable.
+- Authentication and authorization failures are logged at `warn` level with the
+  caller IP and path, so they can be alerted on from any log aggregator.
+- Point an uptime monitor (for example UptimeRobot or Better Stack) at
+  `https://<host>/api/ready`.
 
 ## Security
 
