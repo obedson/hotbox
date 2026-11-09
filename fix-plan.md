@@ -217,7 +217,12 @@ This plan converts the production-readiness audit into an ordered set of fixes. 
 - [ ] Docker images build and run locally.
 - [x] Mobile builds against a configurable API base.
 - [ ] README covers setup, env, and deployment.
-- [x] No core source file over 800 lines.
+- [ ] No core source file over 800 lines. (The two oversized dashboards are
+      split, but seven operations components still exceed it:
+      `PostcodeManagement.jsx` 1037, `HubManagement.jsx` 1044,
+      `AuditLogManagement.jsx` 1111, `ReportsManagement.jsx` 1136,
+      `BookingModal.jsx` 1245, `ExceptionManagement.jsx` 1252,
+      `SettingsManagement.jsx` 1253.)
 
 ## 8. Decisions Needed From You
 
