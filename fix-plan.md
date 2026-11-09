@@ -44,8 +44,12 @@
     All resulting files are under 800 lines; unit tests (48/48, 94.85% line
     coverage) and integration tests (12/12) pass.
   - Mobile styles extracted to `mobile/styles.js`; `App.js` is now 524 lines.
-  - Remaining: frontend `CustomerDashboard.jsx` and `EnterprisePortal.jsx`
-    splits, frontend production config (5.3), and database operations (5.4).
+  - Frontend splits (5.1): `CustomerDashboard.jsx` split into
+    `frontend/src/components/customer/` (16 modules, shell 510 lines) and
+    `EnterprisePortal.jsx` split into `frontend/src/components/enterprise/`
+    (20 modules, shell 108 lines). All resulting files are under 800 lines;
+    frontend build passes and the Vitest suite is 28/28 green.
+  - Remaining: frontend production config (5.3) and database operations (5.4).
 
 ### Phase 0 verification results
 
@@ -202,7 +206,7 @@ This plan converts the production-readiness audit into an ordered set of fixes. 
 - [ ] Docker images build and run locally.
 - [x] Mobile builds against a configurable API base.
 - [ ] README covers setup, env, and deployment.
-- [ ] No core source file over 800 lines.
+- [x] No core source file over 800 lines.
 
 ## 8. Decisions Needed From You
 
