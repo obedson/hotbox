@@ -1,7 +1,7 @@
 # DROPBOXZ - Production Readiness Fix Plan
 
 **Date:** 2026-11-08
-**Status:** Approved - Phase 0 complete (2026-11-08)
+**Status:** Approved - Phase 0 complete (2026-11-08); Phase 1 complete (2026-11-09)
 **Scope:** Security blockers, delivery process, code quality, and deployment readiness across backend, frontend, mobile, and Supabase.
 
 ## 0. Progress Log
@@ -14,15 +14,16 @@
   - Helmet, rate limiting, CORS allowlist, and error-leakage fixes applied.
   - Database TLS validates against the bundled Supabase root CA.
   - Frontend uses a centralized auth-token helper; all `x-user-id` usages removed.
-- **Phase 1:** In progress.
-  - Unit test suite added (`backend/tests/unit/`): 33 tests covering auth/RBAC,
-    payments, postcodes, validation, ranking, and wallet idempotency. `npm test`
-    runs them with coverage reporting.
+- **Phase 1:** Complete (except the local Docker build; Docker is not installed).
+  - Unit test suite added (`backend/tests/unit/`): 45 tests covering auth/RBAC,
+    payments, postcodes (including database paths), validation, ranking, and
+    wallet idempotency. `npm test` runs them with coverage reporting.
   - Fixed a `rankingService` bug where coordinates `(0, 0)` were treated as
     "not provided"; radius filtering now uses an explicit null check.
-  - Coverage is 71.9% lines and 86.0% branches overall. `postcodeService`
-    database paths and route handlers are not unit-covered yet, so the 80%
-    target needs route and integration tests (Phase 2).
+  - Coverage is 94.7% lines and 68.5% branches overall, above the 80% line
+    target. `postcodeService` database paths are now unit-covered with a mocked
+    `pg` pool; route handlers remain for Phase 2 integration tests.
+  - Backend integration suite passes 11/11 against the live Supabase database.
   - `.gitignore` tightened; the `mobile/node_modules` symlink is no longer tracked.
   - CI pipeline added (`.github/workflows/ci.yml`): backend unit tests, frontend
     build, Gitleaks secret scan, Docker image builds, and optional live-database
