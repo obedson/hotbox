@@ -33,7 +33,19 @@
   - `README.md` and `LICENSE` (MIT) added.
   - Docker is not installed on this machine, so the images have not been built
     locally yet; CI builds them on every push.
-- **Phase 2:** Not started.
+- **Phase 2:** In progress.
+  - Mobile readiness (5.2): added `mobile/app.config.js` (Expo config with
+    `EXPO_PUBLIC_API_BASE`), `mobile/src/config.js`, and `mobile/src/api.js`
+    (token storage + `apiFetch`). `App.js` now uses real login and removed all
+    hardcoded `x-user-id` headers and mock/offline fallbacks. Config tests added
+    (`mobile/src/config.test.js`); Android bundle export verified.
+  - Backend route splits (5.1): `customer.js`, `enterprise.js`, and
+    `operations.js` split into domain sub-routers under `backend/src/routes/`.
+    All resulting files are under 800 lines; unit tests (48/48, 94.85% line
+    coverage) and integration tests (12/12) pass.
+  - Mobile styles extracted to `mobile/styles.js`; `App.js` is now 524 lines.
+  - Remaining: frontend `CustomerDashboard.jsx` and `EnterprisePortal.jsx`
+    splits, frontend production config (5.3), and database operations (5.4).
 
 ### Phase 0 verification results
 
@@ -188,7 +200,7 @@ This plan converts the production-readiness audit into an ordered set of fixes. 
 - [ ] Wallet credits require a verified gateway reference and are replay-safe.
 - [ ] CI green: lint, tests, coverage at 80% or better, frontend build.
 - [ ] Docker images build and run locally.
-- [ ] Mobile builds against a configurable API base.
+- [x] Mobile builds against a configurable API base.
 - [ ] README covers setup, env, and deployment.
 - [ ] No core source file over 800 lines.
 
