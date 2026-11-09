@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   TrendingUp, Clock, CheckCircle2, AlertTriangle, Store, Truck, MapPin,
@@ -116,7 +117,7 @@ export default function ReportsManagement({ onSelectShipment }) {
     else setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/operations/reports/analytics?timeframe=${timeframe}`, {
+      const res = await apiFetch(`${API_BASE}/operations/reports/analytics?timeframe=${timeframe}`, {
         headers: {
           'x-user-role': 'ops_admin'
         }

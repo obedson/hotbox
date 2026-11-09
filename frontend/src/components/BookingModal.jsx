@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   X, Package, ShieldCheck, MapPin, CheckCircle, ArrowRight, ArrowLeft,
@@ -128,7 +129,7 @@ export default function BookingModal({
     setIsResolvingSender(true);
     setSenderNoPostcodeWarning(null);
     try {
-      const res = await fetch(`/api/v1/postcodes/resolve-location?q=${encodeURIComponent(raw)}`, {
+      const res = await apiFetch(`/api/v1/postcodes/resolve-location?q=${encodeURIComponent(raw)}`, {
         signal: abortCtrl.signal
       });
       if (res.ok) {
@@ -213,7 +214,7 @@ export default function BookingModal({
     setIsResolvingRecipient(true);
     setRecipientNoPostcodeWarning(null);
     try {
-      const res = await fetch(`/api/v1/postcodes/resolve-location?q=${encodeURIComponent(raw)}`, {
+      const res = await apiFetch(`/api/v1/postcodes/resolve-location?q=${encodeURIComponent(raw)}`, {
         signal: abortCtrl.signal
       });
       if (res.ok) {
@@ -231,7 +232,7 @@ export default function BookingModal({
           setRecipientNoPostcodeWarning(null);
 
           if (data.lat && data.lng) {
-            const hubsRes = await fetch(`/api/v1/hubs/nearby?lat=${data.lat}&lng=${data.lng}&radius=30`);
+            const hubsRes = await apiFetch(`/api/v1/hubs/nearby?lat=${data.lat}&lng=${data.lng}&radius=30`);
             if (hubsRes.ok) {
               const hubsData = await hubsRes.json();
               if (hubsData.hubs && hubsData.hubs.length > 0) {
@@ -348,7 +349,7 @@ export default function BookingModal({
     setRecipientAddress(area.address);
     setIsResolvingRecipient(true);
     try {
-      const hubsRes = await fetch(`/api/v1/hubs/nearby?lat=${area.lat}&lng=${area.lng}&radius=30`);
+      const hubsRes = await apiFetch(`/api/v1/hubs/nearby?lat=${area.lat}&lng=${area.lng}&radius=30`);
       if (hubsRes.ok) {
         const hubsData = await hubsRes.json();
         if (hubsData.hubs && hubsData.hubs.length > 0) {
@@ -378,7 +379,7 @@ export default function BookingModal({
       : { 'Content-Type': 'application/json' };
 
     try {
-      const res = await fetch('/api/v1/shipments/book', {
+      const res = await apiFetch('/api/v1/shipments/book', {
         method: 'POST',
         headers,
         body: JSON.stringify({

@@ -1,3 +1,4 @@
+import { apiFetch } from '../../lib/api';
 import { useState } from 'react';
 
 export default function useBilling() {
@@ -14,10 +15,10 @@ export default function useBilling() {
     setInvoicesLoading(true);
     try {
       const [summaryRes, invRes] = await Promise.all([
-        fetch('/api/v1/enterprise/billing/summary', {
+        apiFetch('/api/v1/enterprise/billing/summary', {
           headers: {}
         }),
-        fetch('/api/v1/enterprise/invoices', {
+        apiFetch('/api/v1/enterprise/invoices', {
           headers: {}
         })
       ]);
@@ -37,7 +38,7 @@ export default function useBilling() {
     setInvoiceDetailLoading(true);
     setInvoiceDetailData(null);
     try {
-      const res = await fetch(`/api/v1/enterprise/invoices/${inv.id}`, {
+      const res = await apiFetch(`/api/v1/enterprise/invoices/${inv.id}`, {
         headers: {}
       });
       const data = await res.json();
@@ -57,7 +58,7 @@ export default function useBilling() {
     if (!window.confirm(`Confirm corporate settlement of ${inv.invoice_number} for ₦${Number(inv.total_amount_ngn).toLocaleString()} via corporate remittance escrow?`)) return;
     setPayingInvoiceId(inv.id);
     try {
-      const res = await fetch(`/api/v1/enterprise/invoices/${inv.id}/pay`, {
+      const res = await apiFetch(`/api/v1/enterprise/invoices/${inv.id}/pay`, {
         method: 'POST',
         headers: {}
       });

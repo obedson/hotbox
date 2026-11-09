@@ -89,6 +89,12 @@ Copy `backend/.env.example` to `backend/.env`. Never commit `.env`.
 | `SMTP_*`, `GMAIL_*`, `RESEND_API_KEY` | No | Email delivery |
 | `TERMII_*`, `TWILIO_*` | No | SMS and WhatsApp delivery |
 
+Frontend (`frontend/.env.example`):
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `VITE_API_BASE` | No | Absolute API base URL. When unset, the frontend calls same-origin `/api` paths and the dev proxy or production nginx forwards them to the backend. |
+
 ## Tests
 
 ```bash

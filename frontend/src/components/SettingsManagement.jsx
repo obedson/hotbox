@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import React, { useState, useEffect } from 'react';
 import {
   Settings, DollarSign, Users, Package, Clock, ShieldCheck,
@@ -70,7 +71,7 @@ export default function SettingsManagement() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`${API_BASE}/operations/settings`);
+      const res = await apiFetch(`${API_BASE}/operations/settings`);
       if (!res.ok) throw new Error(`Failed to load settings: ${res.statusText}`);
       const data = await res.json();
       setServerSettings(data.settings || {});
@@ -152,7 +153,7 @@ export default function SettingsManagement() {
       setSaving(true);
       setReasonError('');
 
-      const res = await fetch(`${API_BASE}/operations/settings`, {
+      const res = await apiFetch(`${API_BASE}/operations/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

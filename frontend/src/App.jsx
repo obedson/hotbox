@@ -1,3 +1,4 @@
+import { apiFetch } from './lib/api';
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -129,7 +130,7 @@ export default function App() {
 
   const fetchHubs = async () => {
     try {
-      const res = await fetch(`/api/v1/hubs/nearby?lat=${coords.lat}&lng=${coords.lng}&postcode=${postcode}&radius=20`);
+      const res = await apiFetch(`/api/v1/hubs/nearby?lat=${coords.lat}&lng=${coords.lng}&postcode=${postcode}&radius=20`);
       const data = await res.json();
       if (Array.isArray(data.hubs)) {
         setHubs(data.hubs);
@@ -144,7 +145,7 @@ export default function App() {
 
   const fetchRiderData = async () => {
     try {
-      const jobsRes = await fetch('/api/v1/riders/radar/jobs', {
+      const jobsRes = await apiFetch('/api/v1/riders/radar/jobs', {
         headers: {}
       });
       const jobsData = await jobsRes.json();

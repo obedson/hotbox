@@ -1,3 +1,4 @@
+import { apiFetch } from '../../lib/api';
 import { useState } from 'react';
 import useCopyToClipboard from './useCopyToClipboard';
 
@@ -16,7 +17,7 @@ export default function useApiKeys({ fetchEnterpriseData }) {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch('/api/v1/enterprise/api-keys', {
+      const res = await apiFetch('/api/v1/enterprise/api-keys', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -45,7 +46,7 @@ export default function useApiKeys({ fetchEnterpriseData }) {
     if (!window.confirm(`Are you sure you want to revoke API key "${name}"? Any systems using this token will immediately lose access.`)) return;
     setKeyActionLoading(id);
     try {
-      const res = await fetch(`/api/v1/enterprise/api-keys/${id}/revoke`, {
+      const res = await apiFetch(`/api/v1/enterprise/api-keys/${id}/revoke`, {
         method: 'POST',
         headers: {}
       });
@@ -63,7 +64,7 @@ export default function useApiKeys({ fetchEnterpriseData }) {
     if (!window.confirm(`Permanently delete "${name}" from your records?`)) return;
     setKeyActionLoading(id);
     try {
-      const res = await fetch(`/api/v1/enterprise/api-keys/${id}`, {
+      const res = await apiFetch(`/api/v1/enterprise/api-keys/${id}`, {
         method: 'DELETE',
         headers: {}
       });

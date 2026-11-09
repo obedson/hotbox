@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   MapPin, Globe, Compass, ShieldCheck, CheckCircle2, AlertTriangle,
@@ -68,7 +69,7 @@ export default function PostcodeManagement({ onSelectShipment }) {
       if (searchQuery.trim()) params.append('search', searchQuery.trim());
       if (selectedState !== 'ALL') params.append('state', selectedState);
 
-      const res = await fetch(`/api/v1/operations/postcodes/directory?${params.toString()}`);
+      const res = await apiFetch(`/api/v1/operations/postcodes/directory?${params.toString()}`);
       if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
       const data = await res.json();
 
@@ -114,7 +115,7 @@ export default function PostcodeManagement({ onSelectShipment }) {
     setLookupError(null);
     try {
       const clean = codeToTest.trim().toUpperCase();
-      const res = await fetch(`/api/v1/operations/postcodes/${clean}/catchment`);
+      const res = await apiFetch(`/api/v1/operations/postcodes/${clean}/catchment`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to resolve postcode');
       setLookupResult(data);
@@ -133,7 +134,7 @@ export default function PostcodeManagement({ onSelectShipment }) {
     setLoadingCatchment(true);
     try {
       const code = item.canonical_postcode || item.postcode;
-      const res = await fetch(`/api/v1/operations/postcodes/${code}/catchment`);
+      const res = await apiFetch(`/api/v1/operations/postcodes/${code}/catchment`);
       const data = await res.json();
       setCatchmentData(data);
     } catch (err) {

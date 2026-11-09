@@ -1,3 +1,4 @@
+import { apiFetch } from '../../lib/api';
 import { useState } from 'react';
 import {
   ArrowRight, ArrowUpDown, BadgeCheck, Calendar, Check, CheckCircle2, Copy,
@@ -20,7 +21,7 @@ export default function DigitalBoxTab({
   const handleRenewDigitalBox = async () => {
     setIsRenewingBox(true);
     try {
-      const res = await fetch('/api/v1/customer/renew-digital-box', {
+      const res = await apiFetch('/api/v1/customer/renew-digital-box', {
         method: 'POST',
         headers: getAuthHeaders()
       });
@@ -42,7 +43,7 @@ export default function DigitalBoxTab({
   const handleRequestGroundTruth = async () => {
     setIsRequestingGroundTruth(true);
     try {
-      const res = await fetch('/api/v1/customer/request-ground-truthing', {
+      const res = await apiFetch('/api/v1/customer/request-ground-truthing', {
         method: 'POST',
         headers: getAuthHeaders()
       });
@@ -66,7 +67,7 @@ export default function DigitalBoxTab({
     if (!occupantSearchCode || !occupantSearchCode.trim()) return;
     setIsSearchingOccupants(true);
     try {
-      const res = await fetch(`/api/v1/operations/postcode-occupants?postcode=${encodeURIComponent(occupantSearchCode.trim())}`);
+      const res = await apiFetch(`/api/v1/operations/postcode-occupants?postcode=${encodeURIComponent(occupantSearchCode.trim())}`);
       const data = await res.json();
       if (res.ok) {
         setOccupantSearchResults(data);

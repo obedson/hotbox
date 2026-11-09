@@ -1,3 +1,4 @@
+import { apiFetch } from '../../lib/api';
 import { useState, useEffect } from 'react';
 
 export function useCustomerData(currentUser) {
@@ -26,11 +27,11 @@ export function useCustomerData(currentUser) {
       setLoading(true);
       const headers = getAuthHeaders();
       const [pRes, sRes, cRes, tRes, dRes] = await Promise.all([
-        fetch('/api/v1/customer/profile', { headers }),
-        fetch('/api/v1/customer/shipments', { headers }),
-        fetch('/api/v1/customer/claims', { headers }),
-        fetch('/api/v1/customer/tickets', { headers }),
-        fetch('/api/v1/customer/digital-box', { headers })
+        apiFetch('/api/v1/customer/profile', { headers }),
+        apiFetch('/api/v1/customer/shipments', { headers }),
+        apiFetch('/api/v1/customer/claims', { headers }),
+        apiFetch('/api/v1/customer/tickets', { headers }),
+        apiFetch('/api/v1/customer/digital-box', { headers })
       ]);
 
       if (dRes && dRes.ok) {

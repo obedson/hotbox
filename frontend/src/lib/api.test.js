@@ -83,3 +83,70 @@ describe('window.fetch auth wrapper', () => {
     expect(options.headers || {}).not.toHaveProperty('Authorization');
   });
 });
+
+describe('apiFetch shared client', () => {
+  const realFetch = window.fetch;
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.resetModules();
+    delete import.meta.env.VITE_API_BASE;
+  });
+
+  afterEach(() => {
+    window.fetch = realFetch;
+    delete import.meta.env.VITE_API_BASE;
+  });
+
+  it('resolves the configured VITE_API_BASE for relative API paths', async () => {
+    const mockFetch = vi.fn(async () => ({}));
+    window.fetch = mockFetch;
+    import.meta.env.VITE_API_BASE = 'https://api.example.com';
+    const api = await import('./api');
+
+    await api.apiFetch('/api/parcels');
+
+    const [url] = mockFetch.mock.calls[0];
+    expect(url).toBe('https://api.example.com/api/parcels');
+  });
+
+  it('leaves absolute URLs untouched', async () => {
+    const mockFetch = vi.fn(async () => ({}));
+    window.fetch = mockFetch;
+    import.meta.env.VITE_API_BASE = 'https://api.example.com';
+    const api = await import('./api');
+
+    await api.apiFetch('https://other.example.com/api/parcels');
+
+    const [url] = mockFetch.mock.calls[0];
+    expect(url).toBe('https://other.example.com/api/parcels');
+  });
+
+  it('attaches the bearer token to base-resolved requests', async () => {
+    const mockFetch = vi.fn(async () => ({}));
+    window.fetch = mockFetch;
+    import.meta.env.VITE_API_BASE = 'https://api.example.com';
+    localStorage.setItem('dropboxz_token', 'token-123');
+    await import('./api');
+
+    await window.fetch('/api/parcels');
+
+    const [url, options] = mockFetch.mock.calls[0];
+    expect(url).toBe('https://api.example.com/api/parcels');
+    expect(options.headers).toEqual({ Authorization: 'Bearer token-123' });
+  });
+
+  it('does not attach the token to non-API requests', async () => {
+    const mockFetch = vi.fn(async () => ({}));
+    window.fetch = mockFetch;
+    import.meta.env.VITE_API_BASE = 'https://api.example.com';
+    localStorage.setItem('dropboxz_token', 'token-123');
+    await import('./api');
+
+    await window.fetch('https://other.example.com/parcels');
+
+    const [url, options] = mockFetch.mock.calls[0];
+    expect(url).toBe('https://other.example.com/parcels');
+    expect(options.headers || {}).not.toHaveProperty('Authorization');
+  });
+});

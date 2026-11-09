@@ -1,3 +1,4 @@
+import { apiFetch } from '../../lib/api';
 import { useState, useEffect } from 'react';
 
 export function useProfileSettings({ currentUser, profile, setProfile, showToast, getAuthHeaders, fetchCustomerData, coords, setCoords, postcode, setPostcode }) {
@@ -22,7 +23,7 @@ export function useProfileSettings({ currentUser, profile, setProfile, showToast
     const updated = { ...currentPrefs, [channel]: enabled };
     setProfile(prev => ({ ...prev, notification_preferences: updated }));
     try {
-      const res = await fetch('/api/v1/customer/notification-preferences', {
+      const res = await apiFetch('/api/v1/customer/notification-preferences', {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify(updated)
@@ -41,7 +42,7 @@ export function useProfileSettings({ currentUser, profile, setProfile, showToast
     setTestRerouteLoading(true);
     setTestRerouteResult(null);
     try {
-      const res = await fetch('/api/v1/customer/test-reroute-alert', {
+      const res = await apiFetch('/api/v1/customer/test-reroute-alert', {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
@@ -81,7 +82,7 @@ export function useProfileSettings({ currentUser, profile, setProfile, showToast
           setProfile(prev => ({ ...prev, privacy_settings: updatedPrivacy }));
           setGeoLoading(false);
           try {
-            await fetch('/api/v1/customer/profile', {
+            await apiFetch('/api/v1/customer/profile', {
               method: 'PUT',
               headers: getAuthHeaders(),
               body: JSON.stringify({ privacy_settings: updatedPrivacy })
@@ -103,7 +104,7 @@ export function useProfileSettings({ currentUser, profile, setProfile, showToast
       setProfile(prev => ({ ...prev, privacy_settings: updatedPrivacy }));
       setCoords({ lat: 9.0772, lng: 7.4990 }); // Default Abuja
       try {
-        await fetch('/api/v1/customer/profile', {
+        await apiFetch('/api/v1/customer/profile', {
           method: 'PUT',
           headers: getAuthHeaders(),
           body: JSON.stringify({ privacy_settings: updatedPrivacy })
@@ -125,7 +126,7 @@ export function useProfileSettings({ currentUser, profile, setProfile, showToast
     if (clean.length === 6 || clean.length === 11) {
       setIsResolvingPostcode(true);
       try {
-        const res = await fetch(`/api/v1/postcodes/lookup?code=${encodeURIComponent(code)}&level=1`);
+        const res = await apiFetch(`/api/v1/postcodes/lookup?code=${encodeURIComponent(code)}&level=1`);
         if (res.ok) {
           const json = await res.json();
           const d = json.data;
@@ -144,7 +145,7 @@ export function useProfileSettings({ currentUser, profile, setProfile, showToast
             segments: d.segments
           });
         } else {
-          const fallbackRes = await fetch(`/api/v1/postcodes/${encodeURIComponent(code)}`);
+          const fallbackRes = await apiFetch(`/api/v1/postcodes/${encodeURIComponent(code)}`);
           if (fallbackRes.ok) {
             const data = await fallbackRes.json();
             setPostcodeDetails(data);
@@ -165,7 +166,7 @@ export function useProfileSettings({ currentUser, profile, setProfile, showToast
     setProfileForm(prev => ({ ...prev, postcode: code }));
     setIsResolvingPostcode(true);
     try {
-      const res = await fetch(`/api/v1/postcodes/lookup?code=${encodeURIComponent(code)}&level=1`);
+      const res = await apiFetch(`/api/v1/postcodes/lookup?code=${encodeURIComponent(code)}&level=1`);
       if (res.ok) {
         const json = await res.json();
         const d = json.data;
@@ -199,7 +200,7 @@ export function useProfileSettings({ currentUser, profile, setProfile, showToast
     const cleanPostcode = (profileForm.postcode || 'FC-01-A03-FK-01').trim();
     try {
       setIsSavingProfile(true);
-      const res = await fetch('/api/v1/customer/profile', {
+      const res = await apiFetch('/api/v1/customer/profile', {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({
@@ -218,7 +219,7 @@ export function useProfileSettings({ currentUser, profile, setProfile, showToast
             setPostcode(cleanPostcode);
             // Re-center map & fetch nearby hubs if user relocated
             try {
-              const pcRes = await fetch(`/api/v1/postcodes/${encodeURIComponent(cleanPostcode)}`);
+              const pcRes = await apiFetch(`/api/v1/postcodes/${encodeURIComponent(cleanPostcode)}`);
               if (pcRes.ok) {
                 const pcData = await pcRes.json();
                 if (pcData.lat && pcData.lng) {

@@ -1,3 +1,4 @@
+import { apiFetch } from '../../lib/api';
 import { useState, useEffect } from 'react';
 
 export function useDiscovery({ currentUser, profile, showToast, getAuthHeaders, fetchCustomerData, setBookingPrefill, setIsBookingOpen }) {
@@ -43,7 +44,7 @@ export function useDiscovery({ currentUser, profile, showToast, getAuthHeaders, 
       const lat = targetCoords?.lat || coords.lat;
       const lng = targetCoords?.lng || coords.lng;
       const pc = targetPostcode || postcode;
-      const res = await fetch(`/api/v1/hubs/nearby?lat=${lat}&lng=${lng}&postcode=${encodeURIComponent(pc)}&radius=30`);
+      const res = await apiFetch(`/api/v1/hubs/nearby?lat=${lat}&lng=${lng}&postcode=${encodeURIComponent(pc)}&radius=30`);
       const data = await res.json();
       if (Array.isArray(data.hubs)) {
         let sorted = [...data.hubs];
@@ -115,7 +116,7 @@ export function useDiscovery({ currentUser, profile, showToast, getAuthHeaders, 
     }
 
     try {
-      const res = await fetch(`/api/v1/postcodes/search/autocomplete?q=${encodeURIComponent(val.trim())}`);
+      const res = await apiFetch(`/api/v1/postcodes/search/autocomplete?q=${encodeURIComponent(val.trim())}`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.suggestions) && data.suggestions.length > 0) {
@@ -139,7 +140,7 @@ export function useDiscovery({ currentUser, profile, showToast, getAuthHeaders, 
     setIsSearchingLocation(true);
     setShowSuggestions(false);
     try {
-      const res = await fetch(`/api/v1/postcodes/resolve-location?q=${encodeURIComponent(raw)}`);
+      const res = await apiFetch(`/api/v1/postcodes/resolve-location?q=${encodeURIComponent(raw)}`);
       const data = await res.json();
 
       if (res.ok) {
@@ -323,7 +324,7 @@ export function useDiscovery({ currentUser, profile, showToast, getAuthHeaders, 
   // Toggle Save Hub
   const handleToggleSaveHub = async (hub) => {
     try {
-      const res = await fetch(`/api/v1/customer/saved-hubs/${hub.id}`, {
+      const res = await apiFetch(`/api/v1/customer/saved-hubs/${hub.id}`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ label: hub.business_name })

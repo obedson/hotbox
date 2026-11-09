@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import React, { useState } from 'react';
 import { Search, Package, CheckCircle2, Clock, ShieldCheck, MapPin, QrCode, ArrowRight, UserCheck } from 'lucide-react';
 import { STATUS_STYLES } from '../styles/designTokens';
@@ -15,7 +16,7 @@ export default function ShipmentTracker({ initialCode = 'HBX-FC01A0-8100' }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/v1/shipments/track/${encodeURIComponent(code)}`);
+      const res = await apiFetch(`/api/v1/shipments/track/${encodeURIComponent(code)}`);
       if (!res.ok) {
         const errJson = await res.json();
         throw new Error(errJson.error || 'Tracking code not found.');

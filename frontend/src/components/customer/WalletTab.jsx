@@ -1,3 +1,4 @@
+import { apiFetch } from '../../lib/api';
 import { useState } from 'react';
 import { ArrowDownLeft, ArrowUpRight, Lock, Plus, RefreshCw, ShieldCheck, Wallet } from 'lucide-react';
 
@@ -13,7 +14,7 @@ export default function WalletTab({ wallet, transactions, fetchCustomerData, sho
     }
     try {
       setIsToppingUp(true);
-      const res = await fetch('/api/v1/customer/wallet/topup', {
+      const res = await apiFetch('/api/v1/customer/wallet/topup', {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ amount: amt })

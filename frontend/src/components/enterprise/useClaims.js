@@ -1,3 +1,4 @@
+import { apiFetch } from '../../lib/api';
 import { useState } from 'react';
 
 export default function useClaims() {
@@ -26,10 +27,10 @@ export default function useClaims() {
     setClaimsLoading(true);
     try {
       const [claimsRes, summaryRes] = await Promise.all([
-        fetch('/api/v1/enterprise/claims', {
+        apiFetch('/api/v1/enterprise/claims', {
           headers: {}
         }),
-        fetch('/api/v1/enterprise/claims/summary', {
+        apiFetch('/api/v1/enterprise/claims/summary', {
           headers: {}
         })
       ]);
@@ -47,7 +48,7 @@ export default function useClaims() {
   const fetchEligibleShipments = async () => {
     setEligibleLoading(true);
     try {
-      const res = await fetch('/api/v1/enterprise/claims/eligible-shipments', {
+      const res = await apiFetch('/api/v1/enterprise/claims/eligible-shipments', {
         headers: {}
       });
       const data = await res.json();
@@ -108,7 +109,7 @@ export default function useClaims() {
         ? newClaimForm.evidenceUrls.split('\n').map(u => u.trim()).filter(Boolean)
         : [];
 
-      const res = await fetch('/api/v1/enterprise/claims', {
+      const res = await apiFetch('/api/v1/enterprise/claims', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -149,7 +150,7 @@ export default function useClaims() {
     setClaimDetailLoading(true);
     setSelectedClaimModal(null);
     try {
-      const res = await fetch(`/api/v1/enterprise/claims/${claimId}`, {
+      const res = await apiFetch(`/api/v1/enterprise/claims/${claimId}`, {
         headers: {}
       });
       const data = await res.json();

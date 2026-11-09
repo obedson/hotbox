@@ -1,3 +1,4 @@
+import { apiFetch } from '../../lib/api';
 import { useState, useEffect } from 'react';
 
 export default function useEnterpriseData() {
@@ -8,7 +9,7 @@ export default function useEnterpriseData() {
 
   const fetchEnterpriseData = async () => {
     try {
-      const res = await fetch('/api/v1/enterprise/account', {
+      const res = await apiFetch('/api/v1/enterprise/account', {
         headers: {
         }
       });

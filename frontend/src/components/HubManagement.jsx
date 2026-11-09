@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Store, Warehouse, MapPin, Shield, ShieldCheck, ShieldAlert, AlertTriangle,
@@ -62,7 +63,7 @@ export default function HubManagement({ onSelectShipment }) {
       if (selectedState !== 'ALL') params.append('state', selectedState);
       if (capacityFilter !== 'ALL') params.append('capacity', capacityFilter);
 
-      const res = await fetch(`/api/v1/operations/hubs?${params.toString()}`);
+      const res = await apiFetch(`/api/v1/operations/hubs?${params.toString()}`);
       if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
       const data = await res.json();
 
@@ -111,7 +112,7 @@ export default function HubManagement({ onSelectShipment }) {
     setIsDossierOpen(true);
     setLoadingDetails(true);
     try {
-      const res = await fetch(`/api/v1/operations/hubs/${hub.id}/details`);
+      const res = await apiFetch(`/api/v1/operations/hubs/${hub.id}/details`);
       if (!res.ok) throw new Error('Failed to fetch hub details');
       const data = await res.json();
       setHubDetails(data);
@@ -127,7 +128,7 @@ export default function HubManagement({ onSelectShipment }) {
   const handleToggleIntake = async (hubId, e) => {
     if (e) e.stopPropagation();
     try {
-      const res = await fetch(`/api/v1/operations/hubs/${hubId}/toggle-intake`, {
+      const res = await apiFetch(`/api/v1/operations/hubs/${hubId}/toggle-intake`, {
         method: 'POST'
       });
       const data = await res.json();
@@ -155,7 +156,7 @@ export default function HubManagement({ onSelectShipment }) {
     if (!window.confirm(`Are you sure you want to mark this hub as ${targetStatus.toUpperCase()}?`)) return;
 
     try {
-      const res = await fetch(`/api/v1/operations/hubs/${hubId}/toggle-status`, {
+      const res = await apiFetch(`/api/v1/operations/hubs/${hubId}/toggle-status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: targetStatus })

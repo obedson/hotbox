@@ -1,3 +1,4 @@
+import { apiFetch } from '../../lib/api';
 import { useState } from 'react';
 import {
   BadgeCheck, Calendar, CheckCircle2, Mail, MapPin, Phone, RefreshCw,
@@ -32,7 +33,7 @@ export default function ProfileTab({
   const handleRequestOtp = async (type) => {
     try {
       setVerifyModal(prev => ({ ...prev, isLoading: true }));
-      const res = await fetch('/api/v1/customer/request-otp', {
+      const res = await apiFetch('/api/v1/customer/request-otp', {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ type })
@@ -89,7 +90,7 @@ export default function ProfileTab({
     }
     try {
       setIsVerifying(true);
-      const res = await fetch('/api/v1/customer/verify-contact', {
+      const res = await apiFetch('/api/v1/customer/verify-contact', {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ type: verifyModal.type, otp: verifyOtp.trim() })
@@ -115,7 +116,7 @@ export default function ProfileTab({
   // Reset verification for testing
   const handleResetVerification = async (type = 'all') => {
     try {
-      const res = await fetch('/api/v1/customer/reset-verification', {
+      const res = await apiFetch('/api/v1/customer/reset-verification', {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ type })

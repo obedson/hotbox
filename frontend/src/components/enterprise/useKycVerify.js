@@ -1,3 +1,4 @@
+import { apiFetch } from '../../lib/api';
 import { useState } from 'react';
 
 export default function useKycVerify() {
@@ -13,7 +14,7 @@ export default function useKycVerify() {
     setKycLoading(true);
     setKycResult(null);
     try {
-      const res = await fetch('/api/v1/enterprise/verify-address', {
+      const res = await apiFetch('/api/v1/enterprise/verify-address', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

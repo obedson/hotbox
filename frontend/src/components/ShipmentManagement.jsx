@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Package, Search, Filter, RefreshCw, Download, Plus, ChevronRight, ChevronLeft,
@@ -137,7 +138,7 @@ export default function ShipmentManagement({ onSelectShipment, onNewShipment }) 
   // Fetch all hubs for dropdown filter
   const fetchHubs = async () => {
     try {
-      const res = await fetch('/api/v1/hubs');
+      const res = await apiFetch('/api/v1/hubs');
       if (res.ok) {
         const json = await res.json();
         setHubs(json.hubs || []);
@@ -159,7 +160,7 @@ export default function ShipmentManagement({ onSelectShipment, onNewShipment }) 
       if (searchQuery.trim()) params.append('search', searchQuery.trim());
       if (selectedHub !== 'ALL') params.append('hub_id', selectedHub);
 
-      const res = await fetch(`/api/v1/operations/active-shipments?${params.toString()}`);
+      const res = await apiFetch(`/api/v1/operations/active-shipments?${params.toString()}`);
       if (!res.ok) {
         const errJson = await res.json();
         throw new Error(errJson.error || 'Failed to fetch shipment ledger');

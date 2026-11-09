@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   ShieldCheck, ShieldAlert, Shield, Check, X, FileText, AlertCircle, Clock,
@@ -67,7 +68,7 @@ export default function VerificationQueue({ onSelectShipment }) {
       if (selectedCategory !== 'ALL') params.append('track', selectedCategory);
       if (searchQuery.trim()) params.append('search', searchQuery.trim());
 
-      const res = await fetch(`/api/v1/verification/queue?${params.toString()}`, {
+      const res = await apiFetch(`/api/v1/verification/queue?${params.toString()}`, {
         headers: {
         }
       });
@@ -109,7 +110,7 @@ export default function VerificationQueue({ onSelectShipment }) {
     if (!window.confirm('Reset/Seed the 9 sample partner verification reviews?')) return;
     setSeeding(true);
     try {
-      const res = await fetch('/api/v1/verification/seed', {
+      const res = await apiFetch('/api/v1/verification/seed', {
         method: 'POST',
         headers: {
         }
@@ -145,7 +146,7 @@ export default function VerificationQueue({ onSelectShipment }) {
   const handleReview = async (id, status, reason = null) => {
     setSubmittingReview(true);
     try {
-      const res = await fetch(`/api/v1/verification/review/${id}`, {
+      const res = await apiFetch(`/api/v1/verification/review/${id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

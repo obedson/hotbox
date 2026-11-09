@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   User, Bike, Truck, Shield, ShieldCheck, ShieldAlert, AlertTriangle,
@@ -59,7 +60,7 @@ export default function RiderManagement({ onSelectShipment }) {
       if (selectedVehicle !== 'ALL') params.append('vehicle_type', selectedVehicle);
       if (selectedCompany !== 'ALL') params.append('courier_id', selectedCompany);
 
-      const res = await fetch(`/api/v1/operations/riders?${params.toString()}`);
+      const res = await apiFetch(`/api/v1/operations/riders?${params.toString()}`);
       if (!res.ok) {
         const errJson = await res.json();
         throw new Error(errJson.error || 'Failed to fetch rider fleet ledger');
@@ -117,7 +118,7 @@ export default function RiderManagement({ onSelectShipment }) {
     if (!window.confirm(confirmMsg)) return;
 
     try {
-      const res = await fetch(`/api/v1/operations/riders/${rider.id}/toggle-status`, {
+      const res = await apiFetch(`/api/v1/operations/riders/${rider.id}/toggle-status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, reason: `Operations Admin manual ${action}` })
@@ -139,7 +140,7 @@ export default function RiderManagement({ onSelectShipment }) {
     setDispatchRider(rider);
     setLoadingShipments(true);
     try {
-      const res = await fetch('/api/v1/operations/active-shipments?status=AWAITING_HANDOFF');
+      const res = await apiFetch('/api/v1/operations/active-shipments?status=AWAITING_HANDOFF');
       if (res.ok) {
         const json = await res.json();
         setUnassignedShipments(json.shipments || []);
@@ -155,7 +156,7 @@ export default function RiderManagement({ onSelectShipment }) {
   const handleAssignShipment = async (shipmentId) => {
     if (!dispatchRider) return;
     try {
-      const res = await fetch(`/api/v1/operations/riders/${dispatchRider.id}/assign-shipment`, {
+      const res = await apiFetch(`/api/v1/operations/riders/${dispatchRider.id}/assign-shipment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ shipmentId })

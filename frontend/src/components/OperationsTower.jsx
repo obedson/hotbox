@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, MapPin, Package, Users, Activity, Filter, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { STATUS_STYLES } from '../styles/designTokens';
@@ -13,9 +14,9 @@ export default function OperationsTower() {
     try {
       setLoading(true);
       const [sRes, aRes, shRes] = await Promise.all([
-        fetch('/api/v1/operations/stats'),
-        fetch('/api/v1/operations/postcode-adoption'),
-        fetch('/api/v1/operations/active-shipments')
+        apiFetch('/api/v1/operations/stats'),
+        apiFetch('/api/v1/operations/postcode-adoption'),
+        apiFetch('/api/v1/operations/active-shipments')
       ]);
 
       const [sData, aData, shData] = await Promise.all([

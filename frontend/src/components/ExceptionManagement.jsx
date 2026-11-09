@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   AlertTriangle, ShieldAlert, AlertOctagon, CheckCircle2, Clock, Truck,
@@ -160,7 +161,7 @@ export default function ExceptionManagement({ onSelectShipment }) {
       if (severityFilter !== 'ALL') params.append('severity', severityFilter);
       if (searchQuery.trim()) params.append('search', searchQuery.trim());
 
-      const res = await fetch(`/api/v1/operations/exceptions?${params.toString()}`);
+      const res = await apiFetch(`/api/v1/operations/exceptions?${params.toString()}`);
       if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
       const data = await res.json();
 
@@ -209,7 +210,7 @@ export default function ExceptionManagement({ onSelectShipment }) {
     if (!window.confirm('Reset/Seed the authoritative 17 operational exceptions and claims dataset?')) return;
     setSeeding(true);
     try {
-      const res = await fetch('/api/v1/operations/exceptions/seed', { method: 'POST' });
+      const res = await apiFetch('/api/v1/operations/exceptions/seed', { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         setActionNotice({
@@ -246,7 +247,7 @@ export default function ExceptionManagement({ onSelectShipment }) {
     }
 
     try {
-      const res = await fetch(`/api/v1/operations/exceptions/${exc.id}/details`);
+      const res = await apiFetch(`/api/v1/operations/exceptions/${exc.id}/details`);
       if (res.ok) {
         const data = await res.json();
         setDossierData(data);
@@ -266,7 +267,7 @@ export default function ExceptionManagement({ onSelectShipment }) {
     if (!selectedException) return;
     setSubmittingAction(true);
     try {
-      const res = await fetch(`/api/v1/operations/exceptions/${selectedException.id}/resolve`, {
+      const res = await apiFetch(`/api/v1/operations/exceptions/${selectedException.id}/resolve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -296,7 +297,7 @@ export default function ExceptionManagement({ onSelectShipment }) {
     if (!selectedException || !selectedRiderId) return;
     setSubmittingAction(true);
     try {
-      const res = await fetch('/api/v1/operations/exceptions/reassign-courier', {
+      const res = await apiFetch('/api/v1/operations/exceptions/reassign-courier', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -326,7 +327,7 @@ export default function ExceptionManagement({ onSelectShipment }) {
     if (!selectedException) return;
     setSubmittingAction(true);
     try {
-      const res = await fetch('/api/v1/operations/exceptions/authorize-return', {
+      const res = await apiFetch('/api/v1/operations/exceptions/authorize-return', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

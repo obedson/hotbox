@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import React, { useState, useEffect } from 'react';
 import {
   X, Package, MapPin, QrCode, Shield, ShieldCheck, CheckCircle2,
@@ -26,7 +27,7 @@ export default function ShipmentDossierModal({ isOpen, onClose, trackingCode, on
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/v1/shipments/track/${encodeURIComponent(trackingCode)}`);
+      const res = await apiFetch(`/api/v1/shipments/track/${encodeURIComponent(trackingCode)}`);
       if (!res.ok) {
         const errJson = await res.json();
         throw new Error(errJson.error || 'Tracking code not found in ledger.');
@@ -62,7 +63,7 @@ export default function ShipmentDossierModal({ isOpen, onClose, trackingCode, on
     if (!data?.shipment?.id) return;
     setIsResendingOtp(true);
     try {
-      const res = await fetch(`/api/v1/shipments/${data.shipment.id}/resend-otp`, {
+      const res = await apiFetch(`/api/v1/shipments/${data.shipment.id}/resend-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -82,7 +83,7 @@ export default function ShipmentDossierModal({ isOpen, onClose, trackingCode, on
     if (!data?.shipment?.id) return;
     setIsFlaggingException(true);
     try {
-      const res = await fetch(`/api/v1/shipments/${data.shipment.id}/flag-exception`, {
+      const res = await apiFetch(`/api/v1/shipments/${data.shipment.id}/flag-exception`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: exceptionReason || 'Operations Security Hold' })
@@ -106,7 +107,7 @@ export default function ShipmentDossierModal({ isOpen, onClose, trackingCode, on
     setIsReassigningBay(true);
     try {
       const bayObj = (data.availableBays || []).find(b => b.id === bayId);
-      const res = await fetch(`/api/v1/shipments/${data.shipment.id}/reassign-bay`, {
+      const res = await apiFetch(`/api/v1/shipments/${data.shipment.id}/reassign-bay`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bayId, bayCode: bayObj?.bay_code })

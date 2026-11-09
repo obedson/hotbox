@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import React, { useState, useEffect } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import BookingModal from './BookingModal';
@@ -121,7 +122,7 @@ export default function CustomerDashboard({ currentUser, onBookNewShipment, acti
     if (clean.length === 6 || clean.length === 11) {
       setIsResolvingAddressPostcode(true);
       try {
-        const res = await fetch(`/api/v1/postcodes/lookup?code=${encodeURIComponent(code)}&level=1`);
+        const res = await apiFetch(`/api/v1/postcodes/lookup?code=${encodeURIComponent(code)}&level=1`);
         if (res.ok) {
           const json = await res.json();
           const d = json.data;
@@ -135,7 +136,7 @@ export default function CustomerDashboard({ currentUser, onBookNewShipment, acti
             }));
           }
         } else {
-          const fallbackRes = await fetch(`/api/v1/postcodes/${encodeURIComponent(code)}`);
+          const fallbackRes = await apiFetch(`/api/v1/postcodes/${encodeURIComponent(code)}`);
           if (fallbackRes.ok) {
             const data = await fallbackRes.json();
             const locality = data.neighbourhood || data.lga || data.state || '';
@@ -160,7 +161,7 @@ export default function CustomerDashboard({ currentUser, onBookNewShipment, acti
   const handleAddAddress = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/v1/customer/addresses', {
+      const res = await apiFetch('/api/v1/customer/addresses', {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(newAddress)
@@ -181,7 +182,7 @@ export default function CustomerDashboard({ currentUser, onBookNewShipment, acti
   // Delete Address
   const handleDeleteAddress = async (id) => {
     try {
-      const res = await fetch(`/api/v1/customer/addresses/${id}`, {
+      const res = await apiFetch(`/api/v1/customer/addresses/${id}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
@@ -197,7 +198,7 @@ export default function CustomerDashboard({ currentUser, onBookNewShipment, acti
   // Cancel Shipment
   const handleCancelShipment = async (shipmentId) => {
     try {
-      const res = await fetch(`/api/v1/customer/shipments/${shipmentId}/cancel`, {
+      const res = await apiFetch(`/api/v1/customer/shipments/${shipmentId}/cancel`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ reason: 'Cancelled by customer in portal' })
@@ -217,7 +218,7 @@ export default function CustomerDashboard({ currentUser, onBookNewShipment, acti
   // Request Return
   const handleRequestReturn = async (shipmentId) => {
     try {
-      const res = await fetch(`/api/v1/customer/shipments/${shipmentId}/return`, {
+      const res = await apiFetch(`/api/v1/customer/shipments/${shipmentId}/return`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ reason: 'Customer requested return to origin hub' })
@@ -238,7 +239,7 @@ export default function CustomerDashboard({ currentUser, onBookNewShipment, acti
   const handleSubmitClaim = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/v1/customer/claims', {
+      const res = await apiFetch('/api/v1/customer/claims', {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
@@ -274,7 +275,7 @@ export default function CustomerDashboard({ currentUser, onBookNewShipment, acti
   const handleUpdateClaim = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch(`/api/v1/customer/claims/${editingClaim.id}`, {
+      const res = await apiFetch(`/api/v1/customer/claims/${editingClaim.id}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify(editingClaim)
@@ -296,7 +297,7 @@ export default function CustomerDashboard({ currentUser, onBookNewShipment, acti
   const handleCancelClaim = async (claimId) => {
     if (!window.confirm('Are you sure you want to cancel this claim submission?')) return;
     try {
-      const res = await fetch(`/api/v1/customer/claims/${claimId}/cancel`, {
+      const res = await apiFetch(`/api/v1/customer/claims/${claimId}/cancel`, {
         method: 'POST',
         headers: getAuthHeaders()
       });
@@ -316,7 +317,7 @@ export default function CustomerDashboard({ currentUser, onBookNewShipment, acti
   const handleSubmitTicket = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/v1/customer/tickets', {
+      const res = await apiFetch('/api/v1/customer/tickets', {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(newTicket)

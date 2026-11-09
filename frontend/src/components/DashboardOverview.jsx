@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import React, { useState, useEffect } from 'react';
 import {
   Package, ArrowUpRight, Store, AlertTriangle, ChevronDown,
@@ -34,7 +35,7 @@ export default function DashboardOverview({ onViewAllShipments, onReviewVerifica
     const tf = selectedTf || timeframe;
     try {
       setLoading(true);
-      const res = await fetch(`/api/v1/operations/stats?timeframe=${encodeURIComponent(tf)}`);
+      const res = await apiFetch(`/api/v1/operations/stats?timeframe=${encodeURIComponent(tf)}`);
       if (res.ok) {
         const json = await res.json();
         setData(json);

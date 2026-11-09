@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Search, Bell, ChevronDown, Check, Package, Store,
@@ -59,7 +60,7 @@ export default function TopHeader({
         ? { Authorization: `Bearer ${token}` }
         : {}
 
-      const res = await fetch('/api/v1/notifications', { headers });
+      const res = await apiFetch('/api/v1/notifications', { headers });
       if (res.ok) {
         const data = await res.json();
         setNotifications(data.notifications || []);
@@ -83,7 +84,7 @@ export default function TopHeader({
         ? { Authorization: `Bearer ${token}` }
         : {}
 
-      await fetch('/api/v1/notifications/mark-all-read', { method: 'PUT', headers });
+      await apiFetch('/api/v1/notifications/mark-all-read', { method: 'PUT', headers });
       setUnreadCount(0);
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
     } catch (e) {}

@@ -1,3 +1,4 @@
+import { apiFetch } from '../../lib/api';
 import { useState } from 'react';
 
 export default function useAddressBook() {
@@ -25,7 +26,7 @@ export default function useAddressBook() {
       const params = new URLSearchParams();
       if (search && search.trim()) params.set('search', search.trim());
       if (type && type !== 'ALL') params.set('type', type);
-      const res = await fetch(`/api/v1/enterprise/addresses?${params.toString()}`, {
+      const res = await apiFetch(`/api/v1/enterprise/addresses?${params.toString()}`, {
         headers: {}
       });
       const data = await res.json();
@@ -43,7 +44,7 @@ export default function useAddressBook() {
     e.preventDefault();
     setSavingAddress(true);
     try {
-      const res = await fetch('/api/v1/enterprise/addresses', {
+      const res = await apiFetch('/api/v1/enterprise/addresses', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -74,7 +75,7 @@ export default function useAddressBook() {
   const handleDeleteAddress = async (id, name) => {
     if (!window.confirm(`Are you sure you want to remove "${name}" from your enterprise address book?`)) return;
     try {
-      const res = await fetch(`/api/v1/enterprise/addresses/${id}`, {
+      const res = await apiFetch(`/api/v1/enterprise/addresses/${id}`, {
         method: 'DELETE',
         headers: {}
       });
@@ -88,7 +89,7 @@ export default function useAddressBook() {
 
   const handleSetDefaultAddress = async (id) => {
     try {
-      const res = await fetch(`/api/v1/enterprise/addresses/${id}/default`, {
+      const res = await apiFetch(`/api/v1/enterprise/addresses/${id}/default`, {
         method: 'PUT',
         headers: {}
       });

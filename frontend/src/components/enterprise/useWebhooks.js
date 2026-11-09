@@ -1,3 +1,4 @@
+import { apiFetch } from '../../lib/api';
 import { useState } from 'react';
 import useCopyToClipboard from './useCopyToClipboard';
 
@@ -38,10 +39,10 @@ export default function useWebhooks({ fetchEnterpriseData, webhooks, setWebhooks
     setWebhookLogsLoading(true);
     try {
       const [whRes, logsRes] = await Promise.all([
-        fetch('/api/v1/enterprise/webhooks', {
+        apiFetch('/api/v1/enterprise/webhooks', {
           headers: {}
         }),
-        fetch('/api/v1/enterprise/webhooks/logs', {
+        apiFetch('/api/v1/enterprise/webhooks/logs', {
           headers: {}
         })
       ]);
@@ -68,7 +69,7 @@ export default function useWebhooks({ fetchEnterpriseData, webhooks, setWebhooks
     }
     setLoading(true);
     try {
-      const res = await fetch('/api/v1/enterprise/webhooks', {
+      const res = await apiFetch('/api/v1/enterprise/webhooks', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -96,7 +97,7 @@ export default function useWebhooks({ fetchEnterpriseData, webhooks, setWebhooks
     setTestingWebhookId(wh.id);
     setWebhookTestFeedback(null);
     try {
-      const res = await fetch(`/api/v1/enterprise/webhooks/${wh.id}/test`, {
+      const res = await apiFetch(`/api/v1/enterprise/webhooks/${wh.id}/test`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -122,7 +123,7 @@ export default function useWebhooks({ fetchEnterpriseData, webhooks, setWebhooks
   const handleToggleWebhook = async (wh) => {
     setTogglingWebhookId(wh.id);
     try {
-      const res = await fetch(`/api/v1/enterprise/webhooks/${wh.id}/toggle`, {
+      const res = await apiFetch(`/api/v1/enterprise/webhooks/${wh.id}/toggle`, {
         method: 'PUT',
         headers: {
         }
@@ -143,7 +144,7 @@ export default function useWebhooks({ fetchEnterpriseData, webhooks, setWebhooks
     }
     setDeletingWebhookId(wh.id);
     try {
-      const res = await fetch(`/api/v1/enterprise/webhooks/${wh.id}`, {
+      const res = await apiFetch(`/api/v1/enterprise/webhooks/${wh.id}`, {
         method: 'DELETE',
         headers: {
         }

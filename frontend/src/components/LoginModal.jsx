@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import React, { useState } from 'react';
 import {
   LogIn, Phone, Lock, Eye, EyeOff, UserCheck, AlertCircle,
@@ -82,7 +83,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onSwitchTo
     setError(null);
 
     try {
-      const res = await fetch('/api/v1/auth/login', {
+      const res = await apiFetch('/api/v1/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier: identifier.trim(), password })

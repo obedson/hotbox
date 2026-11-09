@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import React, { useState } from 'react';
 import {
   UserPlus, Package, MapPin, Bike, Building2, CheckCircle2,
@@ -91,7 +92,7 @@ export default function RegisterModal({ isOpen, onClose, onRegisterSuccess, onSw
         cacNumber: cacNumber.trim() || undefined
       };
 
-      const res = await fetch('/api/v1/auth/register', {
+      const res = await apiFetch('/api/v1/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

@@ -1,3 +1,4 @@
+import { apiFetch } from '../../lib/api';
 import { useState } from 'react';
 
 export default function useShipments({ fetchEnterpriseData, setStats }) {
@@ -21,7 +22,7 @@ export default function useShipments({ fetchEnterpriseData, setStats }) {
   const fetchManifests = async () => {
     setManifestsLoading(true);
     try {
-      const res = await fetch('/api/v1/enterprise/manifests', {
+      const res = await apiFetch('/api/v1/enterprise/manifests', {
         headers: {}
       });
       const data = await res.json();
@@ -46,7 +47,7 @@ export default function useShipments({ fetchEnterpriseData, setStats }) {
       if (search && search.trim()) params.set('search', search.trim());
       if (manifestId && manifestId !== 'ALL') params.set('manifestId', manifestId);
 
-      const res = await fetch(`/api/v1/enterprise/shipments?${params.toString()}`, {
+      const res = await apiFetch(`/api/v1/enterprise/shipments?${params.toString()}`, {
         headers: {}
       });
       const data = await res.json();
@@ -79,7 +80,7 @@ export default function useShipments({ fetchEnterpriseData, setStats }) {
     setLoading(true);
     setBulkResult(null);
     try {
-      const res = await fetch('/api/v1/enterprise/shipments/bulk', {
+      const res = await apiFetch('/api/v1/enterprise/shipments/bulk', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

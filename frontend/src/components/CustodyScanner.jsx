@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import React, { useState } from 'react';
 import { QrCode, KeyRound, ShieldCheck, CheckCircle2, ArrowRight } from 'lucide-react';
 
@@ -34,7 +35,7 @@ export default function CustodyScanner({ activeRole, hubs = [], onCustodySuccess
         : 'a0000000-0000-0000-0000-000000000001'; // Mallam Ibrahim (hub_owner)
 
       if (handoverType === 'RELOCATION_FORWARDING') {
-        const res = await fetch(`/api/v1/shipments/${encodeURIComponent(shipmentId.trim())}/reroute`, {
+        const res = await apiFetch(`/api/v1/shipments/${encodeURIComponent(shipmentId.trim())}/reroute`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -57,7 +58,7 @@ export default function CustodyScanner({ activeRole, hubs = [], onCustodySuccess
         return;
       }
 
-      const res = await fetch('/api/v1/custody/transfer', {
+      const res = await apiFetch('/api/v1/custody/transfer', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

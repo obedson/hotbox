@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   ShieldCheck, CheckCircle2, AlertTriangle, FileSpreadsheet, Download,
@@ -139,7 +140,7 @@ export default function AuditLogManagement({ onSelectShipment }) {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`${API_BASE}/operations/audit/logs`);
+      const res = await apiFetch(`${API_BASE}/operations/audit/logs`);
       if (!res.ok) {
         throw new Error(`Failed to load audit trail: ${res.statusText}`);
       }

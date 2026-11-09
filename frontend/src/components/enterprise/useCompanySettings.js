@@ -1,3 +1,4 @@
+import { apiFetch } from '../../lib/api';
 import { useState } from 'react';
 
 export default function useCompanySettings({ account, setAccount }) {
@@ -29,7 +30,7 @@ export default function useCompanySettings({ account, setAccount }) {
   const fetchCompanySettings = async () => {
     setSettingsLoading(true);
     try {
-      const res = await fetch('/api/v1/enterprise/settings', {
+      const res = await apiFetch('/api/v1/enterprise/settings', {
         headers: {}
       });
       const data = await res.json();
@@ -60,7 +61,7 @@ export default function useCompanySettings({ account, setAccount }) {
     setSavingSettings(true);
     setSettingsFeedback(null);
     try {
-      const res = await fetch('/api/v1/enterprise/settings', {
+      const res = await apiFetch('/api/v1/enterprise/settings', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -91,7 +92,7 @@ export default function useCompanySettings({ account, setAccount }) {
     }
     setSubmittingStaff(true);
     try {
-      const res = await fetch('/api/v1/enterprise/settings/staff', {
+      const res = await apiFetch('/api/v1/enterprise/settings/staff', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -120,7 +121,7 @@ export default function useCompanySettings({ account, setAccount }) {
   const handleRemoveStaff = async (staffId, staffName) => {
     if (!window.confirm(`Revoke staff seat access for ${staffName}?`)) return;
     try {
-      const res = await fetch(`/api/v1/enterprise/settings/staff/${staffId}`, {
+      const res = await apiFetch(`/api/v1/enterprise/settings/staff/${staffId}`, {
         method: 'DELETE',
         headers: {}
       });
