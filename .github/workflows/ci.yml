@@ -20,7 +20,7 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
-      - run: npm test
+      - run: npm run test:coverage
       - name: Integration tests (live database)
         if: ${{ secrets.DATABASE_URL != '' }}
         env:
