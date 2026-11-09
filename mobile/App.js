@@ -13,7 +13,7 @@ import {
   StatusBar
 } from 'react-native';
 
-const API_BASE = 'http://127.0.0.1:5000/api/v1';
+import { apiFetch, getToken, setToken } from './src/api';
 
 export default function App() {
   const [role, setRole] = useState('customer'); // 'customer' | 'rider' | 'hub'
@@ -23,6 +23,13 @@ export default function App() {
   const [trackingData, setTrackingData] = useState(null);
   const [radarJobs, setRadarJobs] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // Authentication
+  const [token, setTokenState] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loginPhone, setLoginPhone] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState(null);
 
   // Booking Modal
   const [isBookingOpen, setIsBookingOpen] = useState(false);
@@ -36,40 +43,29 @@ export default function App() {
   const [handoverMsg, setHandoverMsg] = useState(null);
 
   useEffect(() => {
+    getToken()
+      .then(stored => {
+        if (stored) setTokenState(stored);
+        setAuthLoading(false);
+      })
+      .catch(() => setAuthLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!token) return;
     fetchHubs();
     if (role === 'rider') fetchRadarJobs();
-  }, [role]);
+  }, [role, token]);
 
   const fetchHubs = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/hubs/nearby?postcode=${postcode}`);
-      const data = await res.json();
+      const data = await apiFetch(`/hubs/nearby?postcode=${postcode}`);
       if (Array.isArray(data.hubs)) {
         setHubs(data.hubs);
       }
     } catch (err) {
-      // Fallback local fixture if offline
-      setHubs([
-        {
-          id: 'b0000000-0000-0000-0000-000000000001',
-          business_name: 'Wuse 2 Express Mart & Hub',
-          neighbourhood: 'Wuse 2, Abuja',
-          postcode: 'FC-01-A03-FK-01',
-          capacity: 60,
-          current_load: 12,
-          rating: 4.8
-        },
-        {
-          id: 'b0000000-0000-0000-0000-000000000002',
-          business_name: 'Banex Plaza Gadgets & Hub',
-          neighbourhood: 'Wuse 2, Abuja',
-          postcode: 'FC-01-A03-FK-01',
-          capacity: 40,
-          current_load: 8,
-          rating: 4.9
-        }
-      ]);
+      Alert.alert('Network Error', err.message || 'Could not load nearby hubs.');
     } finally {
       setLoading(false);
     }
@@ -78,31 +74,10 @@ export default function App() {
   const fetchTracking = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/shipments/track/${trackingCode.trim().toUpperCase()}`);
-      const data = await res.json();
-      if (res.ok) {
-        setTrackingData(data);
-      } else {
-        Alert.alert('Tracking Error', data.error || 'Tracking code not found.');
-      }
+      const data = await apiFetch(`/shipments/track/${trackingCode.trim().toUpperCase()}`);
+      setTrackingData(data);
     } catch (err) {
-      // Mock tracking fallback
-      setTrackingData({
-        shipment: {
-          tracking_code: trackingCode,
-          status: 'STORED_IN_BAY',
-          service_type: 'DOOR_TO_HUB',
-          package_description: 'Electronics & Gadgets',
-          destination_hub_name: 'Wuse 2 Express Mart & Hub',
-          destination_hub_address: 'Plot 112 Aminu Kano Crescent, Wuse 2',
-          delivery_otp: '882194',
-          collection_qr_token: 'QR-PASS-FC01A0'
-        },
-        timeline: [
-          { handover_type: 'SENDER_TO_RIDER', verification_method: 'OTP', notes: 'Collected at sender doorstep' },
-          { handover_type: 'RIDER_TO_HUB', verification_method: 'QR_SCAN', notes: 'Received and secured in BAY-A02' }
-        ]
-      });
+      Alert.alert('Tracking Error', err.message || 'Tracking code not found.');
     } finally {
       setLoading(false);
     }
@@ -110,34 +85,18 @@ export default function App() {
 
   const fetchRadarJobs = async () => {
     try {
-      const res = await fetch(`${API_BASE}/riders/radar/jobs`, {
-        headers: { 'x-user-id': 'a0000000-0000-0000-0000-000000000006' }
-      });
-      const data = await res.json();
+      const data = await apiFetch('/riders/radar/jobs');
       setRadarJobs(data.jobs || []);
-    } catch (e) {
-      setRadarJobs([
-        {
-          id: 'd0000000-0000-0000-0000-000000000002',
-          tracking_code: 'DBX-900241-2002',
-          sender_address_text: 'Plot 112 Aminu Kano, Wuse 2',
-          sender_postcode: 'FC-01-A03-FK-01',
-          destination_hub_name: 'Jabi Lakeside Community Hub',
-          potential_earning_ngn: 490.00
-        }
-      ]);
+    } catch (err) {
+      Alert.alert('Network Error', err.message || 'Could not load rider jobs.');
     }
   };
 
   const handleBookingSubmit = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/shipments/book`, {
+      const data = await apiFetch('/shipments/book', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': 'a0000000-0000-0000-0000-000000000005'
-        },
         body: JSON.stringify({
           serviceType: 'DOOR_TO_HUB',
           senderName: 'Tunde Fashola',
@@ -151,17 +110,9 @@ export default function App() {
           destinationHubId: hubs[0]?.id
         })
       });
-      const data = await res.json();
-      if (res.ok) {
-        setBookingSuccess(data);
-      } else {
-        Alert.alert('Booking Error', data.error);
-      }
+      setBookingSuccess(data);
     } catch (err) {
-      setBookingSuccess({
-        shipment: { tracking_code: `DBX-${postcode}-5521`, status: 'BOOKED' },
-        pickupOtp: '519201'
-      });
+      Alert.alert('Booking Error', err.message || 'Booking failed.');
     } finally {
       setLoading(false);
     }
@@ -175,12 +126,8 @@ export default function App() {
     setLoading(true);
     setHandoverMsg(null);
     try {
-      const res = await fetch(`${API_BASE}/custody/transfer`, {
+      const data = await apiFetch('/custody/transfer', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': role === 'rider' ? 'a0000000-0000-0000-0000-000000000006' : 'a0000000-0000-0000-0000-000000000001'
-        },
         body: JSON.stringify({
           shipmentId: 'd0000000-0000-0000-0000-000000000001',
           handoverType: type,
@@ -189,17 +136,37 @@ export default function App() {
           bayCode: selectedBay
         })
       });
-      const data = await res.json();
-      if (res.ok) {
-        setHandoverMsg(`Success! New status: ${data.newStatus}`);
-        setOtpInput('');
-      } else {
-        Alert.alert('Verification Failed', data.error);
-      }
-    } catch (e) {
-      setHandoverMsg('Custody transfer verified locally in simulator mode.');
+      setHandoverMsg(`Success! New status: ${data.newStatus}`);
+      setOtpInput('');
+    } catch (err) {
+      Alert.alert('Verification Failed', err.message || 'Custody transfer failed.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLogin = async () => {
+    if (!loginPhone.trim()) {
+      setLoginError('Enter your phone number or email.');
+      return;
+    }
+    setLoginLoading(true);
+    setLoginError(null);
+    try {
+      const data = await apiFetch('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ identifier: loginPhone.trim() })
+      });
+      await setToken(data.token);
+      setTokenState(data.token);
+      if (data.user && data.user.role) {
+        const roleMap = { rider: 'rider', hub_owner: 'hub' };
+        setRole(roleMap[data.user.role] || 'customer');
+      }
+    } catch (err) {
+      setLoginError(err.message || 'Sign in failed.');
+    } finally {
+      setLoginLoading(false);
     }
   };
 
@@ -469,6 +436,37 @@ export default function App() {
 
       </ScrollView>
 
+      {/* Login Modal */}
+      <Modal visible={!authLoading && !token} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Sign in to Dropboxz</Text>
+            <Text style={styles.inputHelp}>Phone number or email</Text>
+            <TextInput
+              style={styles.input}
+              value={loginPhone}
+              onChangeText={setLoginPhone}
+              placeholder="e.g. +2348029988112"
+              placeholderTextColor="#94a3b8"
+              autoCapitalize="none"
+              keyboardType="phone-pad"
+            />
+            {loginError && <Text style={styles.errorText}>{loginError}</Text>}
+            <TouchableOpacity
+              style={styles.confirmButton}
+              onPress={handleLogin}
+              disabled={loginLoading}
+            >
+              {loginLoading ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.primaryButtonText}>Sign In</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Booking Modal */}
       <Modal visible={isBookingOpen} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
@@ -688,6 +686,11 @@ const styles = StyleSheet.create({
   inputHelp: {
     fontSize: 11,
     color: '#64748b',
+    fontWeight: '600',
+  },
+  errorText: {
+    color: '#dc2626',
+    fontSize: 12,
     fontWeight: '600',
   },
   smallSearchButton: {
