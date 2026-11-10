@@ -308,15 +308,11 @@ export default function App() {
                   )}
 
                   {activeNav === 'postcodes' && (
-                    <PostcodeManagement
-                      onSelectShipment={handleGlobalSearch}
-                    />
+                    <PostcodeManagement />
                   )}
 
                   {activeNav === 'exceptions' && (
-                    <ExceptionManagement
-                      onSelectShipment={handleGlobalSearch}
-                    />
+                    <ExceptionManagement />
                   )}
 
                   {activeNav === 'reports' && (
