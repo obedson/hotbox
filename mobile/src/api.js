@@ -1,7 +1,7 @@
 const AsyncStorageModule = require('@react-native-async-storage/async-storage');
 const { API_BASE } = require('./config');
 
-const TOKEN_KEY = 'dropboxz_token';
+const TOKEN_KEY = 'hotbox_token';
 
 const storage = AsyncStorageModule && AsyncStorageModule.default
   ? AsyncStorageModule.default

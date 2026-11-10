@@ -181,7 +181,7 @@ export default function App() {
             <Text style={styles.logoText}>📦</Text>
           </View>
           <View>
-            <Text style={styles.headerTitle}>DROPBOXZ</Text>
+            <Text style={styles.headerTitle}>HOTBOX</Text>
             <Text style={styles.headerSubtitle}>🇳🇬 Nigeria Digital Postcode Logistics</Text>
           </View>
         </View>
@@ -440,7 +440,7 @@ export default function App() {
       <Modal visible={!authLoading && !token} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Sign in to Dropboxz</Text>
+            <Text style={styles.modalTitle}>Sign in to Hotbox</Text>
             <Text style={styles.inputHelp}>Phone number or email</Text>
             <TextInput
               style={styles.input}
