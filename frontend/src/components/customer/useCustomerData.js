@@ -16,7 +16,7 @@ export function useCustomerData(currentUser) {
   const [digitalBox, setDigitalBox] = useState(null);
 
   const getAuthHeaders = () => {
-    const token = localStorage.getItem('dropboxz_token');
+    const token = localStorage.getItem('hotbox_token');
     return token
       ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
       : { 'Content-Type': 'application/json' };

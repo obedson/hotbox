@@ -4,8 +4,8 @@ require('dotenv').config({ path: __dirname + '/../.env' });
 console.log('Testing Termii with family: 4...');
 const postData = JSON.stringify({
   to: '+2349063085415',
-  from: process.env.TERMII_SENDER_ID || 'Dropboxz',
-  sms: 'Test from Dropboxz',
+  from: process.env.TERMII_SENDER_ID || 'Hotbox',
+  sms: 'Test from Hotbox',
   type: 'plain',
   channel: 'generic',
   api_key: process.env.TERMII_API_KEY

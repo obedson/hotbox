@@ -1,9 +1,9 @@
 # ANTIGRAVITY MASTER BUILD PROMPT
-# DROPBOXZ — COMPLETE POSTCODE-DRIVEN COMMUNITY LOGISTICS PLATFORM
+# HOTBOX — COMPLETE POSTCODE-DRIVEN COMMUNITY LOGISTICS PLATFORM
 
 ## 0. ROLE, AUTHORITY, AND DELIVERY EXPECTATIONS
 
-Act as the principal software architect, senior full-stack engineer, database architect, logistics-domain specialist, security engineer, QA engineer, and DevOps engineer responsible for building Dropboxz into a complete, production-oriented platform.
+Act as the principal software architect, senior full-stack engineer, database architect, logistics-domain specialist, security engineer, QA engineer, and DevOps engineer responsible for building Hotbox into a complete, production-oriented platform.
 
 You are not being asked to produce a prototype, an MVP, a landing page, a visual mockup, or a collection of disconnected frontend screens.
 
@@ -35,7 +35,7 @@ Build the complete intended product. Delivery phases are an implementation strat
 
 # 1. PRODUCT IDENTITY AND MISSION
 
-Product name: Dropboxz.
+Product name: Hotbox.
 
 Product category: Postcode-driven community parcel logistics, delivery coordination, verified neighborhood hubs, and workforce enablement.
 
@@ -45,7 +45,7 @@ Core mission:
 
 Use Nigeria's National Digital Alphanumeric Postcode System to improve address adoption, establish verified neighborhood parcel hubs, create income opportunities for small business owners and individual riders, and make parcel custody secure and traceable.
 
-Dropboxz must make the national postcode useful in people's everyday activities. Customers should use it when booking shipments, verifying destinations, selecting collection points, registering as network partners, and receiving parcels.
+Hotbox must make the national postcode useful in people's everyday activities. Customers should use it when booking shipments, verifying destinations, selecting collection points, registering as network partners, and receiving parcels.
 
 The product is simultaneously:
 
@@ -57,7 +57,7 @@ The product is simultaneously:
 - A partner verification and compliance platform.
 - An enterprise logistics integration platform.
 
-Do not reduce Dropboxz to a simple parcel tracking application.
+Do not reduce Hotbox to a simple parcel tracking application.
 
 ## 1.1 Core business objectives
 
@@ -76,7 +76,7 @@ Do not reduce Dropboxz to a simple parcel tracking application.
 
 - A postcode identifies a location; it does not independently prove identity.
 - Identity verification and address verification are separate processes.
-- Official NIPOST verification, regulatory licensing, and Dropboxz Hub accreditation are separate records.
+- Official NIPOST verification, regulatory licensing, and Hotbox Hub accreditation are separate records.
 - No partner may claim an official government endorsement that has not been granted.
 - No parcel may be released without valid authorization.
 - No parcel may have conflicting authoritative custodians.
@@ -405,7 +405,7 @@ Features:
 - Measure postcode usage across bookings, verified partners, active hubs, and service areas.
 - Identify locations where adoption is low without publicly exposing private residential data.
 
-Do not imply that Dropboxz issues or owns the national postcode.
+Do not imply that Hotbox issues or owns the national postcode.
 
 ## 5.4 Address quality and exception handling
 
@@ -450,7 +450,7 @@ Every hub owner and individual rider must have a verified residential address as
 
 Business locations must be verified separately from residential locations.
 
-A person's identity, residential address, business address, vehicle credentials, regulatory status, and Dropboxz or Dropboxz Hub accreditation must be represented by distinct verification records.
+A person's identity, residential address, business address, vehicle credentials, regulatory status, and Hotbox or Hotbox Hub accreditation must be represented by distinct verification records.
 
 ## 6.1 Verification categories
 
@@ -468,7 +468,7 @@ Implement separate checks for:
 10. NIN-related verification where justified and lawfully supported.
 11. Regulatory licensing.
 12. Insurance and applicable permits.
-13. Dropboxz or Dropboxz Hub accreditation.
+13. Hotbox or Hotbox Hub accreditation.
 14. Training and operational readiness.
 
 ## 6.2 Hub-owner verification
@@ -585,17 +585,17 @@ NIPOST's Courier & Logistics Regulatory Department publishes licensing requireme
 Official reference:
 https://clrd.nipost.gov.ng/courier-license
 
-The platform must not assume that Dropboxz accreditation substitutes for a statutory licence.
+The platform must not assume that Hotbox accreditation substitutes for a statutory licence.
 
-Do not automatically conclude that every individual rider must personally obtain the same licence as a courier company. Determine the actual obligations of Dropboxz, partner operators, and individual participants from applicable law and written regulatory clarification.
+Do not automatically conclude that every individual rider must personally obtain the same licence as a courier company. Determine the actual obligations of Hotbox, partner operators, and individual participants from applicable law and written regulatory clarification.
 
 Before enabling a production service that requires an operator licence, enforce the corresponding compliance gate.
 
 If a required regulatory arrangement is unresolved, allow permitted application and administrative preparation but do not activate the affected regulated service.
 
-## 7.3 Track C: Dropboxz accreditation
+## 7.3 Track C: Hotbox accreditation
 
-Dropboxz may create its own partner quality and operational accreditation scheme.
+Hotbox may create its own partner quality and operational accreditation scheme.
 
 Accreditation may consider:
 
@@ -640,7 +640,7 @@ Build a complete hub management module.
 11. Complete required inspection and training.
 12. Accept the partner agreement.
 13. Complete applicable regulatory checks.
-14. Complete Dropboxz accreditation.
+14. Complete Hotbox accreditation.
 15. Activate only when all required gates pass.
 
 Support draft saving, document expiry, review comments, resubmission, appeals, and status notifications.
@@ -824,10 +824,10 @@ Calculate a server-authoritative price quote and show fees, terms, and eligibili
 
 ## 10.2 Supported services
 
-- Address-to-Dropboxz Hub.
-- Dropboxz Hub-to-Dropboxz Hub.
-- Door-to-Dropboxz Hub.
-- Dropboxz Hub-to-Door.
+- Address-to-Hotbox Hub.
+- Hotbox Hub-to-Hotbox Hub.
+- Door-to-Hotbox Hub.
+- Hotbox Hub-to-Door.
 - Scheduled pickups.
 - Business bulk shipments.
 - Returns.
@@ -1086,18 +1086,18 @@ Posted ledger entries must not be silently edited or deleted.
 
 ## 13.4 Partner fees
 
-Support configurable one-time and recurring commercial fees, including Dropboxz accreditation and revalidation charges where contractually and legally appropriate.
+Support configurable one-time and recurring commercial fees, including Hotbox accreditation and revalidation charges where contractually and legally appropriate.
 
 Clearly separate:
 
-- Dropboxz commercial charges.
+- Hotbox commercial charges.
 - Official regulatory fees.
 - Payment-provider charges.
 - Parcel service fees.
 - Partner commissions.
 - Taxes.
 
-Do not represent an unofficial Dropboxz charge as a government fee.
+Do not represent an unofficial Hotbox charge as a government fee.
 
 ---
 
@@ -1606,7 +1606,7 @@ The implementation is complete only when:
 4. Authentication and authorization work end to end.
 5. Postcode verification uses a properly configured provider adapter.
 6. Partner identity and address verification are represented accurately.
-7. Regulatory licensing and Dropboxz accreditation remain separate.
+7. Regulatory licensing and Hotbox accreditation remain separate.
 8. Hub capacity is enforced transactionally.
 9. Shipments follow permitted state transitions.
 10. Custody records are durable and auditable.
@@ -1641,7 +1641,7 @@ Do not claim that NIPOST has verified a person, address, business, or rider unle
 
 Do not claim a partner is legally authorized to operate a regulated service unless the required legal eligibility has been established.
 
-Do not use the term "NIPOST-certified" for Dropboxz accreditation.
+Do not use the term "NIPOST-certified" for Hotbox accreditation.
 
 Do not invent production API credentials or external API specifications.
 

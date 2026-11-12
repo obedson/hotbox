@@ -7,7 +7,7 @@ describe('auth token helpers', () => {
   });
 
   it('reads the stored token', async () => {
-    localStorage.setItem('dropboxz_token', 'token-123');
+    localStorage.setItem('hotbox_token', 'token-123');
     const api = await import('./api');
     expect(api.getAuthToken()).toBe('token-123');
   });
@@ -18,7 +18,7 @@ describe('auth token helpers', () => {
   });
 
   it('merges extra headers with the bearer token', async () => {
-    localStorage.setItem('dropboxz_token', 'token-123');
+    localStorage.setItem('hotbox_token', 'token-123');
     const api = await import('./api');
     expect(api.getAuthHeaders({ 'Content-Type': 'application/json' })).toEqual({
       'Content-Type': 'application/json',
@@ -49,7 +49,7 @@ describe('window.fetch auth wrapper', () => {
   it('attaches the bearer token to relative /api requests', async () => {
     const mockFetch = vi.fn(async () => ({}));
     window.fetch = mockFetch;
-    localStorage.setItem('dropboxz_token', 'token-123');
+    localStorage.setItem('hotbox_token', 'token-123');
 
     await import('./api');
     await window.fetch('/api/parcels');
@@ -63,7 +63,7 @@ describe('window.fetch auth wrapper', () => {
   it('does not attach the token to non-API requests', async () => {
     const mockFetch = vi.fn(async () => ({}));
     window.fetch = mockFetch;
-    localStorage.setItem('dropboxz_token', 'token-123');
+    localStorage.setItem('hotbox_token', 'token-123');
 
     await import('./api');
     await window.fetch('https://example.com/api/parcels');
@@ -126,7 +126,7 @@ describe('apiFetch shared client', () => {
     const mockFetch = vi.fn(async () => ({}));
     window.fetch = mockFetch;
     import.meta.env.VITE_API_BASE = 'https://api.example.com';
-    localStorage.setItem('dropboxz_token', 'token-123');
+    localStorage.setItem('hotbox_token', 'token-123');
     await import('./api');
 
     await window.fetch('/api/parcels');
@@ -140,7 +140,7 @@ describe('apiFetch shared client', () => {
     const mockFetch = vi.fn(async () => ({}));
     window.fetch = mockFetch;
     import.meta.env.VITE_API_BASE = 'https://api.example.com';
-    localStorage.setItem('dropboxz_token', 'token-123');
+    localStorage.setItem('hotbox_token', 'token-123');
     await import('./api');
 
     await window.fetch('https://other.example.com/parcels');

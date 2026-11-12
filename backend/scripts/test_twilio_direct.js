@@ -8,7 +8,7 @@ const auth = Buffer.from(`${sid}:${token}`).toString('base64');
 const postData = new URLSearchParams({
   To: '+2349063085415',
   MessagingServiceSid: 'MG08c38836e3d51c3c4da0b7617a885729',
-  Body: 'Your Dropboxz test OTP is 123456'
+  Body: 'Your Hotbox test OTP is 123456'
 }).toString();
 
 console.log('Sending Twilio POST...');

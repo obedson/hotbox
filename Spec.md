@@ -1,8 +1,8 @@
-# DROPBOXZ
+# HOTBOX
 ## Complete Product Requirements & Technical Build Specification
 
 **Document version:** 1.0  
-**Product:** Dropboxz 
+**Product:** Hotbox 
 **Category:** Community parcel logistics and delivery infrastructure  
 **Initial market:** Nigeria  
 **Platform strategy:** Mobile-first Progressive Web Application, backend API, operations console, and enterprise integrations  
@@ -12,11 +12,11 @@
 
 # 1. Executive Summary
 
-Dropboxz is a technology-enabled parcel handoff network connecting senders, recipients, verified neighborhood merchants, courier companies, independent riders, and network administrators.
+Hotbox is a technology-enabled parcel handoff network connecting senders, recipients, verified neighborhood merchants, courier companies, independent riders, and network administrators.
 
 The platform establishes trusted parcel pickup and drop-off locations within existing commercial businesses, reducing failed delivery attempts and providing recipients with greater control over when and where they collect their parcels.
 
-Dropboxz combines:
+Hotbox combines:
 
 - Nigeria's National Digital Alphanumeric Postcode System and authorized location services.
 - Verified neighborhood collection hubs.
@@ -52,7 +52,7 @@ Make every parcel handoff in Nigeria more accessible, accountable, secure, and p
 - Hub capacity must be enforced transactionally.
 - No payment, commission, or refund may exist only as an untraceable balance adjustment.
 - No identity document may be collected without a documented purpose and access policy.
-- Regulatory credentials and Dropboxz's own accreditation must remain separate.
+- Regulatory credentials and Hotbox's own accreditation must remain separate.
 - Operational actions must remain auditable, including administrator interventions.
 - The platform must remain usable on low-cost Android devices and unreliable mobile networks.
 
@@ -80,7 +80,7 @@ A hub operator may manage multiple branches, and each branch must have its own c
 
 Registered logistics businesses may manage their own riders, fleets, dispatchers, service areas, and shipment bookings.
 
-A courier company may integrate with Dropboxz through its web portal or API.
+A courier company may integrate with Hotbox through its web portal or API.
 
 ### D. Independent riders and drivers
 
@@ -102,7 +102,7 @@ Specialized staff manage regulatory records, audits, reconciliation, payouts, an
 
 ## 2.2 Business model
 
-Dropboxz should support multiple revenue sources:
+Hotbox should support multiple revenue sources:
 
 1. Per-parcel platform service fees.
 2. Courier coordination and delivery fees.
@@ -114,7 +114,7 @@ Dropboxz should support multiple revenue sources:
 
 The commercial model must avoid charging partners twice for the same service without clear disclosure.
 
-**Important distinction:** Dropboxz accreditation fees are private commercial charges, not NIPOST regulatory license fees. Any statutory fees must be paid through the applicable official process.
+**Important distinction:** Hotbox accreditation fees are private commercial charges, not NIPOST regulatory license fees. Any statutory fees must be paid through the applicable official process.
 
 ---
 
@@ -122,23 +122,23 @@ The commercial model must avoid charging partners twice for the same service wit
 
 The booking engine must support four principal service types.
 
-## 3.1 Address-to-Dropboxz Hub
+## 3.1 Address-to-Hotbox Hub
 
 The sender or shipper creates a shipment, and the recipient selects an eligible hub.
 
 The parcel is delivered to that hub for recipient collection.
 
-## 3.2 Dropboxz Hub-to-Dropboxz Hub
+## 3.2 Hotbox Hub-to-Hotbox Hub
 
 The sender deposits a parcel at an origin hub. An assigned courier or logistics partner transports it to the destination hub.
 
 The recipient collects it using a valid collection authorization.
 
-## 3.3 Door-to-Dropboxz Hub
+## 3.3 Door-to-Hotbox Hub
 
 A courier collects a parcel from the sender's address and deposits it at the selected destination hub.
 
-## 3.4 Dropboxz Hub-to-Door
+## 3.4 Hotbox Hub-to-Door
 
 The parcel is collected from a hub and assigned for delivery to the recipient's verified delivery location.
 
@@ -591,7 +591,7 @@ Maintain separate records for:
 - Identity-verification outcomes.
 - Hub inspections.
 - Training.
-- Dropboxz accreditation.
+- Hotbox accreditation.
 - Revalidation.
 - Suspension and reinstatement history.
 
@@ -1596,7 +1596,7 @@ A successful payment-provider redirect must not be treated as conclusive payment
 
 # 16. Physical Security and Service Operations
 
-Dropboxz's digital security must be supported by physical operating standards.
+Hotbox's digital security must be supported by physical operating standards.
 
 ## 16.1 Minimum hub requirements
 

@@ -94,8 +94,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, onSwitchTo
         throw new Error(data.error || 'Login failed. Please check credentials.');
       }
 
-      localStorage.setItem('dropboxz_token', data.token);
-      localStorage.setItem('dropboxz_user', JSON.stringify(data.user));
+      localStorage.setItem('hotbox_token', data.token);
+      localStorage.setItem('hotbox_user', JSON.stringify(data.user));
 
       onLoginSuccess(data.user, data.token);
       onClose();

@@ -5,8 +5,8 @@ console.log('Testing Resend to obedsonfield@gmail.com...');
 const postData = JSON.stringify({
   from: 'onboarding@resend.dev',
   to: 'obedsonfield@gmail.com',
-  subject: 'Dropboxz Live Verification Code: 550542',
-  html: '<p>Your live Dropboxz Verification Code is <strong>550542</strong>.</p>'
+  subject: 'Hotbox Live Verification Code: 550542',
+  html: '<p>Your live Hotbox Verification Code is <strong>550542</strong>.</p>'
 });
 
 const req = https.request('https://api.resend.com/emails', {

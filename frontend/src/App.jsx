@@ -65,7 +65,7 @@ export default function App() {
     try {
       const urlPortal = new URLSearchParams(window.location.search).get('portal');
       if (urlPortal && ['operations', 'enterprise', 'customer', 'hub_owner', 'rider'].includes(urlPortal)) return urlPortal;
-      const saved = localStorage.getItem('dropboxz_active_portal');
+      const saved = localStorage.getItem('hotbox_active_portal');
       if (saved && ['operations', 'enterprise', 'customer', 'hub_owner', 'rider'].includes(saved)) return saved;
     } catch (e) {}
     return 'customer';
@@ -75,7 +75,7 @@ export default function App() {
       const urlNav = new URLSearchParams(window.location.search).get('nav');
       if (urlNav) return urlNav;
       const urlPortal = new URLSearchParams(window.location.search).get('portal');
-      const p = urlPortal || localStorage.getItem('dropboxz_active_portal') || 'customer';
+      const p = urlPortal || localStorage.getItem('hotbox_active_portal') || 'customer';
       return DEFAULT_PORTAL_NAVS[p] || 'nearby_hubs';
     } catch (e) {}
     return 'nearby_hubs';
@@ -94,14 +94,14 @@ export default function App() {
     setActivePortal(portalId);
     setActiveNav(DEFAULT_PORTAL_NAVS[portalId] || 'overview');
     try {
-      localStorage.setItem('dropboxz_active_portal', portalId);
+      localStorage.setItem('hotbox_active_portal', portalId);
     } catch (e) {}
   };
 
   // Authentication State
   const [currentUser, setCurrentUser] = useState(() => {
     try {
-      const saved = localStorage.getItem('dropboxz_user');
+      const saved = localStorage.getItem('hotbox_user');
       if (saved) return JSON.parse(saved);
     } catch (e) {}
     return {
@@ -194,8 +194,8 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('dropboxz_token');
-    localStorage.removeItem('dropboxz_user');
+    localStorage.removeItem('hotbox_token');
+    localStorage.removeItem('hotbox_user');
     setCurrentUser(null);
     showToast('Signed out successfully.');
   };

@@ -103,8 +103,8 @@ export default function RegisterModal({ isOpen, onClose, onRegisterSuccess, onSw
         throw new Error(data.error || 'Registration failed.');
       }
 
-      localStorage.setItem('dropboxz_token', data.token);
-      localStorage.setItem('dropboxz_user', JSON.stringify(data.user));
+      localStorage.setItem('hotbox_token', data.token);
+      localStorage.setItem('hotbox_user', JSON.stringify(data.user));
 
       onRegisterSuccess(data.user, data.token);
       onClose();

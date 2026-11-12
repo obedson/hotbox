@@ -1,4 +1,4 @@
--- DROPBOXZ MASTER DATABASE SCHEMA & MIGRATION
+-- HOTBOX MASTER DATABASE SCHEMA & MIGRATION
 -- Supports:
 -- 1. All 11 platform roles
 -- 2. Postcode-First Address Infrastructure (PostGIS enabled)
@@ -626,11 +626,11 @@ INSERT INTO users (id, role, name, phone, email, status) VALUES
 ('a0000000-0000-0000-0000-000000000001', 'hub_owner', 'Mallam Ibrahim', '+2348031112223', 'ibrahim@wusehub.ng', 'active'),
 ('a0000000-0000-0000-0000-000000000002', 'hub_owner', 'Chidi Okoro', '+2348032223334', 'chidi@gardenspot.ng', 'active'),
 ('a0000000-0000-0000-0000-000000000003', 'hub_owner', 'Amina Bello', '+2348033334445', 'amina@jabimart.ng', 'active'),
-('a0000000-0000-0000-0000-000000000004', 'super_admin', 'System Super Admin', '+2348000000000', 'admin@dropboxz.ng', 'active'),
+('a0000000-0000-0000-0000-000000000004', 'super_admin', 'System Super Admin', '+2348000000000', 'admin@hotbox.ng', 'active'),
 ('a0000000-0000-0000-0000-000000000005', 'customer', 'Tunde Fashola', '+2348037778899', 'tunde@gmail.com', 'active'),
-('a0000000-0000-0000-0000-000000000006', 'rider', 'Musa Danladi', '+2348055556677', 'musa.rider@dropboxz.ng', 'active'),
-('a0000000-0000-0000-0000-000000000007', 'ops_admin', 'Fatima Abubakar', '+2348061122334', 'fatima.ops@dropboxz.ng', 'active'),
-('a0000000-0000-0000-0000-000000000008', 'compliance_officer', 'Oluwaseun Adeyemi', '+2348079988776', 'compliance@dropboxz.ng', 'active'),
+('a0000000-0000-0000-0000-000000000006', 'rider', 'Musa Danladi', '+2348055556677', 'musa.rider@hotbox.ng', 'active'),
+('a0000000-0000-0000-0000-000000000007', 'ops_admin', 'Fatima Abubakar', '+2348061122334', 'fatima.ops@hotbox.ng', 'active'),
+('a0000000-0000-0000-0000-000000000008', 'compliance_officer', 'Oluwaseun Adeyemi', '+2348079988776', 'compliance@hotbox.ng', 'active'),
 ('a0000000-0000-0000-0000-000000000009', 'enterprise_shipper', 'Konga Logistics Ltd', '+2348090001122', 'enterprise@konga.ng', 'active')
 ON CONFLICT (id) DO UPDATE SET
   role = EXCLUDED.role,
@@ -685,7 +685,7 @@ INSERT INTO verification_records (entity_type, entity_id, track, document_type, 
 ('hub', 'b0000000-0000-0000-0000-000000000001', 'TRACK_A_ADDRESS', 'PROOF_OF_ADDRESS', 'UTIL-FC01A0-1029', 'APPROVED', 'a0000000-0000-0000-0000-000000000008', NOW()),
 -- Track B: Regulatory CAC & NIN for Hub Owner
 ('user', 'a0000000-0000-0000-0000-000000000001', 'TRACK_B_REGULATORY', 'CAC_CERTIFICATE', 'RC-123456', 'APPROVED', 'a0000000-0000-0000-0000-000000000008', NOW()),
--- Track C: Dropboxz Accreditation for Hub 1
+-- Track C: Hotbox Accreditation for Hub 1
 ('hub', 'b0000000-0000-0000-0000-000000000001', 'TRACK_C_ACCREDITATION', 'PHYSICAL_INSPECTION_REPORT', 'INSP-ABJ-2026-0041', 'APPROVED', 'a0000000-0000-0000-0000-000000000007', NOW()),
 -- Track B: Rider Driver's License & NIN
 ('rider', 'c0000000-0000-0000-0000-000000000001', 'TRACK_B_REGULATORY', 'DRIVERS_LICENSE', 'DL-88299102-ABJ', 'APPROVED', 'a0000000-0000-0000-0000-000000000008', NOW())

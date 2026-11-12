@@ -1,5 +1,5 @@
 export const BRAND = {
-  primary: '#059669', // Dropboxz Emerald
+  primary: '#059669', // Hotbox Emerald
   primaryDark: '#064e3b',
   primaryLight: '#ecfdf5',
   accentAmber: '#f59e0b',

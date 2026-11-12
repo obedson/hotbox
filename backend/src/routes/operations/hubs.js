@@ -10,7 +10,7 @@ router.post('/hubs/seed-ndaps', async (req, res) => {
 
     await db.query(`
       INSERT INTO users (id, phone, name, email, role, is_phone_verified, is_email_verified)
-      VALUES ($1, '+2348033334445', 'Amina Bello', 'amina.bello@dropboxz.ng', 'hub_owner', TRUE, TRUE)
+      VALUES ($1, '+2348033334445', 'Amina Bello', 'amina.bello@hotbox.ng', 'hub_owner', TRUE, TRUE)
       ON CONFLICT (id) DO UPDATE SET role = 'hub_owner'
     `, [ownerAmina]);
 
@@ -21,7 +21,7 @@ router.post('/hubs/seed-ndaps', async (req, res) => {
         name: 'Wuse 2 Express Mart & Hub',
         cac: 'CAC-BN-2918402',
         phone: '+2348031112223',
-        email: 'wuse2.hub@dropboxz.ng',
+        email: 'wuse2.hub@hotbox.ng',
         postcode: 'FC-01-A03-FK-01',
         addressText: 'Plot 10 Emeka Anyaoku Street, Wuse 2, Abuja',
         neighbourhood: 'Wuse 2',
@@ -43,7 +43,7 @@ router.post('/hubs/seed-ndaps', async (req, res) => {
         name: 'Banex Plaza Gadgets & Hub',
         cac: 'CAC-BN-1849201',
         phone: '+2348034445566',
-        email: 'banex.hub@dropboxz.ng',
+        email: 'banex.hub@hotbox.ng',
         postcode: 'FC-01-A02-FK-02',
         addressText: 'Suite B12, Banex Plaza, Aminu Kano Crescent, Wuse 2',
         neighbourhood: 'Wuse 2',
@@ -65,7 +65,7 @@ router.post('/hubs/seed-ndaps', async (req, res) => {
         name: 'Jabi Lakeside Community Hub',
         cac: 'CAC-BN-3920184',
         phone: '+2348033334445',
-        email: 'jabi.hub@dropboxz.ng',
+        email: 'jabi.hub@hotbox.ng',
         postcode: 'FC-01-C05-JB-01',
         addressText: 'Plot 224 Jabi Lake Boulevard, Jabi District',
         neighbourhood: 'Jabi',
@@ -87,7 +87,7 @@ router.post('/hubs/seed-ndaps', async (req, res) => {
         name: 'Garki Area 1 Pickup Kiosk',
         cac: 'CAC-BN-4910283',
         phone: '+2348031112223',
-        email: 'garki.hub@dropboxz.ng',
+        email: 'garki.hub@hotbox.ng',
         postcode: 'FC-01-B04-GR-01',
         addressText: 'Block 4 Commercial Layout, Area 1, Garki',
         neighbourhood: 'Garki',
@@ -109,7 +109,7 @@ router.post('/hubs/seed-ndaps', async (req, res) => {
         name: 'CBD Central Logistics Vault',
         cac: 'CAC-BN-5510294',
         phone: '+2348034445566',
-        email: 'cbd.hub@dropboxz.ng',
+        email: 'cbd.hub@hotbox.ng',
         postcode: 'FC-01-A01-CB-01',
         addressText: 'Ground Floor, Constitution Avenue, Central Business District',
         neighbourhood: 'Central District',
@@ -131,7 +131,7 @@ router.post('/hubs/seed-ndaps', async (req, res) => {
         name: 'Ikeja City Express Logistics Hub',
         cac: 'CAC-BN-8829104',
         phone: '+2348029991122',
-        email: 'ikeja.hub@dropboxz.ng',
+        email: 'ikeja.hub@hotbox.ng',
         postcode: 'LA-01-B02-IK-01',
         addressText: '14 Obafemi Awolowo Way, Alausa, Ikeja',
         neighbourhood: 'Alausa',
@@ -153,7 +153,7 @@ router.post('/hubs/seed-ndaps', async (req, res) => {
         name: 'Victoria Island Tech Mart Hub',
         cac: 'CAC-BN-9920184',
         phone: '+2348033334445',
-        email: 'vi.hub@dropboxz.ng',
+        email: 'vi.hub@hotbox.ng',
         postcode: 'LA-01-B03-VI-02',
         addressText: 'Plot 42 Ahmadu Bello Way, Victoria Island',
         neighbourhood: 'Victoria Island',

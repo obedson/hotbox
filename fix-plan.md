@@ -1,4 +1,4 @@
-# DROPBOXZ - Production Readiness Fix Plan
+# HOTBOX - Production Readiness Fix Plan
 
 **Date:** 2026-11-08
 **Status:** Approved - Phase 0 complete (2026-11-08); Phase 1 complete (2026-11-09)
@@ -113,7 +113,7 @@ This plan converts the production-readiness audit into an ordered set of fixes. 
 
 ### 0.2 Proper JWT secret management
 - **Where:** `backend/src/middleware/auth.js`, `backend/.env`
-- **Problem:** hardcoded fallback secret `dropboxz-secure-secret-key-2026`; `JWT_SECRET` is not in `.env`.
+- **Problem:** hardcoded fallback secret `hotbox-secure-secret-key-2026`; `JWT_SECRET` is not in `.env`.
 - **Fix:** generate a 64+ character random secret into `.env`, remove the fallback, and fail fast at startup when it is missing in production. Add it to `.env.example`.
 - **Verify:** server refuses to start without the secret; previously issued tokens are invalidated (rotation).
 

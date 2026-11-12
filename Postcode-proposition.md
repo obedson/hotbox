@@ -154,7 +154,7 @@ When a parcel or letter is redirected due to address relocation, **both the send
 
 ## 6. Layering Plan on Existing Codebase & Specs
 
-This proposition integrates seamlessly into the architecture defined in [`Spec.md`](file:///C:/Users/NITDA/Desktop/herdr-project/custom_tasks/dropboxz/Spec.md) and [`prompt.txt`](file:///C:/Users/NITDA/Desktop/herdr-project/custom_tasks/dropboxz/prompt.txt):
+This proposition integrates seamlessly into the architecture defined in [`Spec.md`](file:///C:/Users/NITDA/Desktop/herdr-project/custom_tasks/hotbox/Spec.md) and [`prompt.txt`](file:///C:/Users/NITDA/Desktop/herdr-project/custom_tasks/hotbox/prompt.txt):
 
 | Hotbox Layer | Current Architecture Component | Layering Integration |
 | :--- | :--- | :--- |
@@ -164,7 +164,7 @@ This proposition integrates seamlessly into the architecture defined in [`Spec.m
 | **Citizen Settings & Simulator** | `frontend/src/components/CustomerDashboard.jsx` | Full 4-channel preference manager with live pricing badges and interactive reroute test simulator. |
 | **Physical Ground-Truthing** | `backend/src/routes/operations.js` & `VerificationQueue.jsx` | Add "Address Verification" mission type to existing Track-B courier inspection queues. |
 | **B2B Address Verification** | `backend/src/routes/enterprise.js` & `EnterprisePortal.jsx` | Provide API key management for banks & fintechs to query `GET /api/v1/verify-address?postcode=...&phone=...`. |
-| **Branding & Domains** | `frontend/src/*` | Transition UI copy, headers, metadata, and logos from **Dropboxz** to **Hotbox** (`hotbox.com.ng` / `hotboxng.com`). |
+| **Branding & Domains** | `frontend/src/*` | Transition UI copy, headers, metadata, and logos from **Hotbox** to **Hotbox** (`hotbox.com.ng` / `hotboxng.com`). |
 
 ---
 

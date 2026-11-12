@@ -5,8 +5,8 @@ console.log('Testing Resend email with family: 4...');
 const postData = JSON.stringify({
   from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
   to: 'afribook.win@gmail.com',
-  subject: 'Dropboxz Verification Code: 550542',
-  html: '<p>Your Dropboxz Verification Code is <strong>550542</strong>.</p>'
+  subject: 'Hotbox Verification Code: 550542',
+  html: '<p>Your Hotbox Verification Code is <strong>550542</strong>.</p>'
 });
 
 const req = https.request('https://api.resend.com/emails', {

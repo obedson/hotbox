@@ -15,9 +15,9 @@ function robustLookup(hostname, options, callback) {
 }
 
 const postData = JSON.stringify({
-  from: process.env.EMAIL_FROM || 'Dropboxz Security <notifications@dropboxz.microcbt.com>',
+  from: process.env.EMAIL_FROM || 'Hotbox Security <notifications@hotbox.microcbt.com>',
   to: 'afribook.win@gmail.com',
-  subject: 'Dropboxz Live Test: 334455',
+  subject: 'Hotbox Live Test: 334455',
   html: '<p>Your live verification code is <strong>334455</strong>.</p>'
 });
 

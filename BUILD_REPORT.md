@@ -1,7 +1,7 @@
-# DROPBOXZ — PRODUCTION BUILD & VERIFICATION REPORT 🚀
+# HOTBOX — PRODUCTION BUILD & VERIFICATION REPORT 🚀
 **Platform:** Postcode-Driven Community Parcel Logistics & Verified Neighborhood Hubs
 **Initial Market:** Nigeria (NIPOST Alphanumeric Digital Postcode Infrastructure)
-**Architecture Compliance:** ECC 2.2.3 Framework (`.agents/`), Antigravity Master Build Prompt (`prompt.txt`), UI Implementation Instructions (`UI-IMPLEMENTATION-INSTRUCTION.txt`), Specifications (`spec.md`), Visual Reference Authority (`DROPBOXZ-UI-References`).
+**Architecture Compliance:** ECC 2.2.3 Framework (`.agents/`), Antigravity Master Build Prompt (`prompt.txt`), UI Implementation Instructions (`UI-IMPLEMENTATION-INSTRUCTION.txt`), Specifications (`spec.md`), Visual Reference Authority (`HOTBOX-UI-References`).
 
 ---
 
@@ -14,11 +14,11 @@
   - **Three Distinct Verification Tracks:**
     - `TRACK_A_ADDRESS`: NIPOST building-level postcode verification.
     - `TRACK_B_REGULATORY`: CAC company registrations, NIN identity credentials, driver's licenses, and statutory courier licences.
-    - `TRACK_C_ACCREDITATION`: Dropboxz operational hub accreditation (space inspection, CCTV, storage shelf capacity, security vetting).
+    - `TRACK_C_ACCREDITATION`: Hotbox operational hub accreditation (space inspection, CCTV, storage shelf capacity, security vetting).
   - **Hub Network & Compartmentalized Storage Bays:** `hubs` and `hub_storage_bays` (`BAY-A01` to `BAY-A05`) with live occupancy tracking (`capacity` vs `current_load`).
   - **Rider & Courier Fleets:** `riders` and `courier_companies` with operational postcode zones, active dispatch availability, vehicle classes, and ratings.
   - **Shipment Lifecycle & Custody Ledger:** `shipments` with 15 granular status states and an immutable `custody_ledger` recording every physical transfer with actor ID, geo-coordinates, timestamp, and proof (OTP / QR token).
-  - **Financial Escrow & Wallets:** `wallets` and `transactions` supporting automated split settlements (Dropboxz platform cut, Hub commission cut, and Rider payout cut).
+  - **Financial Escrow & Wallets:** `wallets` and `transactions` supporting automated split settlements (Hotbox platform cut, Hub commission cut, and Rider payout cut).
   - **Enterprise Portals:** `enterprise_accounts`, `enterprise_api_keys` (SHA-256 hashed secret keys), `webhooks`, and `webhook_delivery_logs`.
   - **Auditing & Notifications:** `notifications` and `audit_logs`.
 
@@ -37,8 +37,8 @@
 ---
 
 ### ✅ Stage 3 & 4: Shared Design System & Web Portals (`frontend/`)
-* **Visual Authority Compliance:** Built to match `00-dropboxz-design-system.jpg`, `04-operations-desktop-board.jpg`, `05-enterprise-portal-board.jpg`, `06-shared-states.jpg`, and screens `D01–D19` / `E01–E09`.
-* **Color Hierarchy:** Dropboxz Emerald (`#059669`), Dark Slate (`#0f172a`), Muted Slate (`#64748b`), and semantic status badges.
+* **Visual Authority Compliance:** Built to match `00-hotbox-design-system.jpg`, `04-operations-desktop-board.jpg`, `05-enterprise-portal-board.jpg`, `06-shared-states.jpg`, and screens `D01–D19` / `E01–E09`.
+* **Color Hierarchy:** Hotbox Emerald (`#059669`), Dark Slate (`#0f172a`), Muted Slate (`#64748b`), and semantic status badges.
 * **Component Inventory:**
   1. `Navbar.jsx`: Multi-role portal switcher, NIPOST badge, and live wallet balance widget.
   2. `ShipmentTracker.jsx`: Public tracking lookup with animated status stepper, recipient QR collection pass, OTP display, and interactive chain-of-custody timeline.

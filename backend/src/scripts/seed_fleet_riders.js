@@ -73,7 +73,7 @@ async function seedFleet() {
       riderId: 'c0000000-0000-0000-0000-000000000004',
       name: 'Emeka Ani',
       phone: '+2348074445566',
-      email: 'emeka.ani@dropboxz.ng',
+      email: 'emeka.ani@hotbox.ng',
       courierId: null, // Independent
       vehicleType: 'bicycle',
       plateNumber: 'ECO-012-BY',

@@ -23,7 +23,7 @@ const env = {
 
 const outFile = process.argv[2]
   ? path.resolve(process.cwd(), process.argv[2])
-  : path.resolve(__dirname, `../backups/dropboxz-${new Date().toISOString().replace(/[:.]/g, '-')}.dump`);
+  : path.resolve(__dirname, `../backups/hotbox-${new Date().toISOString().replace(/[:.]/g, '-')}.dump`);
 
 fs.mkdirSync(path.dirname(outFile), { recursive: true });
 

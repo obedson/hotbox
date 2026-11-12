@@ -32,7 +32,7 @@ class ErrorBoundary extends React.Component {
             </pre>
             <button
               onClick={() => {
-                localStorage.removeItem('dropboxz_user');
+                localStorage.removeItem('hotbox_user');
                 window.location.reload();
               }}
               className="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-600 text-[#062419] rounded-xl text-xs font-bold transition shadow-lg cursor-pointer"

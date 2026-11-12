@@ -1,12 +1,12 @@
 const https = require('https');
 require('dotenv').config({ path: __dirname + '/../.env' });
 
-console.log('Testing Resend with verified domain dropboxz.microcbt.com to afribook.win@gmail.com...');
+console.log('Testing Resend with verified domain hotbox.microcbt.com to afribook.win@gmail.com...');
 const postData = JSON.stringify({
-  from: 'Dropboxz Security <notifications@dropboxz.microcbt.com>',
+  from: 'Hotbox Security <notifications@hotbox.microcbt.com>',
   to: 'afribook.win@gmail.com',
-  subject: 'Dropboxz Domain Verification Test: 998877',
-  html: '<p>Your Dropboxz Verification Code is <strong>998877</strong>.</p>'
+  subject: 'Hotbox Domain Verification Test: 998877',
+  html: '<p>Your Hotbox Verification Code is <strong>998877</strong>.</p>'
 });
 
 const req = https.request('https://api.resend.com/emails', {

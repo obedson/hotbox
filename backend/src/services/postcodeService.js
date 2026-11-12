@@ -347,7 +347,7 @@ async function autocompletePostcodes(query) {
 }
 
 /**
- * Authoritative Internal Postcode Resolver used by Dropboxz platform:
+ * Authoritative Internal Postcode Resolver used by Hotbox platform:
  * Resolves both NDAPS Alphanumeric and 6-digit numeric postcodes.
  */
 async function resolvePostcode(rawCode) {

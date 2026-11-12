@@ -47,7 +47,7 @@ async function test() {
     process.env.TWILIO_AUTH_TOKEN,
     process.env.TWILIO_PHONE_NUMBER,
     '+2349063085415',
-    'Your Dropboxz OTP is 894102'
+    'Your Hotbox OTP is 894102'
   );
   console.log('RESULT:', res);
   process.exit(0);

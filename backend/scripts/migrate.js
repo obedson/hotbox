@@ -12,7 +12,7 @@ const pool = new Pool({
 });
 
 async function runMigration() {
-  console.log('--- DROPBOXZ SCHEMA MIGRATION START ---');
+  console.log('--- HOTBOX SCHEMA MIGRATION START ---');
   console.log('Connecting to database...');
   const client = await pool.connect();
   try {
@@ -44,7 +44,7 @@ async function runMigration() {
     console.log('- Shipments:', shipmentsCount.rows[0].count);
     console.log('- Custody transfers:', custodyCount.rows[0].count);
     console.log('- Verification records (3 tracks):', verificationCount.rows[0].count);
-    console.log('--- DROPBOXZ SCHEMA MIGRATION COMPLETED SUCCESSFULLY ---');
+    console.log('--- HOTBOX SCHEMA MIGRATION COMPLETED SUCCESSFULLY ---');
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Migration failed with error:', err.message);

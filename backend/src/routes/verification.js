@@ -142,7 +142,7 @@ router.post('/seed', async (req, res) => {
         notes: 'National Identity Management Commission (NIMC) National Identification Slip with biometric verification.'
       },
 
-      // Track C - Dropboxz Hub Physical Accreditation & Inspections (3)
+      // Track C - Hotbox Hub Physical Accreditation & Inspections (3)
       {
         id: 'd0000001-0000-0000-0000-000000000007',
         entity_type: 'hub',
@@ -163,7 +163,7 @@ router.post('/seed', async (req, res) => {
         document_number: 'PHOTO-ABJ-0419',
         document_url: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=800',
         status: 'PENDING',
-        notes: 'High-resolution photographs of parcel holding bays, fire safety extinguisher, and exterior Dropboxz signage.'
+        notes: 'High-resolution photographs of parcel holding bays, fire safety extinguisher, and exterior Hotbox signage.'
       },
       {
         id: 'd0000001-0000-0000-0000-000000000009',

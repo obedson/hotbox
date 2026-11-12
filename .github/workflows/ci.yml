@@ -62,6 +62,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build backend image
-        run: docker build -t dropboxz-backend ./backend
+        run: docker build -t hotbox-backend ./backend
       - name: Build frontend image
-        run: docker build -t dropboxz-frontend ./frontend
+        run: docker build -t hotbox-frontend ./frontend

@@ -11,7 +11,7 @@ const postData = JSON.stringify({
   pin_time_to_live: 10,
   pin_length: 6,
   pin_placeholder: '< 1234 >',
-  message_text: 'Your Dropboxz confirmation code is < 1234 >'
+  message_text: 'Your Hotbox confirmation code is < 1234 >'
 });
 
 const req = https.request('https://api.ng.termii.com/api/sms/otp/send', {

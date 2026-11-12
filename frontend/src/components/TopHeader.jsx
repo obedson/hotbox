@@ -55,7 +55,7 @@ export default function TopHeader({
 
   const fetchNotifications = async () => {
     try {
-      const token = localStorage.getItem('dropboxz_token');
+      const token = localStorage.getItem('hotbox_token');
       const headers = token
         ? { Authorization: `Bearer ${token}` }
         : {}
@@ -79,7 +79,7 @@ export default function TopHeader({
 
   const handleMarkAllRead = async () => {
     try {
-      const token = localStorage.getItem('dropboxz_token');
+      const token = localStorage.getItem('hotbox_token');
       const headers = token
         ? { Authorization: `Bearer ${token}` }
         : {}

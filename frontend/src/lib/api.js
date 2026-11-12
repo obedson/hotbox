@@ -3,10 +3,10 @@
 // to know about authentication.
 const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '');
 
-export const getAuthToken = () => localStorage.getItem('dropboxz_token');
+export const getAuthToken = () => localStorage.getItem('hotbox_token');
 
 export const getAuthHeaders = (extra = {}) => {
-  const token = localStorage.getItem('dropboxz_token');
+  const token = localStorage.getItem('hotbox_token');
   return {
     ...extra,
     ...(token ? { Authorization: `Bearer ${token}` } : {})
@@ -38,7 +38,7 @@ const originalFetch = window.fetch;
 
 window.fetch = async (url, options = {}) => {
   const resolvedUrl = resolveApiUrl(url);
-  const token = localStorage.getItem('dropboxz_token');
+  const token = localStorage.getItem('hotbox_token');
 
   if (token && isApiRequest(resolvedUrl)) {
     options.headers = {

@@ -6,7 +6,7 @@ async function testFrom(senderName, channel = 'generic') {
     const postData = JSON.stringify({
       to: '2349063085415',
       from: senderName,
-      sms: 'Test from Dropboxz',
+      sms: 'Test from Hotbox',
       type: 'plain',
       channel,
       api_key: process.env.TERMII_API_KEY
@@ -32,7 +32,7 @@ async function testFrom(senderName, channel = 'generic') {
 }
 
 async function run() {
-  const senders = ['Termii', 't-alert', 'N-Alert', 'Dropboxz'];
+  const senders = ['Termii', 't-alert', 'N-Alert', 'Hotbox'];
   for (const s of senders) {
     const res = await testFrom(s, 'generic');
     console.log(`[generic] ${s}:`, res.status, res.body);

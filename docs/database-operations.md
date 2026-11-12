@@ -1,6 +1,6 @@
 # Database Operations
 
-This document covers the operational decisions and runbooks for the Dropboxz
+This document covers the operational decisions and runbooks for the Hotbox
 PostgreSQL database (Supabase).
 
 ## 1. Connection model and row-level security
@@ -118,7 +118,7 @@ Numbered migrations:
 
 | File | Purpose |
 |---|---|
-| `01_master_dropboxz_schema.sql` | Original master schema |
+| `01_master_hotbox_schema.sql` | Original master schema |
 | `02_wallet_gateway_reference_unique.sql` | Unique constraint on wallet gateway references |
 | `03_audit_triggers.sql` | Audit trigger function and sensitive-table triggers |
 
@@ -145,10 +145,10 @@ cd backend
 npm run db:backup
 
 # Backup to a specific path
-node scripts/backup.js /mnt/backups/dropboxz-2026-11-09.dump
+node scripts/backup.js /mnt/backups/hotbox-2026-11-09.dump
 
 # Restore (drops existing objects first)
-npm run db:restore backup/backups/dropboxz-2026-11-09.dump
+npm run db:restore backup/backups/hotbox-2026-11-09.dump
 ```
 
 **Backup runbook**

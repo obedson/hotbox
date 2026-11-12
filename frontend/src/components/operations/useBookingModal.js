@@ -344,7 +344,7 @@ export default function useBookingModal({ isOpen, hubs, currentUser, prefilledSe
     setLoading(true);
     setError(null);
 
-    const token = localStorage.getItem('hotbox_token') || localStorage.getItem('dropboxz_token');
+    const token = localStorage.getItem('hotbox_token');
     const headers = token
       ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
       : { 'Content-Type': 'application/json' };

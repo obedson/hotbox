@@ -229,8 +229,8 @@ export function useProfileSettings({ currentUser, profile, setProfile, showToast
             } catch (err) {}
           }
           try {
-            const stored = JSON.parse(localStorage.getItem('dropboxz_user') || '{}');
-            localStorage.setItem('dropboxz_user', JSON.stringify({
+            const stored = JSON.parse(localStorage.getItem('hotbox_user') || '{}');
+            localStorage.setItem('hotbox_user', JSON.stringify({
               ...stored,
               name: data.user.name,
               phone: data.user.phone,
