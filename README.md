@@ -1,6 +1,6 @@
-# Dropboxz
+# Hotbox
 
-Dropboxz is a last-mile logistics platform for Nigeria. It combines NDAPS-style
+Hotbox is a last-mile logistics platform for Nigeria. It combines NDAPS-style
 alphanumeric postcodes, a network of hubs and dropzones, shipment tracking,
 custody transfers, rider dispatch, enterprise KYC, and wallet payments.
 
@@ -23,7 +23,7 @@ shared client in `frontend/src/lib/api.js`.
 
 ### Postcode standard
 
-Dropboxz uses Nigeria's National Digital Alphanumeric Postcode (NDAPS) format,
+Hotbox uses Nigeria's National Digital Alphanumeric Postcode (NDAPS) format,
 for example `FC-01-A03-FK-01`. Legacy six-digit numeric codes are deprecated
 across models, UI placeholders, tests, and documentation.
 
