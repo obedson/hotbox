@@ -102,7 +102,7 @@ export default function DigitalBoxTab({
                 </div>
 
                 <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-                  Your Digital P.O.Box and Ground-Truth, NIPOST Verified Proof Address
+                  Your Digital P.O.Box and Ground-Truth, NIPOST Verified Proof of Address
                 </h1>
 
                 <p className="text-xs sm:text-sm text-emerald-100/80 leading-relaxed">
