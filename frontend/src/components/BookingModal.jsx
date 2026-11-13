@@ -21,8 +21,9 @@ export default function BookingModal({
   const { step, bookedResult, error } = booking;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden my-6 animate-fadeIn">
+    <div className="fixed inset-0 z-[2000] bg-slate-950/70 backdrop-blur-md overflow-y-auto">
+      <div className="min-h-full flex items-center justify-center p-3 sm:p-4">
+        <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden my-6 animate-fadeIn">
         
         {/* Header Bar */}
         <div className="bg-[#062419] text-white p-5 sm:p-6 relative">
@@ -105,6 +106,7 @@ export default function BookingModal({
               {step === 4 && <BookingStep4 booking={booking} />}
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>

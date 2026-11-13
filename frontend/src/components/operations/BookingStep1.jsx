@@ -32,7 +32,7 @@ export default function BookingStep1({ booking }) {
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
-                        A dispatch courier comes directly to your doorway to verify and collect the parcel.
+                        A dispatch courier comes directly to your Doorstep to verify and collect the parcel.
                       </p>
                     </button>
 
@@ -49,9 +49,6 @@ export default function BookingStep1({ booking }) {
                         <span className="font-black text-xs text-slate-900 flex items-center gap-1.5">
                           <Store className="w-4 h-4 text-emerald-600" />
                           <span>Hub-to-Hub Drop-Off</span>
-                        </span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                          Drop at Shop / Hub / Post office
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
