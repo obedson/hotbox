@@ -11,3 +11,15 @@ build/
 logs/
 *.log
 .env.local
+
+# Internal planning and reference material (not part of the public repo)
+prompt.txt
+fix-plan.md
+Spec.md
+Postcode-proposition.md
+BUILD_REPORT.md
+AGENTS.md
+/docs
+/HOTBOX-UI-References
+/.github/workflows
+/.agents
