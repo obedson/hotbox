@@ -3,16 +3,18 @@ const router = express.Router();
 const db = require('../../config/db');
 const { authenticate } = require('../../middleware/auth');
 const { getEnterpriseStats } = require('./helpers');
+const { formatBoxNumber, parseBoxNumber } = require('../../utils/boxNumber');
 // POST /api/v1/enterprise/verify-address (B2B KYC Address Verification API)
 router.post('/verify-address', authenticate, async (req, res) => {
   const { postcode, phone, name } = req.body;
   if (!postcode && !phone) {
-    return res.status(400).json({ error: 'postcode or phone number is required for address verification.' });
+    return res.status(400).json({ error: 'postcode, digital P.O. Box number, or phone number is required for address verification.' });
   }
 
   try {
     const cleanPostcode = postcode ? postcode.trim().toUpperCase() : null;
     const cleanPhone = phone ? phone.trim() : null;
+    const boxCode = cleanPostcode ? parseBoxNumber(cleanPostcode) : null;
 
     let userRes;
     if (cleanPhone) {
@@ -24,6 +26,15 @@ router.post('/verify-address', authenticate, async (req, res) => {
         WHERE u.phone = $1 OR u.phone = $2
         LIMIT 1
       `, [cleanPhone, cleanPhone.replace('+234', '0')]);
+    } else if (boxCode) {
+      userRes = await db.query(`
+        SELECT u.id, u.name, u.phone, u.postcode, u.digital_box,
+               pc.neighbourhood, pc.lga, pc.state
+        FROM users u
+        LEFT JOIN postcode_cache pc ON (pc.postcode = u.postcode OR pc.ndaps_code = u.postcode)
+        WHERE RIGHT(u.id::text, 4) = $1
+        LIMIT 1
+      `, [boxCode]);
     } else {
       userRes = await db.query(`
         SELECT u.id, u.name, u.phone, u.postcode, u.digital_box,
@@ -53,7 +64,7 @@ router.post('/verify-address', authenticate, async (req, res) => {
 
     const boxData = user.digital_box || {};
     const isGroundTruthVerified = Boolean(boxData.isGroundTruthVerified);
-    const boxNumber = `HBX-PBOX-${(user.postcode || '900001').replace(/[^A-Z0-9]/gi, '').slice(0, 8)}-${user.id.slice(0, 4).toUpperCase()}`;
+    const boxNumber = formatBoxNumber(user.id);
 
     let relocationStatus = 'ACTIVE_RESIDENT';
     let forwardingPostcode = null;

@@ -52,7 +52,7 @@ export default function CertificateModal({
                   Certificate of Ground-Truth Address Verification
                 </span>
                 <h2 className="text-xl font-serif font-black text-slate-950 pt-2">
-                  Official Proof of Address Dossier
+                  Official Proof of Address Certificate
                 </h2>
                 <p className="text-[11px] text-slate-600 max-w-md mx-auto">
                   This document certifies that the doorway and identity of the individual named below have been physically inspected and verified under the National Digital Address & Postcode System (NDAPS).
@@ -66,7 +66,7 @@ export default function CertificateModal({
                 </div>
                 <div>
                   <span className="text-[10px] text-slate-400 uppercase font-semibold">Digital P.O. Box Anchor</span>
-                  <p className="font-mono font-bold text-emerald-800">{digitalBox?.boxNumber || 'HBX-PBOX-FC01A03-0005'}</p>
+                  <p className="font-mono font-bold text-emerald-800">{digitalBox?.boxNumber || 'HBX-0005'}</p>
                 </div>
                 <div>
                   <span className="text-[10px] text-slate-400 uppercase font-semibold">NDAPS Digital Postcode</span>

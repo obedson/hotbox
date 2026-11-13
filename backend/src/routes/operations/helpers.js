@@ -1,4 +1,5 @@
 const db = require('../../config/db');
+const { formatBoxNumber } = require('../../utils/boxNumber');
 // GET /api/v1/operations/postcode-occupants (Postcode Occupancy Directory & Relocation Forwarding Search)
 async function handlePostcodeOccupants(req, res) {
   const queryPostcode = (req.query.postcode || '').trim();
@@ -56,7 +57,7 @@ async function handlePostcodeOccupants(req, res) {
         phone: u.phone,
         status: 'ACTIVE_RESIDENT',
         proofOfAddress: u.digital_box?.isGroundTruthVerified ? 'Verified by NIPOST (Ground-Truth Certified)' : 'Standard Registry',
-        digitalBox: `HBX-PBOX-${(u.postcode || '900001').replace(/-/g, '').slice(0, 8)}-${u.id.slice(0, 4).toUpperCase()}`
+        digitalBox: formatBoxNumber(u.id)
       })),
       relocatedResidents: relocated
     });

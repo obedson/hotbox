@@ -5,6 +5,7 @@ const db = require('../../config/db');
 const { authenticate } = require('../../middleware/auth');
 const notificationService = require('../../services/notificationService');
 const { normalizePostcode, resolvePostcode } = require('../../services/postcodeService');
+const { formatBoxNumber } = require('../../utils/boxNumber');
 // GET /api/v1/customer/profile
 router.get('/profile', authenticate, async (req, res) => {
   try {
@@ -313,8 +314,7 @@ router.get('/digital-box', authenticate, async (req, res) => {
     const user = userRes.rows[0];
 
     const boxData = user.digital_box || {};
-    const postcodeClean = (user.postcode || '900001').replace(/[^A-Z0-9]/gi, '').slice(0, 8);
-    const boxNumber = `HBX-PBOX-${postcodeClean}-${user.id.slice(0, 4).toUpperCase()}`;
+    const boxNumber = formatBoxNumber(user.id);
 
     const expiresAt = boxData.expiresAt ? new Date(boxData.expiresAt) : new Date(Date.now() + 300 * 24 * 3600 * 1000);
     const daysRemaining = Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 3600 * 24)));

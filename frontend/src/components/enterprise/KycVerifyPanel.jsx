@@ -94,7 +94,7 @@ export default function KycVerifyPanel({ handleKycVerify, kycLoading, kycName, k
                 <div className="bg-white p-3 rounded-xl border border-slate-200">
                   <span className="text-[10px] text-slate-400 uppercase font-semibold">Digital P.O. Box Anchor</span>
                   <p className="font-mono font-bold text-slate-900 mt-0.5">
-                    {kycResult.digitalBoxNumber || 'HBX-PBOX-FC01A03-0005'}
+                    {kycResult.digitalBoxNumber || 'HBX-0005'}
                   </p>
                 </div>
 

@@ -94,7 +94,7 @@ export default function DigitalBoxTab({
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[11px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 inline-flex items-center gap-1.5 shadow-xs">
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>NIPOST NDAPS Digital Post Office Box</span>
+                    <span>NIPOST Digital Post Office Box</span>
                   </span>
                   <span className="text-[11px] font-black uppercase px-2.5 py-1 rounded-full bg-emerald-400 text-slate-950 font-mono shadow-xs">
                     {digitalBox?.subscriptionStatus || 'ACTIVE'}
@@ -102,11 +102,11 @@ export default function DigitalBoxTab({
                 </div>
 
                 <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-                  Your Digital Postal Anchor & Ground-Truth Address
+                  Your Digital P.O.Box and Ground-Truth, NIPOST Verified Proof Address
                 </h1>
 
                 <p className="text-xs sm:text-sm text-emerald-100/80 leading-relaxed">
-                  Replacing the traditional physical P.O. Box with a verified digital anchor. Enjoy guaranteed mail delivery, dynamic parcel rerouting upon relocation, and bank-grade NIPOST doorway proof of address.
+                  Replacing the traditional physical P.O. Box with a verified digital anchor. Enjoy guaranteed mail delivery, dynamic parcel rerouting upon relocation, and bank-grade NIPOST Ground-Truth Verified Proof of Address.
                 </p>
               </div>
 
@@ -116,12 +116,12 @@ export default function DigitalBoxTab({
                   Digital P.O. Box Number
                 </span>
                 <span className="text-xl font-mono font-black text-white my-1 tracking-wider">
-                  {digitalBox?.boxNumber || 'HBX-PBOX-FC01A03-0005'}
+                  {digitalBox?.boxNumber || 'HBX-0005'}
                 </span>
                 <div className="flex items-center gap-1.5 mt-1">
                   <button
                     onClick={() => {
-                      navigator.clipboard?.writeText(digitalBox?.boxNumber || 'HBX-PBOX-FC01A03-0005');
+                      navigator.clipboard?.writeText(digitalBox?.boxNumber || 'HBX-0005');
                       showToast('Digital P.O. Box ID copied!');
                     }}
                     className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 text-[10px] font-bold border border-emerald-400/30 flex items-center gap-1 transition cursor-pointer"
@@ -143,7 +143,7 @@ export default function DigitalBoxTab({
             {/* Quick Metrics Ribbon */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-emerald-800/60 relative z-10">
               <div className="bg-black/20 p-3 rounded-xl border border-white/5">
-                <p className="text-[10px] text-emerald-300 font-medium">NDAPS Postcode</p>
+                <p className="text-[10px] text-emerald-300 font-medium">Postcode</p>
                 <p className="text-sm font-mono font-black text-white mt-0.5">
                   {digitalBox?.activePostcode || profile?.postcode || 'FC-01-A03-FK-01'}
                 </p>
@@ -154,7 +154,7 @@ export default function DigitalBoxTab({
                 <div className="flex items-center gap-1 mt-0.5">
                   <BadgeCheck className="w-3.5 h-3.5 text-emerald-400" />
                   <p className="text-xs font-bold text-white truncate">
-                    {digitalBox?.isGroundTruthVerified ? 'Ground-Truth Certified' : 'Hierarchy Verified'}
+                    {digitalBox?.isGroundTruthVerified ? 'Ground-Truth Certified' : 'NIPOST Verified'}
                   </p>
                 </div>
               </div>
@@ -189,7 +189,7 @@ export default function DigitalBoxTab({
                     Official NIPOST Certification
                   </span>
                   <h3 className="text-base font-black text-slate-900 mt-1">
-                    Proof of Address Dossier
+                    Proof of Address Certificate
                   </h3>
                   <p className="text-xs text-slate-500 mt-1">
                     Doorway ground-truth verification certified by NIPOST. Includes cryptographic QR code accepted by banks, embassies, and regulatory KYC.
@@ -217,30 +217,35 @@ export default function DigitalBoxTab({
               </div>
 
               <div className="space-y-2 pt-2">
-                <button
-                  onClick={() => setIsCertificateModalOpen(true)}
-                  className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-xs transition flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Download NIPOST Certificate (PDF)</span>
-                </button>
-                <button
-                  onClick={handleRequestGroundTruth}
-                  disabled={isRequestingGroundTruth}
-                  className="w-full py-2.5 px-4 border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  {isRequestingGroundTruth ? (
-                    <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-600" />
-                      <span>Dispatching Inspector...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Crosshair className="w-3.5 h-3.5 text-slate-500" />
-                      <span>{digitalBox?.isGroundTruthVerified ? 'Re-Verify Doorway (₦2,500)' : 'Request Doorway Verification (₦2,500)'}</span>
-                    </>
-                  )}
-                </button>
+                {digitalBox?.isGroundTruthVerified ? (
+                  <button
+                    onClick={() => setIsCertificateModalOpen(true)}
+                    className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-xs transition flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Download NIPOST POA Certificate (PDF)</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleRequestGroundTruth}
+                    disabled={isRequestingGroundTruth}
+                    className="w-full py-2.5 px-4 border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {isRequestingGroundTruth ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                        <span>Dispatching Inspector...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Crosshair className="w-3.5 h-3.5 text-slate-500" />
+                        <span>
+                          {digitalBox?.subscriptionStatus === 'ACTIVE' ? 'Renew your POA Certificate' : 'Request Doorway Verification (₦2,500)'}
+                        </span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -258,7 +263,7 @@ export default function DigitalBoxTab({
                     Digital P.O. Box Subscription
                   </h3>
                   <p className="text-xs text-slate-500 mt-1">
-                    Your active digital postal anchor. Ensures ongoing legal address certification, secure custody at partner hubs, and dynamic parcel rerouting.
+                    Your active digital post office box. Ensures unhindered mail delivery, and dynamic parcel rerouting.
                   </p>
                 </div>
 
