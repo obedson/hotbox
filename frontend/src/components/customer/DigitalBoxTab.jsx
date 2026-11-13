@@ -607,23 +607,20 @@ export default function DigitalBoxTab({
                   How couriers, postal inspectors, and delivery personnel query a postcode written on mail to resolve active building residents and auto-forwarding rules.
                 </p>
               </div>
-              <span className="text-[11px] font-bold px-3 py-1 bg-emerald-50 text-emerald-800 rounded-full border border-emerald-200">
-                NDAPS Directory Engine
-              </span>
             </div>
 
-            <form onSubmit={handleSearchOccupants} className="flex gap-2 max-w-xl">
+            <form onSubmit={handleSearchOccupants} className="flex flex-col sm:flex-row gap-2 max-w-xl">
               <input
                 type="text"
                 value={occupantSearchCode}
                 onChange={(e) => setOccupantSearchCode(e.target.value.toUpperCase())}
                 placeholder="Enter NDAPS Postcode e.g. FC-01-A03-FK-01"
-                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-mono font-bold focus:border-emerald-600 focus:outline-none bg-slate-50"
+                className="w-full sm:flex-1 min-w-0 px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-mono font-bold focus:border-emerald-600 focus:outline-none bg-slate-50"
               />
               <button
                 type="submit"
                 disabled={isSearchingOccupants}
-                className="px-5 py-2.5 bg-[#062419] hover:bg-[#0b3827] disabled:opacity-50 text-white rounded-xl text-xs font-black transition flex items-center gap-2 shrink-0 shadow-xs cursor-pointer"
+                className="w-full sm:w-auto px-5 py-2.5 bg-[#062419] hover:bg-[#0b3827] disabled:opacity-50 text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-2 shrink-0 shadow-xs cursor-pointer"
               >
                 {isSearchingOccupants ? (
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
