@@ -87,7 +87,7 @@ router.post('/verify-address', authenticate, async (req, res) => {
         lga: user.lga || 'Abuja Municipal',
         state: user.state || 'Federal Capital Territory'
       },
-      proofOfAddressStatus: isGroundTruthVerified ? 'Verified by NIPOST (Ground-Truth Certified)' : 'Hierarchy Verified (Pending Doorway Check)',
+      proofOfAddressStatus: isGroundTruthVerified ? 'Verified by NIPOST (Ground-Truth Certified)' : 'NIPOST Verified (Pending Doorway Check)',
       isGroundTruthVerified,
       relocationStatus,
       forwardingPostcode,
