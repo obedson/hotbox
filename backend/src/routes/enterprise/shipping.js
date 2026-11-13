@@ -32,7 +32,7 @@ router.post('/verify-address', authenticate, async (req, res) => {
                pc.neighbourhood, pc.lga, pc.state
         FROM users u
         LEFT JOIN postcode_cache pc ON (pc.postcode = u.postcode OR pc.ndaps_code = u.postcode)
-        WHERE RIGHT(u.id::text, 4) = $1
+        WHERE RIGHT(u.id::text, 4) = $1 OR LEFT(u.id::text, 4) = $1
         LIMIT 1
       `, [boxCode]);
     } else {
