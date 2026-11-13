@@ -136,6 +136,22 @@ Recommended production setup:
 4. Point `DATABASE_URL` at the Supabase pooler and keep the bundled CA in place.
 5. Set `PAYSTACK_SECRET_KEY` before enabling wallet top-ups.
 
+### Render
+
+The repository ships a Render Blueprint (`render.yaml`) that deploys the API
+and the built frontend as a single web service:
+
+1. Open <https://dashboard.render.com/blueprints> and connect this repository.
+2. Render reads `render.yaml` and prompts for `DATABASE_URL` (the Supabase
+   PostgreSQL connection string). `JWT_SECRET` is generated automatically.
+3. Deploy. The app is served from `https://hotbox.onrender.com`, with the API
+   under `/api` and the health check at `/api/health`.
+
+The build installs both packages and runs `vite build`; the start command runs
+the API, which serves `frontend/dist` when it is present. Free-plan services
+sleep after inactivity, so the first request can take a few seconds; upgrade to
+a paid plan if the free build runs out of memory.
+
 Phase 2 adds RLS review, pagination, backup runbooks, and mobile API
 configuration.
 

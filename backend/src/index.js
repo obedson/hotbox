@@ -4,6 +4,8 @@ if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
 }
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -171,6 +173,21 @@ app.get('/api/dropzones', async (req, res) => {
 app.get('/api/parcels/:tracking', (req, res) => {
   res.redirect(307, `/api/v1/shipments/track/${req.params.tracking}`);
 });
+
+// ----------------------------------------------------------------------------
+// SERVE THE BUILT FRONTEND (production)
+// ----------------------------------------------------------------------------
+// When the frontend bundle is present (frontend/dist), serve it from this
+// process so the API and web app share one URL. API routes are matched above
+// and never reach this block.
+const frontendDistPath = path.join(__dirname, '..', '..', 'frontend', 'dist');
+if (fs.existsSync(frontendDistPath)) {
+  app.use(express.static(frontendDistPath));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/')) return next();
+    res.sendFile(path.join(frontendDistPath, 'index.html'));
+  });
+}
 
 // Centralized 404 handler
 app.use((req, res) => {
