@@ -409,12 +409,12 @@ export default function DigitalBoxTab({
                   <span>Link Your Old P.O. Box Number</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Have a previous Hotbox P.O. Box number such as HBX-PBOX-FC01A03F-0005? Link it to your Digital P.O. Box so mail sent to the old number still reaches you.
+                  Have an old Post office box number? Link it to your new Digital P.O. Box so mail sent to the old number still reaches you.
                 </p>
               </div>
               {digitalBox?.legacyBoxNumber && (
                 <span className="text-[11px] font-bold px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200 shrink-0">
-                  Linked: {digitalBox.legacyBoxNumber}
+                  Old P.O. Box linked: {digitalBox.legacyBoxNumber}
                 </span>
               )}
             </div>
@@ -423,7 +423,7 @@ export default function DigitalBoxTab({
               <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-4 text-xs text-emerald-800 flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                 <span>
-                  <strong className="font-mono">{digitalBox.legacyBoxNumber}</strong> is linked and forwards to {digitalBox.boxNumber}.
+                  Your old P.O. Box <strong className="font-mono">{digitalBox.legacyBoxNumber}</strong> is linked and forwards to {digitalBox.boxNumber}.
                   {digitalBox.legacyLinkedAt && ` Linked on ${new Date(digitalBox.legacyLinkedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}.`}
                 </span>
               </div>
@@ -434,7 +434,7 @@ export default function DigitalBoxTab({
                 type="text"
                 value={legacyBoxInput}
                 onChange={(e) => setLegacyBoxInput(e.target.value.toUpperCase())}
-                placeholder="Old P.O. Box number e.g. HBX-PBOX-FC01A03F-0005"
+                placeholder="Enter your old NIPOST P.O. Box number"
                 className="w-full sm:flex-1 min-w-0 px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-mono font-bold focus:border-emerald-600 focus:outline-none bg-slate-50"
               />
               <button
