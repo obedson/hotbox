@@ -3,20 +3,55 @@ import { useState } from 'react';
 import {
   ArrowRight, ArrowUpDown, BadgeCheck, Calendar, Check, CheckCircle2, Copy,
   Crosshair, FileText, Mail, Navigation, Phone, RefreshCw, Search,
-  ShieldCheck, Sparkles, User, Wallet
+  ShieldCheck, Sparkles, User, Wallet, Link2
 } from 'lucide-react';
 import CertificateModal from './CertificateModal';
 
 export default function DigitalBoxTab({
   digitalBox, profile, wallet, currentUser, senderLocation, showToast,
   handleTestRerouteAlert, handleToggleNotification, testRerouteLoading,
-  testRerouteResult, isCertificateModalOpen, setIsCertificateModalOpen
+  testRerouteResult, isCertificateModalOpen, setIsCertificateModalOpen,
+  getAuthHeaders, fetchCustomerData
 }) {
   const [isRenewingBox, setIsRenewingBox] = useState(false);
   const [isRequestingGroundTruth, setIsRequestingGroundTruth] = useState(false);
   const [occupantSearchCode, setOccupantSearchCode] = useState('FC-01-A03-FK-01');
   const [occupantSearchResults, setOccupantSearchResults] = useState(null);
   const [isSearchingOccupants, setIsSearchingOccupants] = useState(false);
+  const [legacyBoxInput, setLegacyBoxInput] = useState('');
+  const [isLinkingLegacyBox, setIsLinkingLegacyBox] = useState(false);
+  const [legacyLinkMessage, setLegacyLinkMessage] = useState(null);
+
+  // Link a legacy P.O. Box number to this Digital P.O. Box
+  const handleLinkLegacyBox = async (e) => {
+    if (e) e.preventDefault();
+    const clean = legacyBoxInput.trim();
+    if (!clean) {
+      setLegacyLinkMessage({ type: 'error', text: 'Enter your old P.O. Box number first.' });
+      return;
+    }
+    setIsLinkingLegacyBox(true);
+    setLegacyLinkMessage(null);
+    try {
+      const res = await apiFetch('/api/v1/customer/link-legacy-box', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ legacyBoxNumber: clean })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setLegacyLinkMessage({ type: 'success', text: data.message });
+        setLegacyBoxInput('');
+        fetchCustomerData();
+      } else {
+        setLegacyLinkMessage({ type: 'error', text: data.error || 'Could not link that box number.' });
+      }
+    } catch (err) {
+      setLegacyLinkMessage({ type: 'error', text: 'Network error while linking your old box number.' });
+    } finally {
+      setIsLinkingLegacyBox(false);
+    }
+  };
 
   const handleRenewDigitalBox = async () => {
     setIsRenewingBox(true);
@@ -363,6 +398,64 @@ export default function DigitalBoxTab({
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Section: Link a legacy P.O. Box number */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                  <Link2 className="w-4 h-4 text-emerald-600" />
+                  <span>Link Your Old P.O. Box Number</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Have a previous Hotbox P.O. Box number such as HBX-PBOX-FC01A03F-0005? Link it to your Digital P.O. Box so mail sent to the old number still reaches you.
+                </p>
+              </div>
+              {digitalBox?.legacyBoxNumber && (
+                <span className="text-[11px] font-bold px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200 shrink-0">
+                  Linked: {digitalBox.legacyBoxNumber}
+                </span>
+              )}
+            </div>
+
+            {digitalBox?.legacyBoxNumber && (
+              <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-4 text-xs text-emerald-800 flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>
+                  <strong className="font-mono">{digitalBox.legacyBoxNumber}</strong> is linked and forwards to {digitalBox.boxNumber}.
+                  {digitalBox.legacyLinkedAt && ` Linked on ${new Date(digitalBox.legacyLinkedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}.`}
+                </span>
+              </div>
+            )}
+
+            <form onSubmit={handleLinkLegacyBox} className="flex flex-col sm:flex-row gap-2 max-w-xl">
+              <input
+                type="text"
+                value={legacyBoxInput}
+                onChange={(e) => setLegacyBoxInput(e.target.value.toUpperCase())}
+                placeholder="Old P.O. Box number e.g. HBX-PBOX-FC01A03F-0005"
+                className="w-full sm:flex-1 min-w-0 px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-mono font-bold focus:border-emerald-600 focus:outline-none bg-slate-50"
+              />
+              <button
+                type="submit"
+                disabled={isLinkingLegacyBox}
+                className="w-full sm:w-auto px-5 py-2.5 bg-[#062419] hover:bg-[#0b3827] disabled:opacity-50 text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-2 shrink-0 shadow-xs cursor-pointer"
+              >
+                {isLinkingLegacyBox ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Link2 className="w-3.5 h-3.5" />
+                )}
+                <span>{digitalBox?.legacyBoxNumber ? 'Update Linked Number' : 'Link Old Box Number'}</span>
+              </button>
+            </form>
+
+            {legacyLinkMessage && (
+              <p className={`text-[11px] font-semibold ${legacyLinkMessage.type === 'error' ? 'text-rose-600' : 'text-emerald-700'}`}>
+                {legacyLinkMessage.text}
+              </p>
+            )}
           </div>
 
           {/* Section: Relocation & Instant Mail Forwarding Ledger */}

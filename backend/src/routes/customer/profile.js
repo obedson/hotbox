@@ -5,7 +5,7 @@ const db = require('../../config/db');
 const { authenticate } = require('../../middleware/auth');
 const notificationService = require('../../services/notificationService');
 const { normalizePostcode, resolvePostcode } = require('../../services/postcodeService');
-const { formatBoxNumber } = require('../../utils/boxNumber');
+const { formatBoxNumber, getBoxSuffix, parseBoxNumber } = require('../../utils/boxNumber');
 // GET /api/v1/customer/profile
 router.get('/profile', authenticate, async (req, res) => {
   try {
@@ -335,6 +335,8 @@ router.get('/digital-box', authenticate, async (req, res) => {
       daysRemaining,
       annualFeeNgn: 3500.00,
       groundTruthingFeeNgn: 2500.00,
+      legacyBoxNumber: boxData.legacyBoxNumber || null,
+      legacyLinkedAt: boxData.legacyLinkedAt || null,
       relocations: boxData.relocations || [
         {
           oldPostcode: 'LA-01-A01-AA-01',
@@ -407,6 +409,68 @@ router.post('/renew-digital-box', authenticate, async (req, res) => {
       daysRemaining: 365,
       newBalance: newBal,
       reference: ref
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/v1/customer/link-legacy-box
+router.post('/link-legacy-box', authenticate, async (req, res) => {
+  const { legacyBoxNumber } = req.body;
+  const cleanInput = String(legacyBoxNumber || '').trim();
+  const suffix = parseBoxNumber(cleanInput);
+
+  if (!cleanInput) {
+    return res.status(400).json({ error: 'Please enter your old P.O. Box number.' });
+  }
+  if (!suffix) {
+    return res.status(400).json({ error: 'That does not look like a valid Hotbox or legacy P.O. Box number.' });
+  }
+
+  const ownSuffix = getBoxSuffix(req.user.id);
+  if (suffix !== ownSuffix) {
+    return res.status(400).json({
+      error: 'This old P.O. Box number does not belong to your account. Enter the old box number that was issued to you.'
+    });
+  }
+
+  try {
+    const existingRes = await db.query('SELECT digital_box FROM users WHERE id = $1', [req.user.id]);
+    const boxData = existingRes.rows[0] && existingRes.rows[0].digital_box
+      ? existingRes.rows[0].digital_box
+      : {};
+
+    if (boxData.legacyBoxNumber === cleanInput) {
+      return res.json({
+        message: 'This old P.O. Box number is already linked to your Digital P.O. Box.',
+        legacyBoxNumber: cleanInput,
+        digitalBoxNumber: formatBoxNumber(req.user.id)
+      });
+    }
+
+    const linkedAt = new Date().toISOString();
+    const updatedBox = Object.assign({}, boxData, {
+      legacyBoxNumber: cleanInput,
+      legacyLinkedAt: linkedAt
+    });
+
+    await db.query(
+      'UPDATE users SET digital_box = $1, updated_at = NOW() WHERE id = $2',
+      [JSON.stringify(updatedBox), req.user.id]
+    );
+
+    await db.query(
+      `INSERT INTO notifications (user_id, title, message, type, is_read, created_at)
+       VALUES ($1, 'Legacy P.O. Box Linked', 'Your old P.O. Box number has been linked to your Digital P.O. Box. Mail addressed to either number now reaches you.', 'SYSTEM_NOTICE', FALSE, NOW())`,
+      [req.user.id]
+    );
+
+    res.json({
+      message: 'Old P.O. Box number linked successfully. Mail addressed to your old number will now reach your Digital P.O. Box.',
+      legacyBoxNumber: cleanInput,
+      digitalBoxNumber: formatBoxNumber(req.user.id),
+      linkedAt
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

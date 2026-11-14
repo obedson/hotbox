@@ -361,6 +361,8 @@ export default function CustomerDashboard({ currentUser, onBookNewShipment, acti
       {activeTab === 'digital_box' && (
         <DigitalBoxTab
           digitalBox={digitalBox}
+          getAuthHeaders={getAuthHeaders}
+          fetchCustomerData={fetchCustomerData}
           profile={profile}
           wallet={wallet}
           currentUser={currentUser}

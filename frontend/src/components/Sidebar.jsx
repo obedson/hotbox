@@ -4,7 +4,7 @@ import {
   ShieldCheck, BarChart2, FileText, Settings, LogOut, Key, Webhook,
   Receipt, LifeBuoy, Building2, PlusCircle, Navigation, Wallet,
   HelpCircle, User, QrCode, KeyRound, Boxes, Clock, TrendingUp,
-  Compass, Bike, CheckCircle2, BookOpen, X
+  Compass, Bike, CheckCircle2, BookOpen, X, Search
 } from 'lucide-react';
 
 const PORTAL_CONFIG = {
@@ -106,6 +106,7 @@ const PORTAL_CONFIG = {
     iconActiveColor: 'text-blue-400',
     navItems: [
       { id: 'radar', label: 'Job Radar', icon: Compass, badge: 'Live', badgeType: 'info', tooltip: 'Available pickup and delivery jobs in your corridor' },
+      { id: 'lookup', label: 'Postcode Lookup', icon: Search, tooltip: 'Resolve a postcode or digital P.O. Box to a delivery address' },
       { id: 'active_route', label: 'Active Deliveries', icon: Bike, badge: 'Route', badgeType: 'warning', tooltip: 'Current delivery manifest & route directions' },
       { id: 'scanner', label: 'Custody Scanner', icon: QrCode, tooltip: 'Pickup verification & doorstep proof-of-delivery' },
       { id: 'history', label: 'Trip History', icon: CheckCircle2, tooltip: 'Completed deliveries & customer ratings' },

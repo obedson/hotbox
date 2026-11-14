@@ -5,6 +5,7 @@ import {
   AlertTriangle, ExternalLink, User, Calendar, Check
 } from 'lucide-react';
 import CustodyScanner from './CustodyScanner';
+import RiderLookup from './RiderLookup';
 
 export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showToast }) {
   // Available corridor jobs
@@ -318,7 +319,24 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
         </div>
       )}
 
-      {/* TAB 4: DELIVERY TRIP HISTORY */}
+      {/* TAB 4: POSTCODE & DIGITAL P.O. BOX LOOKUP */}
+      {activeNav === 'lookup' && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Postcode & Digital P.O. Box Lookup</h3>
+              <p className="text-xs text-slate-500">Resolve any postcode or digital P.O. Box number to a delivery or rerouting address</p>
+            </div>
+            <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold w-fit">
+              Address Resolution Tool
+            </span>
+          </div>
+
+          <RiderLookup showToast={showToast} />
+        </div>
+      )}
+
+      {/* TAB 5: DELIVERY TRIP HISTORY */}
       {activeNav === 'history' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
