@@ -25,7 +25,11 @@ router.get('/lookup', authenticate, async (req, res) => {
         `SELECT u.id, u.name, u.phone, u.postcode, u.digital_box,
                 pc.neighbourhood, pc.lga, pc.state
          FROM users u
-         LEFT JOIN postcode_cache pc ON (pc.postcode = u.postcode OR pc.ndaps_code = u.postcode OR pc.legacy_code = u.postcode)
+         LEFT JOIN LATERAL (
+           SELECT neighbourhood, lga, state FROM postcode_cache
+           WHERE postcode = u.postcode OR ndaps_code = u.postcode OR legacy_code = u.postcode
+           LIMIT 1
+         ) pc ON TRUE
          WHERE RIGHT(u.id::text, 4) = $1 OR LEFT(u.id::text, 4) = $1`,
         [boxCode]
       );
@@ -35,7 +39,11 @@ router.get('/lookup', authenticate, async (req, res) => {
         `SELECT u.id, u.name, u.phone, u.postcode, u.digital_box,
                 pc.neighbourhood, pc.lga, pc.state
          FROM users u
-         LEFT JOIN postcode_cache pc ON (pc.postcode = u.postcode OR pc.ndaps_code = u.postcode OR pc.legacy_code = u.postcode)
+         LEFT JOIN LATERAL (
+           SELECT neighbourhood, lga, state FROM postcode_cache
+           WHERE postcode = u.postcode OR ndaps_code = u.postcode OR legacy_code = u.postcode
+           LIMIT 1
+         ) pc ON TRUE
          WHERE u.postcode = $1 OR replace(u.postcode, '-', '') = replace($1, '-', '')`,
         [input]
       );
