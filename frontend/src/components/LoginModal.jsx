@@ -9,8 +9,8 @@ const DEMO_PROFILES = [
   {
     role: 'customer',
     title: 'Individual Customer',
-    name: 'Tariq Bello',
-    phone: '+2348012345678',
+    name: 'Tunde Fashola',
+    phone: '+2348037778899',
     password: 'Password123!',
     icon: Package
   },
@@ -25,23 +25,23 @@ const DEMO_PROFILES = [
   {
     role: 'rider',
     title: 'Dispatch Rider',
-    name: 'Emeka Nnamdi',
-    phone: '+2348051122334',
+    name: 'Musa Danladi',
+    phone: '+2348055556677',
     password: 'Password123!',
     icon: Bike
   },
   {
     role: 'ops_admin',
     title: 'Operations Admin',
-    name: 'Kolawole Adeleke',
-    phone: '+2348061122335',
+    name: 'System Super Admin',
+    phone: '+2348000000000',
     password: 'Password123!',
     icon: ShieldCheck
   },
   {
     role: 'compliance_officer',
     title: 'Compliance Officer',
-    name: 'Zainab Aliyu',
+    name: 'Oluwaseun Adeyemi',
     phone: '+2348079988776',
     password: 'Password123!',
     icon: ShieldCheck
@@ -49,8 +49,8 @@ const DEMO_PROFILES = [
   {
     role: 'enterprise_shipper',
     title: 'Enterprise Shipper',
-    name: 'Konga Express Operations',
-    phone: '+2348098877665',
+    name: 'Konga Logistics Ltd Corp',
+    phone: '+2348090001122',
     password: 'Password123!',
     icon: Building2
   }
