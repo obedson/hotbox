@@ -135,9 +135,13 @@ router.get('/radar/jobs', authenticate, async (req, res) => {
         h.business_name as destination_hub_name,
         h.address_text as destination_hub_address,
         h.postcode as destination_hub_postcode,
+        oh.business_name as origin_hub_name,
+        oh.address_text as origin_hub_address,
+        oh.postcode as origin_hub_postcode,
         (s.pricing_total_ngn * 0.35) as potential_earning_ngn
       FROM shipments s
       LEFT JOIN hubs h ON s.destination_hub_id = h.id
+      LEFT JOIN hubs oh ON s.origin_hub_id = oh.id
       WHERE s.status IN ('BOOKED', 'RIDER_ASSIGNED')
       ORDER BY s.created_at DESC
       LIMIT 30
@@ -201,6 +205,39 @@ router.get('/me', authenticate, async (req, res) => {
       rider: riderRes.rows[0],
       walletBalance: walletRes.rows.length > 0 ? parseFloat(walletRes.rows[0].balance_ngn) : 0.00
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/v1/riders/me/jobs - shipments assigned to the signed-in rider (active + completed)
+router.get('/me/jobs', authenticate, async (req, res) => {
+  try {
+    const riderRes = await db.query('SELECT id FROM riders WHERE user_id = $1', [req.user.id]);
+    if (riderRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Rider profile not found for this user.' });
+    }
+
+    const result = await db.query(
+      `SELECT s.*,
+              h.business_name as destination_hub_name,
+              h.address_text as destination_hub_address,
+              h.postcode as destination_hub_postcode,
+              oh.business_name as origin_hub_name,
+              oh.address_text as origin_hub_address,
+              oh.postcode as origin_hub_postcode,
+              (s.pricing_total_ngn * 0.35) as potential_earning_ngn
+       FROM shipments s
+       LEFT JOIN hubs h ON s.destination_hub_id = h.id
+       LEFT JOIN hubs oh ON s.origin_hub_id = oh.id
+       WHERE s.assigned_rider_id = $1
+         AND s.status IN ('RIDER_ASSIGNED', 'PICKED_UP_FROM_SENDER', 'IN_TRANSIT_TO_HUB', 'STORED_IN_BAY', 'COLLECTED_AT_HUB', 'DELIVERED_TO_RECIPIENT')
+       ORDER BY s.updated_at DESC
+       LIMIT 50`,
+      [riderRes.rows[0].id]
+    );
+
+    res.json({ jobs: result.rows, total: result.rows.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

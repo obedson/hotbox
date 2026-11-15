@@ -1,58 +1,54 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Store, QrCode, KeyRound, Boxes, Clock, TrendingUp, Users,
   CheckCircle2, AlertTriangle, ArrowRight, ShieldCheck, Phone,
-  Search, Download, RefreshCw, Calendar, MapPin, DollarSign, Package
+  Search, Download, RefreshCw, Calendar, MapPin, DollarSign, Package, Loader2
 } from 'lucide-react';
+import { apiFetch } from '../lib/api';
 import CustodyScanner from './CustodyScanner';
 
 export default function HubStationConsole({ activeNav, setActiveNav, hubs, showToast }) {
-  // Demo storage bay data
-  const [bays, setBays] = useState(() => {
-    const list = [];
-    // Small bays A01 - A20
-    for (let i = 1; i <= 20; i++) {
-      const code = `BAY-A${i < 10 ? '0' + i : i}`;
-      const isOccupied = [2, 5, 8, 12, 17].includes(i);
-      list.push({
-        code,
-        tier: 'Small',
-        maxWeight: '3 kg',
-        status: isOccupied ? 'OCCUPIED' : 'AVAILABLE',
-        trackingCode: isOccupied ? `HBX-FC01A0-${1000 + i * 43}` : null,
-        recipient: isOccupied ? ['Chidi Okafor', 'Amina Yusuf', 'Tunde Bakare', 'Fatima Bello', 'Ngozi Eze'][i % 5] : null,
-        daysHeld: isOccupied ? (i === 5 ? 4 : i === 12 ? 5 : 1) : 0
-      });
+  const [mine, setMine] = useState(null);
+  const [mineLoading, setMineLoading] = useState(true);
+  const [mineError, setMineError] = useState('');
+
+  const loadMine = useCallback(async () => {
+    setMineLoading(true);
+    setMineError('');
+    try {
+      const res = await apiFetch('/api/v1/hubs/mine');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Unable to load hub');
+      setMine(data);
+    } catch (err) {
+      setMineError(err.message);
+    } finally {
+      setMineLoading(false);
     }
-    // Medium bays B01 - B20
-    for (let i = 1; i <= 20; i++) {
-      const code = `BAY-B${i < 10 ? '0' + i : i}`;
-      const isOccupied = [1, 4, 9, 14, 18].includes(i);
-      list.push({
-        code,
-        tier: 'Medium',
-        maxWeight: '10 kg',
-        status: isOccupied ? 'OCCUPIED' : 'AVAILABLE',
-        trackingCode: isOccupied ? `HBX-FC01A0-${2000 + i * 37}` : null,
-        recipient: isOccupied ? ['Ibrahim Sani', 'Grace Danjuma', 'Emeka Nwosu', 'Blessing Alabi', 'Kudirat Balogun'][i % 5] : null,
-        daysHeld: isOccupied ? (i === 4 ? 4 : 2) : 0
-      });
-    }
-    // Large bays C01 - C20
-    for (let i = 1; i <= 20; i++) {
-      const code = `BAY-C${i < 10 ? '0' + i : i}`;
-      const isOccupied = [3, 11].includes(i);
-      list.push({
-        code,
-        tier: 'Large',
-        maxWeight: '25 kg',
-        status: isOccupied ? 'OCCUPIED' : 'AVAILABLE',
-        trackingCode: isOccupied ? `HBX-FC01A0-${3000 + i * 51}` : null,
-        recipient: isOccupied ? ['Abubakar Garba', 'Samuel Adeleke'][i % 2] : null,
-        daysHeld: isOccupied ? 1 : 0
-      });
-    }
-    return list;
+  }, []);
+
+  useEffect(() => {
+    loadMine();
+  }, [loadMine]);
+
+  const hub = mine?.hub || null;
+  const stats = mine?.stats || {};
+  const staffList = mine?.staff || [];
+  const bays = (mine?.bays || []).map((b) => {
+    const storedAt = b.received_at_hub_at
+      ? new Date(b.received_at_hub_at)
+      : b.shipment_created_at
+      ? new Date(b.shipment_created_at)
+      : null;
+    const daysHeld = storedAt ? Math.max(0, Math.floor((Date.now() - storedAt.getTime()) / 86400000)) : 0;
+    return {
+      code: b.bay_code,
+      tier: b.size_tier,
+      status: b.is_occupied ? 'OCCUPIED' : 'AVAILABLE',
+      trackingCode: b.tracking_code,
+      recipient: b.recipient_name,
+      daysHeld
+    };
   });
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -74,6 +70,29 @@ export default function HubStationConsole({ activeNav, setActiveNav, hubs, showT
     }, 900);
   };
 
+  if (mineLoading) {
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-teal-600" />
+      </div>
+    );
+  }
+
+  if (!hub) {
+    return (
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-10 text-center space-y-2">
+        <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center mx-auto">
+          <Store className="w-6 h-6" />
+        </div>
+        <h2 className="text-lg font-black text-slate-900">No hub linked to this account</h2>
+        <p className="text-xs text-slate-500 max-w-md mx-auto">
+          This screen shows live data for your own hub station. Register a hub or ask an administrator to link you as its owner.
+        </p>
+        {mineError && <p className="text-xs text-rose-600">{mineError}</p>}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Community Hub Host Banner */}
@@ -87,10 +106,12 @@ export default function HubStationConsole({ activeNav, setActiveNav, hubs, showT
               Track C Verified
             </span>
           </div>
-          <h1 className="text-lg sm:text-xl font-black mt-1.5">Wuse 2 Express Mart & Hub (FC-01-A03-FK-01)</h1>
+          <h1 className="text-lg sm:text-xl font-black mt-1.5">
+            {hub ? `${hub.business_name} (${hub.postcode})` : 'No hub linked'}
+          </h1>
           <p className="text-xs text-teal-200/80 mt-0.5 flex items-center gap-1.5 flex-wrap">
             <MapPin className="w-3.5 h-3.5 text-teal-400 shrink-0" />
-            <span>Plot 112 Aminu Kano Cres, Wuse 2 · Mallam Ibrahim (+234 803 112 3456)</span>
+            <span>{hub ? `${hub.address_text} · ${hub.phone}` : 'Link a hub to this account to see live station data.'}</span>
           </p>
         </div>
         <div className="grid grid-cols-2 sm:flex items-center gap-2 sm:gap-3 shrink-0">
@@ -117,10 +138,8 @@ export default function HubStationConsole({ activeNav, setActiveNav, hubs, showT
                 <span className="font-bold text-slate-700">Inbound Today</span>
                 <Package className="w-4 h-4 text-teal-600" />
               </div>
-              <div className="text-2xl font-black text-slate-900">18 Parcels</div>
-              <div className="text-[11px] text-emerald-600 font-semibold mt-1 flex items-center gap-1">
-                <span>↑ 4 vs yesterday</span>
-              </div>
+              <div className="text-2xl font-black text-slate-900">{stats.inbound_today ?? 0} Parcels</div>
+              <div className="text-[11px] text-slate-500 mt-1">Scanned in today</div>
             </div>
 
             <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm hover:border-slate-300 transition-all flex flex-col justify-between" title="Customer collections released via 6-digit OTP code">
@@ -128,7 +147,7 @@ export default function HubStationConsole({ activeNav, setActiveNav, hubs, showT
                 <span className="font-bold text-slate-700">Collections</span>
                 <KeyRound className="w-4 h-4 text-emerald-600" />
               </div>
-              <div className="text-2xl font-black text-slate-900">14 Picked Up</div>
+              <div className="text-2xl font-black text-slate-900">{stats.collected_total ?? 0} Picked Up</div>
               <div className="text-[11px] text-slate-500 mt-1 truncate">Verified by OTP token</div>
             </div>
 
@@ -137,8 +156,8 @@ export default function HubStationConsole({ activeNav, setActiveNav, hubs, showT
                 <span className="font-bold text-slate-700">Open Bays</span>
                 <Boxes className="w-4 h-4 text-teal-600" />
               </div>
-              <div className="text-2xl font-black text-slate-900">{bays.length - occupiedCount} Open</div>
-              <div className="text-[11px] text-slate-500 mt-1 truncate">{Math.round((occupiedCount / bays.length) * 100)}% utilized</div>
+              <div className="text-2xl font-black text-slate-900">{stats.open_bays ?? 0} Open</div>
+              <div className="text-[11px] text-slate-500 mt-1 truncate">{bays.length ? Math.round((occupiedCount / bays.length) * 100) : 0}% utilized</div>
             </div>
 
             <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm hover:border-slate-300 transition-all flex flex-col justify-between" title="Parcels in bays exceeding 3 days accruing late fees">
@@ -407,27 +426,14 @@ export default function HubStationConsole({ activeNav, setActiveNav, hubs, showT
       {activeNav === 'earnings' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-              <div className="text-slate-500 text-xs font-semibold">Available for Withdrawal</div>
-              <div className="text-2xl font-black text-slate-900 mt-1">₦42,000.00</div>
-              <button
-                onClick={() => setIsPayoutModalOpen(true)}
-                className="mt-3 w-full py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
-              >
-                Request Bank Settlement
-              </button>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-              <div className="text-slate-500 text-xs font-semibold">Pending Settlement (Next Cycle)</div>
-              <div className="text-2xl font-black text-slate-900 mt-1">₦26,500.00</div>
-              <div className="text-[11px] text-slate-500 mt-3">Clears automatically every Tuesday</div>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-              <div className="text-slate-500 text-xs font-semibold">Lifetime Commission Earned</div>
-              <div className="text-2xl font-black text-emerald-600 mt-1">₦184,500.00</div>
-              <div className="text-[11px] text-slate-500 mt-3">369 successful intake & release handoffs</div>
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-center space-y-2">
+              <div className="w-10 h-10 rounded-xl bg-slate-50 text-slate-500 flex items-center justify-center mx-auto">
+                <DollarSign className="w-5 h-5" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-900">Earnings &amp; payouts</h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                Commission tracking and bank settlement for hub stations will appear here once enabled.
+              </p>
             </div>
           </div>
 
@@ -438,25 +444,7 @@ export default function HubStationConsole({ activeNav, setActiveNav, hubs, showT
               <span className="text-xs text-slate-500 font-mono">Commission: ₦250 Intake / ₦250 Release</span>
             </div>
 
-            <div className="divide-y divide-slate-100 text-xs">
-              {[
-                { time: 'Today, 2:15 PM', desc: 'Customer Collection Release (OTP Verified)', ref: 'HBX-FC01A0-1043', credit: '₦250.00' },
-                { time: 'Today, 11:30 AM', desc: 'Rider Inbound Parcel Intake (Bay BAY-A12)', ref: 'HBX-FC01A0-2037', credit: '₦250.00' },
-                { time: 'Yesterday, 5:40 PM', desc: 'Customer Collection Release (OTP Verified)', ref: 'HBX-FC01A0-3151', credit: '₦250.00' },
-                { time: 'Yesterday, 3:10 PM', desc: 'Overdue Late Storage Fee Split (2 days)', ref: 'HBX-FC01A0-4490', credit: '₦700.00' },
-                { time: '28 Oct 2026', desc: 'Weekly Bank Settlement to GTBank (•••3490)', ref: 'PAYOUT-20261028', credit: '-₦35,000.00', isDebit: true }
-              ].map((tx, idx) => (
-                <div key={idx} className="py-3 flex items-center justify-between">
-                  <div>
-                    <div className="font-semibold text-slate-800">{tx.desc}</div>
-                    <div className="text-[10px] text-slate-400 font-mono mt-0.5">{tx.ref} • {tx.time}</div>
-                  </div>
-                  <div className={`font-mono font-bold ${tx.isDebit ? 'text-slate-900' : 'text-emerald-600'}`}>
-                    {tx.credit}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <div className="py-6 text-center text-xs text-slate-500">No commission credits recorded yet.</div>
           </div>
         </div>
       )}
@@ -481,7 +469,7 @@ export default function HubStationConsole({ activeNav, setActiveNav, hubs, showT
                 <input
                   type="text"
                   disabled
-                  defaultValue="Wuse 2 Express Mart & Hub"
+                  defaultValue={hub.business_name || ''}
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 font-semibold"
                 />
               </div>
@@ -491,7 +479,7 @@ export default function HubStationConsole({ activeNav, setActiveNav, hubs, showT
                 <input
                   type="text"
                   disabled
-                  defaultValue="FC-01-A03-FK-01"
+                  defaultValue={hub.postcode || ''}
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 font-mono font-bold text-teal-800"
                 />
               </div>
@@ -501,7 +489,7 @@ export default function HubStationConsole({ activeNav, setActiveNav, hubs, showT
                 <input
                   type="text"
                   disabled
-                  defaultValue="Plot 112 Aminu Kano Crescent, Wuse 2, Abuja"
+                  defaultValue={hub.address_text || ''}
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50"
                 />
               </div>
@@ -522,18 +510,24 @@ export default function HubStationConsole({ activeNav, setActiveNav, hubs, showT
                 <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl p-2 bg-slate-50">
                   <div className="py-1.5 flex justify-between items-center">
                     <div>
-                      <div className="font-bold text-slate-800">Mallam Ibrahim</div>
+                      <div className="font-bold text-slate-800">{hub.owner_name || 'Hub Owner'}</div>
                       <div className="text-[10px] text-slate-500">Hub Owner / Manager</div>
                     </div>
                     <span className="px-2 py-0.5 rounded bg-teal-100 text-teal-800 text-[10px] font-bold">Admin</span>
                   </div>
-                  <div className="py-1.5 flex justify-between items-center">
-                    <div>
-                      <div className="font-bold text-slate-800">Zainab Aliyu</div>
-                      <div className="text-[10px] text-slate-500">Intake & Handover Clerk</div>
+                  {staffList.length === 0 ? (
+                    <div className="py-2 text-xs text-slate-500">No additional counter staff registered.</div>
+                  ) : staffList.map((s) => (
+                    <div key={s.email || s.name} className="py-1.5 flex justify-between items-center">
+                      <div>
+                        <div className="font-bold text-slate-800">{s.name}</div>
+                        <div className="text-[10px] text-slate-500 capitalize">{s.role || 'Staff'}</div>
+                      </div>
+                      <span className="px-2 py-0.5 rounded bg-slate-200 text-slate-700 text-[10px] font-bold">
+                        {s.is_active ? 'Active' : 'Inactive'}
+                      </span>
                     </div>
-                    <span className="px-2 py-0.5 rounded bg-slate-200 text-slate-700 text-[10px] font-bold">Staff PIN</span>
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>

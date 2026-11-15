@@ -1,107 +1,149 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Bike, Compass, QrCode, CheckCircle2, Wallet, ShieldCheck,
   Navigation, MapPin, Phone, ArrowRight, DollarSign, Clock,
-  AlertTriangle, ExternalLink, User, Calendar, Check
+  AlertTriangle, ExternalLink, User, Calendar, Check, Loader2
 } from 'lucide-react';
 import CustodyScanner from './CustodyScanner';
 import RiderLookup from './RiderLookup';
+import { apiFetch } from '../lib/api';
 
 export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showToast }) {
-  // Available corridor jobs
-  const [availableJobs, setAvailableJobs] = useState([
-    {
-      id: 'JOB-7701',
-      serviceType: 'Door-to-Hub',
-      pickupPostcode: 'FC-01-A03-FK-01',
-      pickupAddress: 'Shop 4, Wuse 2 Shopping Plaza, Abuja',
-      dropoffPostcode: 'FC-01-A03-FK-01',
-      dropoffHub: 'Wuse 2 Express Mart & Hub',
-      parcelTier: 'Small (1.2 kg)',
-      payout: 1500,
-      distanceKm: '1.4 km',
-      slaMinutes: '45 mins'
-    },
-    {
-      id: 'JOB-7702',
-      serviceType: 'Hub-to-Door',
-      pickupPostcode: 'FC-01-A03-FK-01',
-      pickupHub: 'Wuse 2 Express Mart & Hub',
-      dropoffPostcode: 'FC-01-A02-FK-02',
-      dropoffAddress: 'Plot 45, Jabi Lake View Estate, Jabi, Abuja',
-      parcelTier: 'Medium (4.5 kg)',
-      payout: 2200,
-      distanceKm: '3.8 km',
-      slaMinutes: '60 mins'
-    },
-    {
-      id: 'JOB-7703',
-      serviceType: 'Corridor Transfer',
-      pickupPostcode: 'FC-01-A01-FK-03',
-      pickupHub: 'Garki Area 1 Hub Station',
-      dropoffPostcode: 'FC-01-A03-FK-01',
-      dropoffHub: 'Wuse 2 Express Mart & Hub',
-      parcelTier: 'Large (12.0 kg)',
-      payout: 2800,
-      distanceKm: '5.2 km',
-      slaMinutes: '90 mins'
-    }
-  ]);
+  const [me, setMe] = useState(null);
+  const [radarJobs, setRadarJobs] = useState([]);
+  const [myJobs, setMyJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [claimingId, setClaimingId] = useState(null);
 
-  // Active route stops
-  const [activeRouteStops, setActiveRouteStops] = useState([
-    {
-      stopNumber: 1,
-      type: 'PICKUP',
-      title: 'Merchant Parcel Pickup',
-      address: 'Plot 112 Aminu Kano Crescent, Wuse 2, Abuja',
-      postcode: 'FC-01-A03-FK-01',
-      contact: 'Konga Express Merchant (+234 802 334 5566)',
-      status: 'COMPLETED',
-      trackingCode: 'HBX-FC01A0-4491'
-    },
-    {
-      stopNumber: 2,
-      type: 'HUB_HANDOFF',
-      title: 'Drop off at Wuse 2 Hub',
-      address: 'Plot 112 Aminu Kano Crescent, Wuse 2, Abuja',
-      postcode: 'FC-01-A03-FK-01',
-      contact: 'Mallam Ibrahim (Hub Host)',
-      status: 'IN_PROGRESS',
-      trackingCode: 'HBX-FC01A0-4491'
-    },
-    {
-      stopNumber: 3,
-      type: 'DOOR_DELIVERY',
-      title: 'Doorstep Delivery to Recipient',
-      address: 'Suite B12, Jabi Lake Mall, Jabi, Abuja',
-      postcode: 'FC-01-A02-FK-02',
-      contact: 'Fatima Bello (+234 809 112 9988)',
-      status: 'PENDING',
-      trackingCode: 'HBX-FC01A0-8912'
+  const loadConsole = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [meRes, jobsRes, mineRes] = await Promise.all([
+        apiFetch('/api/v1/riders/me'),
+        apiFetch('/api/v1/riders/radar/jobs'),
+        apiFetch('/api/v1/riders/me/jobs')
+      ]);
+
+      const jobsData = await jobsRes.json();
+      if (!jobsRes.ok) throw new Error(jobsData.error || 'Unable to load delivery jobs');
+      setRadarJobs(jobsData.jobs || []);
+
+      if (meRes.ok) {
+        setMe(await meRes.json());
+      } else {
+        const meData = await meRes.json().catch(() => ({}));
+        if (meRes.status !== 404) throw new Error(meData.error || 'Unable to load rider profile');
+        setMe(null);
+      }
+
+      if (mineRes.ok) {
+        const mineData = await mineRes.json();
+        setMyJobs(mineData.jobs || []);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-  ]);
+  }, []);
+
+  useEffect(() => {
+    loadConsole();
+  }, [loadConsole]);
+
+  const rider = me?.rider || null;
+  const walletBalance = me?.walletBalance ?? 0;
+
+  const serviceLabels = {
+    DOOR_TO_HUB: 'Door-to-Hub',
+    HUB_TO_DOOR: 'Hub-to-Door',
+    DOOR_TO_DOOR: 'Door-to-Door',
+    HUB_TO_HUB: 'Corridor Transfer'
+  };
+
+  const serviceLabel = (type) => serviceLabels[type] || type || 'Delivery';
+
+  const availableJobs = radarJobs
+    .filter(job => job.status === 'BOOKED')
+    .map(job => ({
+      id: job.id,
+      trackingCode: job.tracking_code,
+      serviceType: serviceLabel(job.service_type),
+      size: job.size || '',
+      weight: job.weight_kg ? `${job.weight_kg} kg` : '',
+      pickupAddress: job.sender_address_text || job.origin_hub_name || 'Pickup point',
+      pickupPostcode: job.sender_postcode || job.origin_hub_postcode || '\u2014',
+      dropoffAddress: job.recipient_address_text || job.destination_hub_name || 'Destination',
+      dropoffPostcode: job.recipient_postcode || job.destination_hub_postcode || '\u2014',
+      payout: Number(job.potential_earning_ngn || 0)
+    }));
+
+  const activeJobs = myJobs.filter(job => !['COLLECTED_AT_HUB', 'DELIVERED_TO_RECIPIENT'].includes(job.status));
+
+  const activeRouteStops = activeJobs.map((job, idx) => ({
+    stopNumber: idx + 1,
+    type: job.service_type === 'HUB_TO_DOOR' ? 'DOOR_DELIVERY' : job.service_type === 'DOOR_TO_HUB' ? 'CLAIMED_PICKUP' : 'HUB_HANDOFF',
+    title: `${serviceLabel(job.service_type)} \u2022 ${job.tracking_code}`,
+    address: job.recipient_address_text || job.destination_hub_name || job.sender_address_text || 'Address on waybill',
+    postcode: job.recipient_postcode || job.destination_hub_postcode || job.sender_postcode || '\u2014',
+    contact: job.recipient_phone || job.sender_phone || 'Contact on waybill',
+    status: 'IN_PROGRESS',
+    trackingCode: job.tracking_code
+  }));
+
+  const completedJobs = myJobs
+    .filter(job => ['COLLECTED_AT_HUB', 'DELIVERED_TO_RECIPIENT'].includes(job.status))
+    .map(job => ({
+      id: job.id,
+      time: job.delivered_at || job.collected_at || job.updated_at,
+      code: job.tracking_code,
+      corridor: `${job.sender_postcode || '\u2014'} \u2794 ${job.recipient_postcode || job.destination_hub_postcode || '\u2014'}`,
+      service: serviceLabel(job.service_type),
+      pay: Number(job.potential_earning_ngn || 0)
+    }));
+
+  const pendingEscrow = activeJobs.reduce((sum, job) => sum + Number(job.potential_earning_ngn || 0), 0);
 
   const [isPayoutModalOpen, setIsPayoutModalOpen] = useState(false);
-  const [payoutAmount, setPayoutAmount] = useState('32500');
+  const [payoutAmount, setPayoutAmount] = useState('');
   const [payoutLoading, setPayoutLoading] = useState(false);
 
-  const handleClaimJob = (job) => {
-    setAvailableJobs(prev => prev.filter(j => j.id !== job.id));
-    setActiveRouteStops(prev => [
-      ...prev,
-      {
-        stopNumber: prev.length + 1,
-        type: 'CLAIMED_PICKUP',
-        title: `Pickup for ${job.id}`,
-        address: job.pickupAddress || job.pickupHub,
-        postcode: job.pickupPostcode,
-        contact: 'Sender Contact on Waybill',
-        status: 'PENDING',
-        trackingCode: `HBX-FC01A0-${Math.floor(1000 + Math.random() * 9000)}`
+  const formatMoney = (amount) =>
+    '\u20a6' + Number(amount || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const formatDateTime = (value) => {
+    if (!value) return '\u2014';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '\u2014';
+    return date.toLocaleString('en-NG', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const checkBadge = (ok, okText, pendingText) => (
+    <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${ok ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+      {ok ? okText : pendingText}
+    </span>
+  );
+
+  const handleClaimJob = async (job) => {
+    setClaimingId(job.id);
+    try {
+      const res = await apiFetch(`/api/v1/riders/jobs/${job.id}/accept`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Unable to claim this job');
+      setRadarJobs(prev => prev.filter(j => j.id !== job.id));
+      if (showToast) showToast(`Claimed job ${job.trackingCode}. Added to your active route.`);
+      const mineRes = await apiFetch('/api/v1/riders/me/jobs');
+      if (mineRes.ok) {
+        const mineData = await mineRes.json();
+        setMyJobs(mineData.jobs || []);
       }
-    ]);
-    if (showToast) showToast(`Claimed job ${job.id}! Added to active route manifest.`);
+    } catch (err) {
+      if (showToast) showToast(err.message);
+    } finally {
+      setClaimingId(null);
+    }
   };
 
   const handleWithdrawal = (e) => {
@@ -110,38 +152,67 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
     setTimeout(() => {
       setPayoutLoading(false);
       setIsPayoutModalOpen(false);
-      if (showToast) showToast('Instant rider payout of ₦' + Number(payoutAmount).toLocaleString() + ' sent to your bank account!');
+      if (showToast) showToast('Withdrawal request of \u20a6' + Number(payoutAmount).toLocaleString() + ' submitted for processing!');
     }, 900);
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  if (!rider) {
+    return (
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-10 text-center space-y-2">
+        <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center mx-auto">
+          <Bike className="w-6 h-6" />
+        </div>
+        <h2 className="text-lg font-black text-slate-900">No rider profile linked to this account</h2>
+        <p className="text-xs text-slate-500 max-w-md mx-auto">
+          This console shows live dispatch data for verified riders. Complete rider onboarding, or ask an administrator to link a rider profile to your account.
+        </p>
+        {error && <p className="text-xs text-rose-600">{error}</p>}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 sm:space-y-6">
+      {error && (
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl px-4 py-2.5">
+          {error}
+        </div>
+      )}
+
       {/* Rider Header Banner */}
       <div className="bg-slate-900 text-white p-4 sm:p-6 rounded-2xl border border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800">
-              Track B Verified Rider
+              {rider?.is_active ? 'Track B Verified Rider' : 'Track B Verification Pending'}
             </span>
             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">
-              Active Dispatch
+              {rider?.is_available ? 'Available for Dispatch' : 'Offline'}
             </span>
           </div>
-          <h1 className="text-lg sm:text-xl font-black mt-1.5">Emeka Nnamdi (Plate: ABJ-432-QA)</h1>
+          <h1 className="text-lg sm:text-xl font-black mt-1.5">{rider ? `${rider.name}${rider.plate_number ? ` (Plate: ${rider.plate_number})` : ''}` : 'Rider Console'}</h1>
           <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
             <Navigation className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-            <span>Corridors: FC-01-A03-FK-01 (Wuse 2) ↔ FC-01-A02-FK-02 (Jabi)</span>
+            <span>{rider?.operational_postcodes?.length ? rider.operational_postcodes.join(' ↔ ') : 'Corridor assignment pending'}</span>
           </p>
         </div>
 
         <div className="grid grid-cols-2 sm:flex items-center gap-2 sm:gap-3 shrink-0">
           <div className="bg-slate-800 p-2.5 sm:p-3 rounded-xl border border-slate-700 text-left sm:text-right min-w-[110px]" title="Average customer rating">
             <div className="text-[9px] sm:text-[10px] text-slate-400 uppercase font-semibold">Rating</div>
-            <div className="text-base sm:text-lg font-black text-amber-400">⭐ 4.95 / 5</div>
+            <div className="text-base sm:text-lg font-black text-amber-400">⭐ {rider?.rating ? Number(rider.rating).toFixed(2) + ' / 5' : 'New'}</div>
           </div>
-          <div className="bg-slate-800 p-2.5 sm:p-3 rounded-xl border border-slate-700 text-left sm:text-right min-w-[110px]" title="Completed and en-route deliveries today">
-            <div className="text-[9px] sm:text-[10px] text-slate-400 uppercase font-semibold">Today Drops</div>
-            <div className="text-base sm:text-lg font-black text-emerald-400">7 Done (1 Route)</div>
+          <div className="bg-slate-800 p-2.5 sm:p-3 rounded-xl border border-slate-700 text-left sm:text-right min-w-[110px]" title="Completed deliveries">
+            <div className="text-[9px] sm:text-[10px] text-slate-400 uppercase font-semibold">Total Drops</div>
+            <div className="text-base sm:text-lg font-black text-emerald-400">{rider?.total_deliveries ?? 0} Done</div>
           </div>
         </div>
       </div>
@@ -163,24 +234,23 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
             {availableJobs.map(job => (
               <div key={job.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:border-blue-400 transition flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1.5 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-xs text-slate-900">{job.id}</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono font-bold text-xs text-slate-900">{job.trackingCode}</span>
                     <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-700">
                       {job.serviceType}
                     </span>
-                    <span className="text-xs text-slate-500">• {job.distanceKm} away</span>
-                    <span className="text-xs text-slate-500">• Est. time: {job.slaMinutes}</span>
+                    {job.size && <span className="text-xs text-slate-500">• {job.size}{job.weight ? ` • ${job.weight}` : ''}</span>}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1">
                     <div>
                       <span className="text-slate-400 font-semibold block text-[10px] uppercase">Pickup Point</span>
-                      <span className="font-semibold text-slate-800">{job.pickupAddress || job.pickupHub}</span>
+                      <span className="font-semibold text-slate-800">{job.pickupAddress}</span>
                       <span className="font-mono text-[10px] text-blue-600 block">{job.pickupPostcode}</span>
                     </div>
                     <div>
                       <span className="text-slate-400 font-semibold block text-[10px] uppercase">Destination</span>
-                      <span className="font-semibold text-slate-800">{job.dropoffAddress || job.dropoffHub}</span>
+                      <span className="font-semibold text-slate-800">{job.dropoffAddress}</span>
                       <span className="font-mono text-[10px] text-emerald-600 block">{job.dropoffPostcode}</span>
                     </div>
                   </div>
@@ -193,9 +263,10 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
                   </div>
                   <button
                     onClick={() => handleClaimJob(job)}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+                    disabled={claimingId === job.id}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    Claim Job
+                    {claimingId === job.id ? 'Claiming...' : 'Claim Job'}
                   </button>
                 </div>
               </div>
@@ -293,6 +364,12 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
               </div>
             ))}
           </div>
+
+          {activeRouteStops.length === 0 && (
+            <div className="bg-slate-50 border border-dashed border-slate-200 rounded-xl p-6 text-center text-slate-400 text-xs">
+              No active run right now. Claim a job from the radar to start a route.
+            </div>
+          )}
         </div>
       )}
 
@@ -341,7 +418,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <h3 className="text-sm font-bold text-slate-900">Completed Delivery Trips Archive</h3>
-            <span className="text-xs text-slate-500 font-semibold">342 Lifetime Runs Completed</span>
+            <span className="text-xs text-slate-500 font-semibold">{rider?.total_deliveries ?? completedJobs.length} Lifetime Runs Completed</span>
           </div>
 
           <div className="overflow-x-auto">
@@ -353,19 +430,17 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
                   <th className="py-2.5 px-3">Route Corridor</th>
                   <th className="py-2.5 px-3">Service Type</th>
                   <th className="py-2.5 px-3">Earned Pay</th>
-                  <th className="py-2.5 px-3">Rating</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {[
-                  { time: 'Today, 1:40 PM', code: 'HBX-FC01A0-4491', corridor: 'Wuse 2 ➔ Jabi Lake Mall', service: 'Door-to-Door', pay: '₦2,400', rating: '5.0 ⭐' },
-                  { time: 'Today, 11:15 AM', code: 'HBX-FC01A0-2104', corridor: 'Garki Area 1 ➔ Wuse 2 Hub', service: 'Corridor Transfer', pay: '₦1,800', rating: '5.0 ⭐' },
-                  { time: 'Yesterday, 4:20 PM', code: 'HBX-FC01A0-8912', corridor: 'Maitama ➔ Wuse 2 Hub', service: 'Door-to-Hub', pay: '₦1,500', rating: '5.0 ⭐' },
-                  { time: 'Yesterday, 2:05 PM', code: 'HBX-FC01A0-6623', corridor: 'Wuse 2 Hub ➔ Jabi Estate', service: 'Hub-to-Door', pay: '₦2,100', rating: '4.8 ⭐' },
-                  { time: '29 Oct 2026', code: 'HBX-FC01A0-3319', corridor: 'Central Business ➔ Garki', service: 'Door-to-Door', pay: '₦2,600', rating: '5.0 ⭐' }
-                ].map((row, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50 transition">
-                    <td className="py-3 px-3 text-slate-500">{row.time}</td>
+                {completedJobs.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-slate-400">No completed delivery trips yet.</td>
+                  </tr>
+                )}
+                {completedJobs.map(row => (
+                  <tr key={row.id} className="hover:bg-slate-50 transition">
+                    <td className="py-3 px-3 text-slate-500">{formatDateTime(row.time)}</td>
                     <td className="py-3 px-3 font-mono font-bold text-slate-900">{row.code}</td>
                     <td className="py-3 px-3 font-semibold text-slate-800">{row.corridor}</td>
                     <td className="py-3 px-3">
@@ -373,8 +448,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
                         {row.service}
                       </span>
                     </td>
-                    <td className="py-3 px-3 font-bold text-slate-900">{row.pay}</td>
-                    <td className="py-3 px-3 font-bold text-amber-500">{row.rating}</td>
+                    <td className="py-3 px-3 font-bold text-slate-900">₦{row.pay.toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
@@ -389,25 +463,25 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
               <div className="text-slate-500 text-xs font-semibold">Available for Instant Payout</div>
-              <div className="text-2xl font-black text-slate-900 mt-1">₦32,500.00</div>
+              <div className="text-2xl font-black text-slate-900 mt-1">{formatMoney(walletBalance)}</div>
               <button
                 onClick={() => setIsPayoutModalOpen(true)}
                 className="mt-3 w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
               >
-                Withdraw to Bank
+                Request Withdrawal
               </button>
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
               <div className="text-slate-500 text-xs font-semibold">Pending Delivery Escrow</div>
-              <div className="text-2xl font-black text-slate-900 mt-1">₦6,400.00</div>
+              <div className="text-2xl font-black text-slate-900 mt-1">{formatMoney(pendingEscrow)}</div>
               <div className="text-[11px] text-slate-500 mt-3">Releases upon recipient OTP confirmation</div>
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-              <div className="text-slate-500 text-xs font-semibold">Total Courier Earnings</div>
-              <div className="text-2xl font-black text-emerald-600 mt-1">₦482,900.00</div>
-              <div className="text-[11px] text-slate-500 mt-3">Paid across 342 verified deliveries</div>
+              <div className="text-slate-500 text-xs font-semibold">Completed Drops</div>
+              <div className="text-2xl font-black text-emerald-600 mt-1">{rider?.total_deliveries ?? 0}</div>
+              <div className="text-[11px] text-slate-500 mt-3">Verified deliveries completed on the platform</div>
             </div>
           </div>
         </div>
@@ -422,7 +496,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
               <p className="text-xs text-slate-500">Government driver ID, vehicle documentation, and operational clearance</p>
             </div>
             <span className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold">
-              Clearance Active
+              {rider?.is_active ? 'Clearance Active' : 'Clearance Pending'}
             </span>
           </div>
 
@@ -433,7 +507,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
                 <input
                   type="text"
                   disabled
-                  defaultValue="Emeka Nnamdi"
+                  defaultValue={rider?.name || '—'}
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 font-semibold"
                 />
               </div>
@@ -443,7 +517,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
                 <input
                   type="text"
                   disabled
-                  defaultValue="ABJ-432-QA (Bajaj Boxer 150cc)"
+                  defaultValue={rider?.plate_number ? `${rider.plate_number}${rider.vehicle_type ? ` (${rider.vehicle_type})` : ''}` : '—'}
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 font-mono font-bold text-blue-800"
                 />
               </div>
@@ -453,7 +527,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
                 <input
                   type="text"
                   disabled
-                  defaultValue="+234 806 112 2336"
+                  defaultValue={rider?.phone || '—'}
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50"
                 />
               </div>
@@ -465,19 +539,19 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
                 <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl p-2 bg-slate-50 space-y-1">
                   <div className="py-1.5 flex justify-between items-center">
                     <span>Driver's License (FRSC)</span>
-                    <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Verified</span>
+                    {checkBadge(Boolean(rider?.drivers_license_no), 'Verified', 'Pending')}
                   </div>
                   <div className="py-1.5 flex justify-between items-center">
                     <span>Vehicle Roadworthiness</span>
-                    <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Passed</span>
+                    {checkBadge(Boolean(rider?.vehicle_type), 'Passed', 'Pending')}
                   </div>
                   <div className="py-1.5 flex justify-between items-center">
                     <span>Track B Courier Licensing</span>
-                    <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-bold text-[10px]">Accredited</span>
+                    {checkBadge(Boolean(rider?.is_active), 'Accredited', 'Pending')}
                   </div>
                   <div className="py-1.5 flex justify-between items-center">
                     <span>NIN Identity Check</span>
-                    <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Verified</span>
+                    {checkBadge(Boolean(rider?.nin), 'Verified', 'Pending')}
                   </div>
                 </div>
               </div>
@@ -490,17 +564,17 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
       {isPayoutModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full p-6 space-y-4 animate-scaleUp">
-            <h3 className="text-base font-bold text-slate-900">Instant Courier Pay Withdrawal</h3>
+            <h3 className="text-base font-bold text-slate-900">Courier Pay Withdrawal Request</h3>
             <p className="text-xs text-slate-500">
-              Delivery payouts are disbursed instantly to your verified bank account via NIP.
+              Withdrawal requests are reviewed and paid to your verified bank account via NIP.
             </p>
 
             <form onSubmit={handleWithdrawal} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">Destination Bank Account</label>
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-                  <div className="font-bold text-slate-800">Access Bank Plc</div>
-                  <div className="font-mono text-slate-500">0098765432 • Emeka Nnamdi</div>
+                  <div className="font-bold text-slate-800">Verified Bank Account</div>
+                  <div className="font-mono text-slate-500">Paid via NIP to your registered account</div>
                 </div>
               </div>
 
@@ -508,14 +582,14 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
                 <label className="text-xs font-bold text-slate-700 block mb-1">Amount to Transfer (₦)</label>
                 <input
                   type="number"
-                  max="32500"
+                  max={walletBalance}
                   min="1000"
                   value={payoutAmount}
                   onChange={e => setPayoutAmount(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
-                <span className="text-[10px] text-slate-400 mt-1 block">Maximum available: ₦32,500.00</span>
+                <span className="text-[10px] text-slate-400 mt-1 block">Maximum available: {formatMoney(walletBalance)}</span>
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
@@ -531,7 +605,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
                   disabled={payoutLoading}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
                 >
-                  {payoutLoading ? 'Processing...' : 'Withdraw to Bank'}
+                  {payoutLoading ? 'Processing...' : 'Submit Request'}
                 </button>
               </div>
             </form>

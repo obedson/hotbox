@@ -42,6 +42,91 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/v1/hubs/mine - the hub owned by (or staffed by) the signed-in user.
+router.get('/mine', authenticate, async (req, res) => {
+  try {
+    const staffRole = ['ops_admin', 'super_admin', 'compliance_officer', 'finance_officer', 'support_agent'].includes(req.user.role);
+    let hub = null;
+
+    if (staffRole && req.query.hub_id) {
+      const r = await db.query(
+        'SELECT h.*, u.name as owner_name FROM hubs h LEFT JOIN users u ON u.id = h.owner_id WHERE h.id = $1',
+        [req.query.hub_id]
+      );
+      hub = r.rows[0] || null;
+    } else {
+      const ownerRes = await db.query(
+        'SELECT h.*, u.name as owner_name FROM hubs h LEFT JOIN users u ON u.id = h.owner_id WHERE h.owner_id = $1 ORDER BY h.created_at DESC LIMIT 1',
+        [req.user.id]
+      );
+      hub = ownerRes.rows[0] || null;
+
+      if (!hub) {
+        const staffRes = await db.query(
+          `SELECT h.*, u.name as owner_name
+           FROM hubs h
+           JOIN hub_staff hs ON hs.hub_id = h.id
+           LEFT JOIN users u ON u.id = h.owner_id
+           WHERE hs.user_id = $1
+           LIMIT 1`,
+          [req.user.id]
+        );
+        hub = staffRes.rows[0] || null;
+      }
+    }
+
+    if (!hub) {
+      return res.json({ hub: null, bays: [], stats: null, parcels: [], staff: [] });
+    }
+
+    const baysRes = await db.query(
+      `SELECT b.id, b.bay_code, b.size_tier, b.is_occupied, b.current_shipment_id,
+              s.tracking_code, s.recipient_name, s.recipient_postcode,
+              s.status AS shipment_status, s.received_at_hub_at, s.created_at AS shipment_created_at
+       FROM hub_storage_bays b
+       LEFT JOIN shipments s ON b.current_shipment_id = s.id
+       WHERE b.hub_id = $1
+       ORDER BY b.bay_code ASC`,
+      [hub.id]
+    );
+
+    const statsRes = await db.query(
+      `SELECT
+         (SELECT COUNT(*)::int FROM shipments WHERE destination_hub_id = $1 AND created_at >= CURRENT_DATE) AS inbound_today,
+         (SELECT COUNT(*)::int FROM shipments WHERE destination_hub_id = $1 AND status IN ('COLLECTED_AT_HUB','DELIVERED_TO_RECIPIENT')) AS collected_total,
+         (SELECT COUNT(*)::int FROM hub_storage_bays WHERE hub_id = $1 AND is_occupied) AS occupied_bays,
+         (SELECT COUNT(*)::int FROM hub_storage_bays WHERE hub_id = $1 AND NOT is_occupied) AS open_bays,
+         (SELECT COUNT(*)::int FROM shipments WHERE destination_hub_id = $1 AND status IN ('RECEIVED_AT_HUB','STORED_IN_BAY') AND received_at_hub_at < NOW() - (free_holding_days || ' days')::interval) AS overdue
+       FROM hubs WHERE id = $1`,
+      [hub.id]
+    );
+
+    const parcelsRes = await db.query(
+      `SELECT id, tracking_code, recipient_name, recipient_postcode, status, size, created_at, received_at_hub_at
+       FROM shipments WHERE destination_hub_id = $1
+       ORDER BY created_at DESC LIMIT 12`,
+      [hub.id]
+    );
+
+    const staffRes = await db.query(
+      `SELECT hs.role, hs.is_active, u.name, u.phone, u.email
+       FROM hub_staff hs JOIN users u ON u.id = hs.user_id
+       WHERE hs.hub_id = $1 ORDER BY hs.created_at ASC`,
+      [hub.id]
+    );
+
+    res.json({
+      hub,
+      bays: baysRes.rows,
+      stats: statsRes.rows[0] || null,
+      parcels: parcelsRes.rows,
+      staff: staffRes.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/v1/hubs/:id
 router.get('/:id', async (req, res) => {
   try {
