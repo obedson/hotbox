@@ -113,4 +113,35 @@ describe('AuthScreen', () => {
     expect(screen.getByText('Please accept the terms to continue.')).toBeInTheDocument();
     expect(apiFetchMock).not.toHaveBeenCalled();
   });
+
+  it('keeps update disabled when the reset link has no token', () => {
+    render(<AuthScreen initialView="reset" onAuthenticated={() => {}} />);
+
+    expect(screen.getByText('Choose a new password')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Update password' })).toBeDisabled();
+  });
+
+  it('enables update and submits the reset token from the link', async () => {
+    apiFetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ message: 'Your password has been updated. You can now sign in.' })
+    });
+
+    render(<AuthScreen initialView="reset" resetToken="tok-reset" onAuthenticated={() => {}} />);
+
+    const submit = screen.getByRole('button', { name: 'Update password' });
+    expect(submit).not.toBeDisabled();
+
+    fireEvent.change(screen.getByPlaceholderText('At least 8 characters'), { target: { value: 'NewPassword123!' } });
+    fireEvent.change(screen.getByPlaceholderText('Repeat your new password'), { target: { value: 'NewPassword123!' } });
+    fireEvent.click(submit);
+
+    expect(apiFetchMock).toHaveBeenCalledWith(
+      '/api/v1/auth/reset-password',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ token: 'tok-reset', password: 'NewPassword123!' })
+      })
+    );
+  });
 });

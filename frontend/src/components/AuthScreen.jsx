@@ -69,7 +69,7 @@ function Field({ label, icon: Icon, error, children, optional }) {
   );
 }
 
-export default function AuthScreen({ initialView = 'signin', onAuthenticated }) {
+export default function AuthScreen({ initialView = 'signin', resetToken = '', onAuthenticated }) {
   const [view, setView] = useState(initialView);
 
   // shared
@@ -103,7 +103,6 @@ export default function AuthScreen({ initialView = 'signin', onAuthenticated }) 
 
   // recovery
   const [recoveryEmail, setRecoveryEmail] = useState('');
-  const [resetToken, setResetToken] = useState(initialView === 'reset' ? '' : '');
   const [resetPassword, setResetPassword] = useState('');
   const [resetConfirm, setResetConfirm] = useState('');
 
