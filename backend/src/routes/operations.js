@@ -3,9 +3,9 @@ const router = express.Router();
 const { authenticate, requireRoles } = require('../middleware/auth');
 const { handlePostcodeOccupants } = require('./operations/helpers');
 
-// Customer-facing occupancy lookup used by the customer dashboard.
-// Any authenticated user may search; all other operations routes are admin-only.
-router.get('/postcode-occupants', authenticate, handlePostcodeOccupants);
+// Postcode occupancy directory. Restricted to operations staff because it
+// exposes resident names and phone numbers.
+router.get('/postcode-occupants', authenticate, requireRoles('ops_admin', 'compliance_officer', 'super_admin'), handlePostcodeOccupants);
 
 // Every other endpoint in this router is restricted to operations staff.
 router.use(authenticate, requireRoles('ops_admin', 'super_admin'));

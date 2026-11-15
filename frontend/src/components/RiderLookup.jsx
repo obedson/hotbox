@@ -98,7 +98,7 @@ export default function RiderLookup({ showToast }) {
                           : 'bg-amber-100 text-amber-800'
                       }`}>
                         <ShieldCheck className="w-3 h-3" />
-                        {resident.isGroundTruthVerified ? 'Ground-Truth Certified' : 'Pending Doorway Check'}
+                        {resident.isGroundTruthVerified ? 'Ground-Truth Verified' : 'Registry Verified'}
                       </span>
                     </div>
 

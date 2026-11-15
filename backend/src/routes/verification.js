@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const { authenticate, requireRoles } = require('../middleware/auth');
+const digitalBoxService = require('../services/digitalBoxService');
 
 // POST /api/v1/verification/submit
 router.post('/submit', authenticate, async (req, res) => {
@@ -33,6 +34,53 @@ router.post('/submit', authenticate, async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to submit document: ' + err.message });
+  }
+});
+
+// GET /api/v1/verification/certificate/:serial
+// Public verification endpoint. A bank or service provider scans the QR code on
+// a Proof of Address certificate and lands here.
+router.get('/certificate/:serial', async (req, res) => {
+  try {
+    const certRes = await db.query(
+      'SELECT * FROM proof_of_address_certificates WHERE certificate_serial = $1 LIMIT 1',
+      [String(req.params.serial || '').trim().toUpperCase()]
+    );
+    const certificate = certRes.rows[0];
+    if (!certificate) {
+      return res.status(404).json({ valid: false, reason: 'No certificate exists for that serial.' });
+    }
+
+    const boxRes = await db.query('SELECT * FROM digital_boxes WHERE id = $1', [certificate.box_id]);
+    const box = boxRes.rows[0];
+    const userRes = await db.query('SELECT id, name, postcode FROM users WHERE id = $1', [certificate.user_id]);
+    const user = userRes.rows[0];
+
+    const now = new Date();
+    const expired = new Date(certificate.expires_at) < now;
+    const valid = certificate.status === 'ACTIVE' && !expired && Boolean(box && box.is_ground_truth_verified);
+
+    res.json({
+      valid,
+      reason: valid ? null : (expired ? 'This certificate has expired.' : 'This certificate is not active.'),
+      certificate: {
+        serial: certificate.certificate_serial,
+        holderName: user ? user.name : null,
+        digitalBoxNumber: box ? box.box_number : null,
+        postcode: certificate.postcode,
+        address: certificate.address_text,
+        district: certificate.district,
+        lga: certificate.lga,
+        state: certificate.state,
+        lat: certificate.lat != null ? Number(certificate.lat) : null,
+        lng: certificate.lng != null ? Number(certificate.lng) : null,
+        issuedAt: certificate.issued_at,
+        expiresAt: certificate.expires_at,
+        status: certificate.status
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -340,6 +388,7 @@ router.post('/review/:id', async (req, res) => {
       }
 
       const record = reviewRes.rows[0];
+      let issuesCertificate = false;
 
       // If approved, update entity operational status
       if (status === 'APPROVED') {
@@ -349,6 +398,13 @@ router.post('/review/:id', async (req, res) => {
           await client.query("UPDATE riders SET status = 'verified' WHERE id = $1", [record.entity_id]);
         } else if (record.entity_type === 'user') {
           await client.query("UPDATE users SET status = 'active' WHERE id = $1", [record.entity_id]);
+          if (record.document_type === 'PHYSICAL_INSPECTION_REPORT') {
+            await client.query(
+              'UPDATE digital_boxes SET is_ground_truth_verified = TRUE, updated_at = NOW() WHERE user_id = $1',
+              [record.entity_id]
+            );
+            issuesCertificate = true;
+          }
         }
       }
 
@@ -370,6 +426,29 @@ router.post('/review/:id', async (req, res) => {
       ]);
 
       await client.query('COMMIT');
+
+      if (issuesCertificate) {
+        const box = await digitalBoxService.ensureDigitalBox(record.entity_id);
+        const userRes = await db.query('SELECT * FROM users WHERE id = $1', [record.entity_id]);
+        const owner = userRes.rows[0];
+        const pcRes = await db.query(
+          'SELECT * FROM postcode_cache WHERE postcode = $1 OR ndaps_code = $1 OR legacy_code = $1 LIMIT 1',
+          [owner ? owner.postcode : '']
+        );
+        const pc = pcRes.rows[0] || {};
+        const hierarchy = { district: pc.neighbourhood, lga: pc.lga, state: pc.state };
+        await digitalBoxService.issueCertificate({
+          box: { id: box.id },
+          user: owner,
+          verificationRecordId: record.id,
+          postcode: owner ? owner.postcode : null,
+          addressText: pc.description || [pc.neighbourhood, pc.lga, pc.state].filter(Boolean).join(', '),
+          hierarchy,
+          lat: record.lat != null ? Number(record.lat) : (pc.lat != null ? Number(pc.lat) : null),
+          lng: record.lng != null ? Number(record.lng) : (pc.lng != null ? Number(pc.lng) : null)
+        });
+      }
+
       res.json({
         success: true,
         message: `Verification record successfully updated to ${status}.`,

@@ -3,7 +3,8 @@ const router = express.Router();
 const db = require('../../config/db');
 const { authenticate } = require('../../middleware/auth');
 const { getEnterpriseStats } = require('./helpers');
-const { formatBoxNumber, parseBoxNumber } = require('../../utils/boxNumber');
+const { parseBoxNumber } = require('../../utils/boxNumber');
+const digitalBoxService = require('../../services/digitalBoxService');
 // POST /api/v1/enterprise/verify-address (B2B KYC Address Verification API)
 router.post('/verify-address', authenticate, async (req, res) => {
   const { postcode, phone, name } = req.body;
@@ -14,32 +15,37 @@ router.post('/verify-address', authenticate, async (req, res) => {
   try {
     const cleanPostcode = postcode ? postcode.trim().toUpperCase() : null;
     const cleanPhone = phone ? phone.trim() : null;
-    const boxCode = cleanPostcode ? parseBoxNumber(cleanPostcode) : null;
+    const boxNumberInput = cleanPostcode ? parseBoxNumber(cleanPostcode) : null;
+
+    const userColumns = `
+      u.id, u.name, u.phone, u.postcode,
+      b.id AS box_id, b.box_number, b.is_ground_truth_verified,
+      pc.neighbourhood, pc.lga, pc.state`;
 
     let userRes;
     if (cleanPhone) {
       userRes = await db.query(`
-        SELECT u.id, u.name, u.phone, u.postcode, u.digital_box,
-               pc.neighbourhood, pc.lga, pc.state
+        SELECT ${userColumns}
         FROM users u
+        LEFT JOIN digital_boxes b ON b.user_id = u.id
         LEFT JOIN postcode_cache pc ON (pc.postcode = u.postcode OR pc.ndaps_code = u.postcode)
         WHERE u.phone = $1 OR u.phone = $2
         LIMIT 1
       `, [cleanPhone, cleanPhone.replace('+234', '0')]);
-    } else if (boxCode) {
+    } else if (boxNumberInput) {
       userRes = await db.query(`
-        SELECT u.id, u.name, u.phone, u.postcode, u.digital_box,
-               pc.neighbourhood, pc.lga, pc.state
-        FROM users u
+        SELECT ${userColumns}
+        FROM digital_boxes b
+        JOIN users u ON u.id = b.user_id
         LEFT JOIN postcode_cache pc ON (pc.postcode = u.postcode OR pc.ndaps_code = u.postcode)
-        WHERE RIGHT(u.id::text, 4) = $1 OR LEFT(u.id::text, 4) = $1
+        WHERE b.box_number = $1
         LIMIT 1
-      `, [boxCode]);
+      `, [boxNumberInput]);
     } else {
       userRes = await db.query(`
-        SELECT u.id, u.name, u.phone, u.postcode, u.digital_box,
-               pc.neighbourhood, pc.lga, pc.state
+        SELECT ${userColumns}
         FROM users u
+        LEFT JOIN digital_boxes b ON b.user_id = u.id
         LEFT JOIN postcode_cache pc ON (pc.postcode = u.postcode OR pc.ndaps_code = u.postcode)
         WHERE u.postcode = $1
         LIMIT 1
@@ -62,14 +68,17 @@ router.post('/verify-address', authenticate, async (req, res) => {
       });
     }
 
-    const boxData = user.digital_box || {};
-    const isGroundTruthVerified = Boolean(boxData.isGroundTruthVerified);
-    const boxNumber = formatBoxNumber(user.id);
+    const isGroundTruthVerified = Boolean(user.is_ground_truth_verified);
+    const boxNumber = user.box_number;
 
     let relocationStatus = 'ACTIVE_RESIDENT';
     let forwardingPostcode = null;
-    if (cleanPostcode && cleanPostcode !== user.postcode) {
-      const pastReloc = (boxData.relocations || []).find(r => r.oldPostcode === cleanPostcode);
+    if (cleanPostcode && cleanPostcode !== user.postcode && user.box_id) {
+      const relocations = await digitalBoxService.listRelocations(user.box_id);
+      const pastReloc = relocations.find(
+        (rel) => rel.old_postcode === cleanPostcode
+          || String(rel.old_postcode || '').replace(/-/g, '') === cleanPostcode.replace(/-/g, '')
+      );
       if (pastReloc) {
         relocationStatus = 'RELOCATED';
         forwardingPostcode = user.postcode;
@@ -87,7 +96,7 @@ router.post('/verify-address', authenticate, async (req, res) => {
         lga: user.lga || 'Abuja Municipal',
         state: user.state || 'Federal Capital Territory'
       },
-      proofOfAddressStatus: isGroundTruthVerified ? 'Verified by NIPOST (Ground-Truth Certified)' : 'NIPOST Verified (Pending Doorway Check)',
+      proofOfAddressStatus: isGroundTruthVerified ? 'Ground-Truth Verified' : 'Registry Verified',
       isGroundTruthVerified,
       relocationStatus,
       forwardingPostcode,

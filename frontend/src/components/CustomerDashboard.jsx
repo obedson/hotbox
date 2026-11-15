@@ -368,10 +368,7 @@ export default function CustomerDashboard({ currentUser, onBookNewShipment, acti
           currentUser={currentUser}
           senderLocation={discovery.senderLocation}
           showToast={showToast}
-          handleTestRerouteAlert={profileSettings.handleTestRerouteAlert}
-          handleToggleNotification={profileSettings.handleToggleNotification}
-          testRerouteLoading={profileSettings.testRerouteLoading}
-          testRerouteResult={profileSettings.testRerouteResult}
+          onChangeAddress={() => setActiveTab('profile')}
           isCertificateModalOpen={isCertificateModalOpen}
           setIsCertificateModalOpen={setIsCertificateModalOpen}
         />

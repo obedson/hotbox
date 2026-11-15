@@ -5,7 +5,8 @@ const db = require('../../config/db');
 const { authenticate } = require('../../middleware/auth');
 const notificationService = require('../../services/notificationService');
 const { normalizePostcode, resolvePostcode } = require('../../services/postcodeService');
-const { formatBoxNumber, getBoxSuffix, parseBoxNumber } = require('../../utils/boxNumber');
+const { parseBoxNumber } = require('../../utils/boxNumber');
+const digitalBoxService = require('../../services/digitalBoxService');
 const { normalizePhone } = require('../../lib/phone');
 // GET /api/v1/customer/profile
 router.get('/profile', authenticate, async (req, res) => {
@@ -168,10 +169,10 @@ router.put('/profile', authenticate, async (req, res) => {
           });
         }
 
-        // Record official relocation forwarding history in digital_box
-        const currBox = currUser.digital_box || {};
-        const relocations = Array.isArray(currBox.relocations) ? currBox.relocations : [];
-        relocations.unshift({
+        // Record the forwarding trail in the registry so the history survives
+        // independently of the user row.
+        const box = await digitalBoxService.ensureDigitalBox(req.user.id);
+        await digitalBoxService.addRelocation(box.id, {
           oldPostcode: currUser.postcode,
           oldAddress: currUser.postcode_neighbourhood || 'Previous Residence',
           newPostcode: cleanPostcode,
@@ -179,12 +180,6 @@ router.put('/profile', authenticate, async (req, res) => {
           phone: updatedUser.phone,
           changedAt: new Date().toISOString()
         });
-
-        await db.query(`
-          UPDATE users
-          SET digital_box = jsonb_set(COALESCE(digital_box, '{}'::jsonb), '{relocations}', $1::jsonb)
-          WHERE id = $2
-        `, [JSON.stringify(relocations), req.user.id]);
       } catch (rerouteErr) {
         console.warn('[RelocationReroute] Auto-reroute error:', rerouteErr.message);
       }
@@ -305,50 +300,73 @@ router.post('/test-reroute-alert', authenticate, async (req, res) => {
 router.get('/digital-box', authenticate, async (req, res) => {
   try {
     const userRes = await db.query(`
-      SELECT u.id, u.name, u.phone, u.email, u.postcode, u.digital_box, u.is_phone_verified, u.is_email_verified,
-             pc.neighbourhood as postcode_neighbourhood, pc.lga as postcode_lga, pc.state as postcode_state
+      SELECT u.id, u.name, u.phone, u.email, u.postcode, u.is_phone_verified, u.is_email_verified,
+             pc.neighbourhood as postcode_neighbourhood, pc.lga as postcode_lga, pc.state as postcode_state,
+             pc.lat as postcode_lat, pc.lng as postcode_lng
       FROM users u
-      LEFT JOIN postcode_cache pc ON (pc.postcode = u.postcode OR pc.ndaps_code = u.postcode)
+      LEFT JOIN postcode_cache pc ON (pc.postcode = u.postcode OR pc.ndaps_code = u.postcode OR pc.legacy_code = u.postcode)
       WHERE u.id = $1
+      LIMIT 1
     `, [req.user.id]);
 
     if (userRes.rows.length === 0) return res.status(404).json({ error: 'User not found' });
     const user = userRes.rows[0];
 
-    const boxData = user.digital_box || {};
-    const boxNumber = formatBoxNumber(user.id);
+    const box = await digitalBoxService.ensureDigitalBox(user.id);
+    const relocations = await digitalBoxService.listRelocations(box.id);
+    const certificate = await digitalBoxService.getCertificate(box.id);
 
-    const expiresAt = boxData.expiresAt ? new Date(boxData.expiresAt) : new Date(Date.now() + 300 * 24 * 3600 * 1000);
+    const pendingInspection = await db.query(
+      `SELECT 1 FROM verification_records
+       WHERE entity_type = 'user' AND entity_id = $1
+         AND document_type = 'PHYSICAL_INSPECTION_REPORT' AND status = 'PENDING'
+       LIMIT 1`,
+      [user.id]
+    );
+
+    const expiresAt = box.expires_at ? new Date(box.expires_at) : new Date(Date.now() + 300 * 24 * 3600 * 1000);
     const daysRemaining = Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 3600 * 24)));
-    const isGroundTruthVerified = Boolean(boxData.isGroundTruthVerified);
 
     res.json({
-      boxNumber,
+      boxNumber: box.box_number,
       activePostcode: user.postcode || 'FC-01-A03-FK-01',
       hierarchy: {
         district: user.postcode_neighbourhood || 'Wuse 2',
         lga: user.postcode_lga || 'Abuja Municipal',
         state: user.postcode_state || 'Federal Capital Territory'
       },
-      proofOfAddressStatus: isGroundTruthVerified ? 'Verified by NIPOST (Ground-Truth Certified)' : 'Pending Ground-Truthing',
-      isGroundTruthVerified,
-      subscriptionStatus: daysRemaining > 0 ? 'ACTIVE' : 'EXPIRED',
+      coordinates: {
+        lat: user.postcode_lat != null ? Number(user.postcode_lat) : null,
+        lng: user.postcode_lng != null ? Number(user.postcode_lng) : null
+      },
+      proofOfAddressStatus: box.is_ground_truth_verified ? 'Ground-Truth Verified' : 'Registry Verified',
+      isGroundTruthVerified: Boolean(box.is_ground_truth_verified),
+      hasPendingInspection: pendingInspection.rows.length > 0,
+      subscriptionStatus: box.status === 'ACTIVE' && daysRemaining > 0 ? 'ACTIVE' : 'EXPIRED',
       expiresAt: expiresAt.toISOString(),
       daysRemaining,
-      annualFeeNgn: 3500.00,
-      groundTruthingFeeNgn: 2500.00,
-      legacyBoxNumber: boxData.legacyBoxNumber || null,
-      legacyLinkedAt: boxData.legacyLinkedAt || null,
-      relocations: boxData.relocations || [
-        {
-          oldPostcode: 'LA-01-A01-AA-01',
-          oldAddress: 'Adeola Odeku Street, Victoria Island, Lagos',
-          newPostcode: user.postcode || 'FC-01-A03-FK-01',
-          newAddress: `${user.postcode_neighbourhood || 'Wuse 2'}, Abuja`,
-          phone: user.phone,
-          changedAt: new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString()
-        }
-      ]
+      annualFeeNgn: digitalBoxService.ANNUAL_FEE_NGN,
+      groundTruthingFeeNgn: digitalBoxService.GROUND_TRUTH_FEE_NGN,
+      legacyBoxNumber: box.legacy_box_number || null,
+      legacyLinkedAt: box.legacy_linked_at ? new Date(box.legacy_linked_at).toISOString() : null,
+      relocations: relocations.map((rel) => ({
+        oldPostcode: rel.old_postcode,
+        oldAddress: rel.old_address,
+        newPostcode: rel.new_postcode,
+        newAddress: rel.new_address,
+        phone: rel.phone,
+        changedAt: rel.changed_at ? new Date(rel.changed_at).toISOString() : null
+      })),
+      certificate: certificate ? {
+        serial: certificate.certificate_serial,
+        issuedAt: new Date(certificate.issued_at).toISOString(),
+        expiresAt: new Date(certificate.expires_at).toISOString(),
+        status: certificate.status,
+        postcode: certificate.postcode,
+        addressText: certificate.address_text,
+        lat: certificate.lat != null ? Number(certificate.lat) : null,
+        lng: certificate.lng != null ? Number(certificate.lng) : null
+      } : null
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -357,7 +375,7 @@ router.get('/digital-box', authenticate, async (req, res) => {
 
 // POST /api/v1/customer/renew-digital-box
 router.post('/renew-digital-box', authenticate, async (req, res) => {
-  const annualFee = 3500.00;
+  const annualFee = digitalBoxService.ANNUAL_FEE_NGN;
   try {
     const walletRes = await db.query('SELECT * FROM wallets WHERE user_id = $1', [req.user.id]);
     let wallet = walletRes.rows[0];
@@ -393,16 +411,13 @@ router.post('/renew-digital-box', authenticate, async (req, res) => {
       JSON.stringify({ description: 'Annual Hotbox Digital P.O. Box & Address Forwarding Subscription Renewal (365 Days)' })
     ]);
 
-    const newExpiresAt = new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString();
-    await db.query(`
-      UPDATE users
-      SET digital_box = jsonb_set(COALESCE(digital_box, '{}'::jsonb), '{expiresAt}', $1::jsonb)
-      WHERE id = $2
-    `, [JSON.stringify(newExpiresAt), req.user.id]);
+    const box = await digitalBoxService.ensureDigitalBox(req.user.id);
+    const renewed = await digitalBoxService.renewBox(box.id);
+    const newExpiresAt = new Date(renewed.expires_at).toISOString();
 
     await db.query(`
       INSERT INTO notifications (user_id, title, message, type, is_read, created_at)
-      VALUES ($1, 'Digital P.O. Box Renewed Successfully', 'Your NIPOST Digital P.O. Box subscription and proof-of-address network anchor is active for 365 days.', 'SYSTEM_NOTICE', FALSE, NOW())
+      VALUES ($1, 'Digital P.O. Box Renewed Successfully', 'Your Digital P.O. Box subscription and proof-of-address network anchor is active for 365 days.', 'SYSTEM_NOTICE', FALSE, NOW())
     `, [req.user.id]);
 
     res.json({
@@ -421,46 +436,24 @@ router.post('/renew-digital-box', authenticate, async (req, res) => {
 router.post('/link-legacy-box', authenticate, async (req, res) => {
   const { legacyBoxNumber } = req.body;
   const cleanInput = String(legacyBoxNumber || '').trim();
-  const suffix = parseBoxNumber(cleanInput);
 
   if (!cleanInput) {
     return res.status(400).json({ error: 'Please enter your old P.O. Box number.' });
   }
-  if (!suffix) {
-    return res.status(400).json({ error: 'That does not look like a valid Hotbox or legacy P.O. Box number.' });
-  }
-
-  const ownSuffix = getBoxSuffix(req.user.id);
-  if (suffix !== ownSuffix) {
+  if (parseBoxNumber(cleanInput)) {
     return res.status(400).json({
-      error: 'This old P.O. Box number does not belong to your account. Enter the old box number that was issued to you.'
+      error: 'That is a Hotbox digital box number. Enter the old P.O. Box number issued to you by NIPOST.'
     });
   }
 
   try {
-    const existingRes = await db.query('SELECT digital_box FROM users WHERE id = $1', [req.user.id]);
-    const boxData = existingRes.rows[0] && existingRes.rows[0].digital_box
-      ? existingRes.rows[0].digital_box
-      : {};
-
-    if (boxData.legacyBoxNumber === cleanInput) {
-      return res.json({
-        message: 'This old P.O. Box number is already linked to your Digital P.O. Box.',
-        legacyBoxNumber: cleanInput,
-        digitalBoxNumber: formatBoxNumber(req.user.id)
-      });
+    const existing = await digitalBoxService.findBoxByLegacyNumber(cleanInput);
+    if (existing && existing.user_id !== req.user.id) {
+      return res.status(409).json({ error: 'That old P.O. Box number is already linked to another Digital P.O. Box.' });
     }
 
-    const linkedAt = new Date().toISOString();
-    const updatedBox = Object.assign({}, boxData, {
-      legacyBoxNumber: cleanInput,
-      legacyLinkedAt: linkedAt
-    });
-
-    await db.query(
-      'UPDATE users SET digital_box = $1, updated_at = NOW() WHERE id = $2',
-      [JSON.stringify(updatedBox), req.user.id]
-    );
+    const box = await digitalBoxService.ensureDigitalBox(req.user.id);
+    const updated = await digitalBoxService.linkLegacyBox(box.id, cleanInput);
 
     await db.query(
       `INSERT INTO notifications (user_id, title, message, type, is_read, created_at)
@@ -470,21 +463,25 @@ router.post('/link-legacy-box', authenticate, async (req, res) => {
 
     res.json({
       message: 'Old P.O. Box number linked successfully. Mail addressed to your old number will now reach your Digital P.O. Box.',
-      legacyBoxNumber: cleanInput,
-      digitalBoxNumber: formatBoxNumber(req.user.id),
-      linkedAt
+      legacyBoxNumber: updated.legacy_box_number,
+      digitalBoxNumber: box.box_number,
+      linkedAt: updated.legacy_linked_at ? new Date(updated.legacy_linked_at).toISOString() : null
     });
   } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'That old P.O. Box number is already linked to another Digital P.O. Box.' });
+    }
     res.status(500).json({ error: err.message });
   }
 });
 
 // POST /api/v1/customer/request-ground-truthing
 router.post('/request-ground-truthing', authenticate, async (req, res) => {
-  const verificationFee = 2500.00;
+  const verificationFee = digitalBoxService.GROUND_TRUTH_FEE_NGN;
   try {
     const userRes = await db.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
     const user = userRes.rows[0];
+    if (!user) return res.status(404).json({ error: 'User not found' });
 
     const walletRes = await db.query('SELECT * FROM wallets WHERE user_id = $1', [req.user.id]);
     let wallet = walletRes.rows[0];
@@ -517,34 +514,43 @@ router.post('/request-ground-truthing', authenticate, async (req, res) => {
       curBal,
       newBal,
       ref,
-      JSON.stringify({ description: 'NIPOST Physical Ground-Truthing Field Inspection & Geofenced Doorway Validation' })
+      JSON.stringify({ description: 'Physical Ground-Truthing Field Inspection & Geofenced Doorway Validation' })
     ]);
 
-    // Create record in verification_records queue
-    await db.query(`
-      INSERT INTO verification_records (
-        entity_type, entity_id, track, document_type, document_number, status
-      ) VALUES ($1, $2, 'TRACK_A_ADDRESS', 'GROUND_TRUTH_VALIDATION', $3, 'APPROVED')
-    `, ['user', req.user.id, user.postcode || 'FC-01-A03-FK-01']);
+    const box = await digitalBoxService.ensureDigitalBox(user.id);
 
-    // Set user as Ground-Truth Verified
+    // Geocode the address under inspection so the record can later be opened in
+    // a map application for mail delivery.
+    const pcRes = await db.query(
+      'SELECT lat, lng FROM postcode_cache WHERE postcode = $1 OR ndaps_code = $1 OR legacy_code = $1 LIMIT 1',
+      [user.postcode]
+    );
+    const geo = pcRes.rows[0] || {};
+
+    // The inspection is queued for an accredited officer. Verification is only
+    // granted once the resulting dossier is reviewed and approved.
     await db.query(`
-      UPDATE users
-      SET digital_box = jsonb_set(COALESCE(digital_box, '{}'::jsonb), '{isGroundTruthVerified}', 'true'::jsonb)
-      WHERE id = $1
-    `, [req.user.id]);
+      INSERT INTO verification_records
+        (entity_type, entity_id, track, document_type, document_number, status, lat, lng, captured_at)
+      VALUES ('user', $1, 'TRACK_A_ADDRESS', 'PHYSICAL_INSPECTION_REPORT', $2, 'PENDING', $3, $4, NOW())
+    `, [
+      req.user.id,
+      box.box_number,
+      geo.lat != null ? Number(geo.lat) : null,
+      geo.lng != null ? Number(geo.lng) : null
+    ]);
 
     await db.query(`
       INSERT INTO notifications (user_id, title, message, type, is_read, created_at)
-      VALUES ($1, 'Proof of Address Ground-Truth Certified', 'Your physical address attached to postcode has been certified by NIPOST. Digital certificate ready.', 'KYC_APPROVAL', FALSE, NOW())
+      VALUES ($1, 'Ground-Truthing Inspection Requested', 'Your physical address inspection has been ordered. Your Proof of Address is issued once the inspection report is approved.', 'KYC_APPROVAL', FALSE, NOW())
     `, [req.user.id]);
 
     res.json({
-      message: 'Physical Ground-Truthing order placed and certified! Official NIPOST badge active.',
-      isGroundTruthVerified: true,
+      message: 'Ground-Truthing inspection ordered. Your address will be verified once the inspection report is reviewed.',
+      isGroundTruthVerified: false,
+      status: 'PENDING',
       newBalance: newBal,
-      reference: ref,
-      badge: 'Verified by NIPOST (Ground-Truth Certified)'
+      reference: ref
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

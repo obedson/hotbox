@@ -2,12 +2,13 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const { authenticate, requireRoles } = require('../middleware/auth');
-const { formatBoxNumber, parseBoxNumber } = require('../utils/boxNumber');
+const { parseBoxNumber } = require('../utils/boxNumber');
+const digitalBoxService = require('../services/digitalBoxService');
 
 // Rider endpoints are restricted to riders and operations staff.
 router.use(authenticate, requireRoles('rider', 'ops_admin'));
 
-// GET /api/v1/riders/lookup (Resolve a postcode or digital P.O. Box number to a delivery address)
+// GET /api/v1/riders/lookup (Resolve any posted identifier to a delivery address)
 router.get('/lookup', authenticate, async (req, res) => {
   const rawInput = String(req.query.code || '').trim();
   if (!rawInput) {
@@ -15,39 +16,62 @@ router.get('/lookup', authenticate, async (req, res) => {
   }
 
   const input = rawInput.toUpperCase();
-  const boxCode = parseBoxNumber(input);
+  const boxNumber = parseBoxNumber(rawInput);
+
+  const userColumns = `
+    u.id, u.name, u.phone, u.postcode,
+    b.box_number, b.is_ground_truth_verified,
+    pc.neighbourhood, pc.lga, pc.state`;
+
+  const postcodeJoin = `
+    LEFT JOIN LATERAL (
+      SELECT neighbourhood, lga, state FROM postcode_cache
+      WHERE postcode = u.postcode OR ndaps_code = u.postcode OR legacy_code = u.postcode
+      LIMIT 1
+    ) pc ON TRUE`;
 
   try {
     let userRows = [];
+    let inputType = 'POSTCODE';
 
-    if (boxCode) {
+    if (boxNumber) {
+      inputType = 'DIGITAL_P_O_BOX';
       const boxRes = await db.query(
-        `SELECT u.id, u.name, u.phone, u.postcode, u.digital_box,
-                pc.neighbourhood, pc.lga, pc.state
-         FROM users u
-         LEFT JOIN LATERAL (
-           SELECT neighbourhood, lga, state FROM postcode_cache
-           WHERE postcode = u.postcode OR ndaps_code = u.postcode OR legacy_code = u.postcode
-           LIMIT 1
-         ) pc ON TRUE
-         WHERE RIGHT(u.id::text, 4) = $1 OR LEFT(u.id::text, 4) = $1`,
-        [boxCode]
+        `SELECT ${userColumns}
+         FROM digital_boxes b
+         JOIN users u ON u.id = b.user_id
+         ${postcodeJoin}
+         WHERE b.box_number = $1
+         LIMIT 1`,
+        [boxNumber]
       );
       userRows = boxRes.rows;
     } else {
-      const postcodeRes = await db.query(
-        `SELECT u.id, u.name, u.phone, u.postcode, u.digital_box,
-                pc.neighbourhood, pc.lga, pc.state
-         FROM users u
-         LEFT JOIN LATERAL (
-           SELECT neighbourhood, lga, state FROM postcode_cache
-           WHERE postcode = u.postcode OR ndaps_code = u.postcode OR legacy_code = u.postcode
-           LIMIT 1
-         ) pc ON TRUE
-         WHERE u.postcode = $1 OR replace(u.postcode, '-', '') = replace($1, '-', '')`,
-        [input]
-      );
-      userRows = postcodeRes.rows;
+      // An old P.O. Box number resolves through the linked alias on the box.
+      const legacyBox = await digitalBoxService.findBoxByLegacyNumber(rawInput);
+      if (legacyBox) {
+        inputType = 'LEGACY_P_O_BOX';
+        const legacyRes = await db.query(
+          `SELECT ${userColumns}
+           FROM users u
+           LEFT JOIN digital_boxes b ON b.user_id = u.id
+           ${postcodeJoin}
+           WHERE u.id = $1
+           LIMIT 1`,
+          [legacyBox.user_id]
+        );
+        userRows = legacyRes.rows;
+      } else {
+        const postcodeRes = await db.query(
+          `SELECT ${userColumns}
+           FROM users u
+           LEFT JOIN digital_boxes b ON b.user_id = u.id
+           ${postcodeJoin}
+           WHERE u.postcode = $1 OR replace(u.postcode, '-', '') = replace($1, '-', '')`,
+          [input]
+        );
+        userRows = postcodeRes.rows;
+      }
     }
 
     const pcRes = await db.query(
@@ -58,20 +82,17 @@ router.get('/lookup', authenticate, async (req, res) => {
     );
     const pc = pcRes.rows[0] || null;
 
-    const residents = userRows.map(user => {
-      const boxData = user.digital_box || {};
+    const residents = userRows.map((user) => {
       const district = user.neighbourhood || (pc && pc.neighbourhood) || 'Wuse 2';
       const lga = user.lga || (pc && pc.lga) || 'Abuja Municipal';
       const state = user.state || (pc && pc.state) || 'Federal Capital Territory';
-      const isGroundTruthVerified = Boolean(boxData.isGroundTruthVerified);
+      const isGroundTruthVerified = Boolean(user.is_ground_truth_verified);
 
       return {
         name: user.name,
         phone: user.phone,
-        digitalBoxNumber: formatBoxNumber(user.id),
-        proofOfAddressStatus: isGroundTruthVerified
-          ? 'Verified by NIPOST (Ground-Truth Certified)'
-          : 'NIPOST Verified (Pending Doorway Check)',
+        digitalBoxNumber: user.box_number,
+        proofOfAddressStatus: isGroundTruthVerified ? 'Ground-Truth Verified' : 'Registry Verified',
         isGroundTruthVerified,
         deliveryAddress: {
           postcode: user.postcode,
@@ -90,29 +111,30 @@ router.get('/lookup', authenticate, async (req, res) => {
     });
 
     const relocatedMatches = [];
-    if (!boxCode) {
-      const allUsersWithBox = await db.query('SELECT id, name, postcode, digital_box FROM users WHERE digital_box IS NOT NULL');
-      for (const u of allUsersWithBox.rows) {
-        const relocs = Array.isArray(u.digital_box && u.digital_box.relocations) ? u.digital_box.relocations : [];
-        for (const rel of relocs) {
-          const oldCode = String(rel.oldPostcode || '').toUpperCase();
-          const sameCode = oldCode === input || oldCode.replace(/-/g, '') === input.replace(/-/g, '');
-          if (sameCode) {
-            relocatedMatches.push({
-              name: u.name,
-              digitalBoxNumber: formatBoxNumber(u.id),
-              forwardingPostcode: rel.newPostcode,
-              forwardingAddress: rel.newAddress,
-              forwardingRule: 'ACTIVE_AUTO_FORWARD'
-            });
-          }
-        }
+    if (!boxNumber) {
+      const relocatedRes = await db.query(
+        `SELECT r.old_postcode, r.old_address, r.new_postcode, r.new_address,
+                u.name, b.box_number
+         FROM relocations r
+         JOIN digital_boxes b ON b.id = r.box_id
+         JOIN users u ON u.id = b.user_id
+         WHERE r.old_postcode = $1 OR replace(r.old_postcode, '-', '') = replace($1, '-', '')`,
+        [input]
+      );
+      for (const row of relocatedRes.rows) {
+        relocatedMatches.push({
+          name: row.name,
+          digitalBoxNumber: row.box_number,
+          forwardingPostcode: row.new_postcode,
+          forwardingAddress: row.new_address,
+          forwardingRule: 'ACTIVE_AUTO_FORWARD'
+        });
       }
     }
 
     res.json({
       input,
-      inputType: boxCode ? 'DIGITAL_P_O_BOX' : 'POSTCODE',
+      inputType,
       matched: residents.length > 0,
       reason: residents.length > 0 ? null : 'No registered resident found for this code.',
       postcodeValid: Boolean(pc),

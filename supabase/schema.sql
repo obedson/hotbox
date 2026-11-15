@@ -841,3 +841,64 @@ INSERT INTO custody_ledger (
   'Intake scanned and secured in BAY-A02 at Wuse 2 Express Hub'
 )
 ON CONFLICT DO NOTHING;
+
+-- ============================================================================
+-- Digital P.O. Box registry (anchor, forwarding history, certificates)
+-- ============================================================================
+
+CREATE SEQUENCE IF NOT EXISTS digital_box_number_seq START WITH 1;
+
+CREATE TABLE IF NOT EXISTS digital_boxes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  box_number VARCHAR(20) NOT NULL UNIQUE,
+  user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+  plan VARCHAR(20) NOT NULL DEFAULT 'ANNUAL',
+  legacy_box_number VARCHAR(60) UNIQUE,
+  legacy_linked_at TIMESTAMP WITH TIME ZONE,
+  is_ground_truth_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  issued_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT (NOW() + INTERVAL '365 days'),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS relocations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  box_id UUID NOT NULL REFERENCES digital_boxes(id) ON DELETE CASCADE,
+  old_postcode VARCHAR(40),
+  old_address TEXT,
+  new_postcode VARCHAR(40),
+  new_address TEXT,
+  phone VARCHAR(30),
+  changed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS proof_of_address_certificates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  certificate_serial VARCHAR(40) NOT NULL UNIQUE,
+  box_id UUID NOT NULL REFERENCES digital_boxes(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  verification_record_id UUID REFERENCES verification_records(id) ON DELETE SET NULL,
+  postcode VARCHAR(40),
+  address_text TEXT,
+  district VARCHAR(120),
+  lga VARCHAR(120),
+  state VARCHAR(120),
+  lat NUMERIC,
+  lng NUMERIC,
+  issued_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- Geocoordinates on verification records so an inspection can later be opened
+-- in a map application for mail delivery.
+ALTER TABLE verification_records ADD COLUMN IF NOT EXISTS lat NUMERIC;
+ALTER TABLE verification_records ADD COLUMN IF NOT EXISTS lng NUMERIC;
+ALTER TABLE verification_records ADD COLUMN IF NOT EXISTS accuracy_m NUMERIC;
+ALTER TABLE verification_records ADD COLUMN IF NOT EXISTS captured_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE verification_records ADD COLUMN IF NOT EXISTS inspector_name VARCHAR(120);
+ALTER TABLE verification_records ADD COLUMN IF NOT EXISTS photo_url TEXT;
