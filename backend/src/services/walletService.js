@@ -5,9 +5,7 @@ const { verifyPaystackReference } = require('./paymentService');
 // Credits a wallet only after the gateway confirms the payment. The gateway
 // reference is unique per transaction, so a replayed reference cannot credit
 // the same wallet twice.
-async function creditWalletForPayment(userId, gatewayReference) {
-  const payment = await verifyPaystackReference(gatewayReference);
-
+async function creditVerifiedPayment(userId, payment) {
   const client = await db.getClient();
   try {
     await client.query('BEGIN');
@@ -65,4 +63,26 @@ async function creditWalletForPayment(userId, gatewayReference) {
   }
 }
 
-module.exports = { creditWalletForPayment };
+// Client path: the signed-in customer verifies a reference they just paid with.
+async function creditWalletForPayment(userId, gatewayReference) {
+  const payment = await verifyPaystackReference(gatewayReference);
+  return creditVerifiedPayment(userId, payment);
+}
+
+// Webhook path: the gateway notifies us directly, so the Hotbox account is
+// resolved from the payer email before the wallet is credited.
+async function creditWalletForGatewayReference(gatewayReference) {
+  const payment = await verifyPaystackReference(gatewayReference);
+  if (!payment.customerEmail) {
+    throw new Error('Payment has no customer email to match a Hotbox account.');
+  }
+
+  const userRes = await db.query('SELECT id FROM users WHERE email = $1', [payment.customerEmail]);
+  if (userRes.rows.length === 0) {
+    throw new Error('No Hotbox account matches the payer email.');
+  }
+
+  return creditVerifiedPayment(userRes.rows[0].id, payment);
+}
+
+module.exports = { creditWalletForPayment, creditWalletForGatewayReference };

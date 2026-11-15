@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 
 const { test, after } = require('node:test');
 
@@ -62,4 +63,25 @@ test('verifyPaystackReference throws when the gateway rejects the reference', as
     () => verifyPaystackReference('ref-missing'),
     /Transaction reference not found/
   );
+});
+
+test('verifyPaystackSignature accepts a correctly signed webhook body', () => {
+  const secret = 'sk_test_unit';
+  const rawBody = Buffer.from(JSON.stringify({ event: 'charge.success', data: { reference: 'ref-123' } }));
+  const signature = crypto.createHmac('sha512', secret).update(rawBody).digest('hex');
+
+  const { verifyPaystackSignature } = loadPaymentService();
+  assert.equal(verifyPaystackSignature({ rawBody, signature, secret }), true);
+});
+
+test('verifyPaystackSignature rejects a missing or mismatched signature', () => {
+  const rawBody = Buffer.from('{"event":"charge.success"}');
+  const secret = 'sk_test_unit';
+  const signature = crypto.createHmac('sha512', secret).update(rawBody).digest('hex');
+
+  const { verifyPaystackSignature } = loadPaymentService();
+  assert.equal(verifyPaystackSignature({ rawBody, signature: 'deadbeef', secret }), false);
+  assert.equal(verifyPaystackSignature({ rawBody, signature, secret: 'sk_test_other' }), false);
+  assert.equal(verifyPaystackSignature({ rawBody, signature, secret: '' }), false);
+  assert.equal(verifyPaystackSignature({ rawBody, signature: '', secret }), false);
 });

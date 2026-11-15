@@ -1,3 +1,5 @@
+const crypto = require('crypto');
+
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
 async function verifyPaystackReference(reference) {
@@ -25,4 +27,15 @@ async function verifyPaystackReference(reference) {
   };
 }
 
-module.exports = { verifyPaystackReference };
+// Confirms a Paystack webhook really came from the gateway. Paystack signs
+// the raw request body with the secret key using HMAC-SHA512.
+function verifyPaystackSignature({ rawBody, signature, secret }) {
+  if (!secret || !signature) return false;
+
+  const expected = crypto.createHmac('sha512', secret).update(rawBody).digest('hex');
+  if (signature.length !== expected.length) return false;
+
+  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+}
+
+module.exports = { verifyPaystackReference, verifyPaystackSignature };

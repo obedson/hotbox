@@ -76,7 +76,9 @@ app.use('/api/', globalLimiter);
 app.use('/api/v1/auth', authLimiter);
 app.use('/api/v1/customer/request-otp', otpLimiter);
 app.use(/^\/api\/v1\/shipments\/[^/]+\/resend-otp$/, otpLimiter);
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => { req.rawBody = buf; }
+}));
 
 // Request logger for API auditing
 app.use((req, res, next) => {
