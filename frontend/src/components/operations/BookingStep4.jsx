@@ -1,7 +1,7 @@
 import { ArrowLeft, RefreshCw, Check } from 'lucide-react';
 export default function BookingStep4({ booking }) {
   const {
-    handleBooking, loading, priceMap, selectedHubObj, senderAddress, senderName, senderPostcode, serviceType, setStep, size
+    handleBooking, loading, priceMap, selectedHubObj, senderAddress, senderName, senderPostcode, serviceType, setStep, size, walletBalance
   } = booking;
 
   return (
@@ -51,12 +51,23 @@ export default function BookingStep4({ booking }) {
                       <span>Dual-Party In-App/Email Alerts:</span>
                       <span className="font-bold text-emerald-700">₦0.00 (Free)</span>
                     </div>
+                    <div className="flex items-center justify-between text-slate-600">
+                      <span>Prepaid Wallet Balance:</span>
+                      <span className="font-bold text-slate-900">
+                        {walletBalance === null ? '—' : `₦${walletBalance.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`}
+                      </span>
+                    </div>
                     <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
                       <span className="font-bold text-sm text-slate-900">Total Delivery Amount:</span>
                       <span className="text-lg font-black text-emerald-800">
                         ₦{priceMap[size].toLocaleString('en-NG', { minimumFractionDigits: 2 })}
                       </span>
                     </div>
+                    {walletBalance !== null && walletBalance < Number(priceMap[size] || 0) && (
+                      <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                        Your wallet is short by ₦{(Number(priceMap[size] || 0) - walletBalance).toLocaleString('en-NG', { minimumFractionDigits: 2 })}. A secure card checkout will open to cover the difference before dispatch is confirmed.
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between pt-3 border-t border-slate-100">

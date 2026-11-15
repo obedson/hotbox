@@ -25,6 +25,7 @@ const enterpriseRouter = require('./routes/enterprise');
 const walletsRouter = require('./routes/wallets');
 const customerRouter = require('./routes/customer');
 const notificationsRouter = require('./routes/notifications');
+const paymentsRouter = require('./routes/payments');
 
 const app = express();
 
@@ -140,6 +141,7 @@ app.use('/api/v1/enterprise', enterpriseRouter);
 app.use('/api/v1/wallets', walletsRouter);
 app.use('/api/v1/customer', customerRouter);
 app.use('/api/v1/notifications', notificationsRouter);
+app.use('/api/v1/payments', paymentsRouter);
 
 // ----------------------------------------------------------------------------
 // BACKWARD COMPATIBILITY LAYER (Legacy v0 endpoints mapping to new schema)

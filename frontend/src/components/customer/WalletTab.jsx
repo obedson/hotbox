@@ -1,8 +1,8 @@
-import { apiFetch } from '../../lib/api';
 import { useState } from 'react';
 import { ArrowDownLeft, ArrowUpRight, Lock, Plus, RefreshCw, ShieldCheck, Wallet } from 'lucide-react';
+import { fundWalletWithCard } from '../../lib/walletFunding';
 
-export default function WalletTab({ wallet, transactions, fetchCustomerData, showToast, getAuthHeaders }) {
+export default function WalletTab({ wallet, transactions, currentUser, fetchCustomerData, showToast, getAuthHeaders }) {
   const [isToppingUp, setIsToppingUp] = useState(false);
   const [topupAmount, setTopupAmount] = useState('5000');
 
@@ -14,20 +14,15 @@ export default function WalletTab({ wallet, transactions, fetchCustomerData, sho
     }
     try {
       setIsToppingUp(true);
-      const res = await apiFetch('/api/v1/customer/wallet/topup', {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ amount: amt })
+      await fundWalletWithCard({
+        amountNgn: amt,
+        email: currentUser?.email || '',
+        metadata: { reason: 'wallet_topup' },
+        onCredited: () => fetchCustomerData()
       });
-      const data = await res.json();
-      if (res.ok) {
-        showToast(data.message || `Wallet credited with ₦${amt.toLocaleString('en-NG')}`);
-        fetchCustomerData();
-      } else {
-        showToast(data.error || 'Topup failed', 'error');
-      }
+      showToast(`Wallet topped up with ₦${amt.toLocaleString('en-NG')}`);
     } catch (err) {
-      showToast('Topup failed: ' + err.message, 'error');
+      showToast(err.message || 'Top-up failed', 'error');
     } finally {
       setIsToppingUp(false);
     }
@@ -73,7 +68,7 @@ export default function WalletTab({ wallet, transactions, fetchCustomerData, sho
                   {isToppingUp ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Crediting...</span>
+                      <span>Opening secure checkout...</span>
                     </>
                   ) : (
                     <>

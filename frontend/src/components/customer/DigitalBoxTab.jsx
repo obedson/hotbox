@@ -6,6 +6,7 @@ import {
   ShieldCheck, Sparkles, User, Wallet, Link2
 } from 'lucide-react';
 import CertificateModal from './CertificateModal';
+import { fundWalletWithCard } from '../../lib/walletFunding';
 
 export default function DigitalBoxTab({
   digitalBox, profile, wallet, currentUser, senderLocation, showToast,
@@ -56,6 +57,16 @@ export default function DigitalBoxTab({
   const handleRenewDigitalBox = async () => {
     setIsRenewingBox(true);
     try {
+      const annualFee = 3500;
+      const balance = Number(wallet?.balance || 0);
+      if (balance < annualFee) {
+        await fundWalletWithCard({
+          amountNgn: annualFee - balance,
+          email: currentUser?.email || '',
+          metadata: { reason: 'box_renewal' },
+          onCredited: () => fetchCustomerData()
+        });
+      }
       const res = await apiFetch('/api/v1/customer/renew-digital-box', {
         method: 'POST',
         headers: getAuthHeaders()
@@ -78,6 +89,16 @@ export default function DigitalBoxTab({
   const handleRequestGroundTruth = async () => {
     setIsRequestingGroundTruth(true);
     try {
+      const verificationFee = 2500;
+      const balance = Number(wallet?.balance || 0);
+      if (balance < verificationFee) {
+        await fundWalletWithCard({
+          amountNgn: verificationFee - balance,
+          email: currentUser?.email || '',
+          metadata: { reason: 'doorway_verification' },
+          onCredited: () => fetchCustomerData()
+        });
+      }
       const res = await apiFetch('/api/v1/customer/request-ground-truthing', {
         method: 'POST',
         headers: getAuthHeaders()
@@ -316,7 +337,7 @@ export default function DigitalBoxTab({
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-slate-500">Wallet Balance:</span>
                     <span className="font-bold text-slate-900">
-                      ₦{parseFloat(wallet?.balance_ngn || 0).toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+                      ₦{parseFloat(wallet?.balance || 0).toLocaleString('en-NG', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>

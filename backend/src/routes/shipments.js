@@ -15,6 +15,17 @@ function generateOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+// Dispatch fee per parcel size. Shared by the booking endpoint and the quote
+// endpoint so the wallet check before checkout never drifts from the charge.
+const SIZE_PRICES_NGN = { small: 1200.00, medium: 1600.00, large: 2400.00 };
+
+// GET /api/v1/shipments/quote - dispatch fee estimate for a parcel size
+router.get('/quote', authenticate, (req, res) => {
+  const size = String(req.query.size || 'medium').toLowerCase();
+  const priceNgn = SIZE_PRICES_NGN[size] || SIZE_PRICES_NGN.medium;
+  res.json({ size, priceNgn });
+});
+
 // POST /api/v1/shipments/book
 router.post('/book', authenticate, validate(bookingSchema), async (req, res) => {
   const {
@@ -46,8 +57,7 @@ router.post('/book', authenticate, validate(bookingSchema), async (req, res) => 
     const collectionQrToken = `QR-PASS-${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
 
     // Calculate base pricing
-    const priceMap = { small: 1200.00, medium: 1600.00, large: 2400.00 };
-    const pricingTotal = priceMap[size] || 1600.00;
+    const pricingTotal = SIZE_PRICES_NGN[size] || SIZE_PRICES_NGN.medium;
 
     const result = await db.query(
       `INSERT INTO shipments (

@@ -391,6 +391,7 @@ export default function CustomerDashboard({ currentUser, onBookNewShipment, acti
         <WalletTab
           wallet={wallet}
           transactions={transactions}
+          currentUser={currentUser}
           fetchCustomerData={fetchCustomerData}
           showToast={showToast}
           getAuthHeaders={getAuthHeaders}
