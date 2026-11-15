@@ -1,17 +1,10 @@
 import { apiFetch } from '../lib/api';
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Search, Bell, ChevronDown, Check, Package, Store,
-  Bike, Building2, ShieldCheck, Wallet, Clock, CheckCheck, Menu
+  Search, Bell, ChevronDown, Check, Package,
+  Building2, ShieldCheck, Wallet, Clock, CheckCheck, Menu
 } from 'lucide-react';
-
-const PORTALS = [
-  { id: 'operations', label: 'Operations', icon: ShieldCheck, color: 'bg-amber-500 text-slate-950 font-bold' },
-  { id: 'enterprise', label: 'Enterprise B2B', icon: Building2, color: 'bg-indigo-600 text-white font-semibold' },
-  { id: 'customer', label: 'Customer Portal', icon: Package, color: 'bg-emerald-600 text-white font-semibold' },
-  { id: 'hub_owner', label: 'Hub Station', icon: Store, color: 'bg-teal-600 text-white font-semibold' },
-  { id: 'rider', label: 'Rider Radar', icon: Bike, color: 'bg-blue-600 text-white font-semibold' }
-];
+import { PORTALS, authorizedPortalsForRole } from '../lib/portals';
 
 export default function TopHeader({
   activeNav,
@@ -94,6 +87,10 @@ export default function TopHeader({
   };
 
   const currentPortalMeta = PORTALS.find(p => p.id === activePortal) || PORTALS[0];
+  // Only surfaces this role may actually open are offered, so the switcher can
+  // never lead to an access-denied screen.
+  const availablePortals = authorizedPortalsForRole(currentUser?.role);
+  const shownPortal = availablePortals.find(p => p.id === activePortal) || availablePortals[0] || currentPortalMeta;
 
   const portalBreadcrumbLabels = {
     operations: 'Operations Console',
@@ -300,23 +297,31 @@ export default function TopHeader({
 
         {/* Clean Portal Switcher Pill */}
         <div className="relative" ref={dropdownRef}>
-          <button
-            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs transition shadow-sm ${currentPortalMeta.color}`}
-          >
-            <currentPortalMeta.icon className="w-3.5 h-3.5" />
-            <span>{currentPortalMeta.label}</span>
-            <ChevronDown className="w-3.5 h-3.5 ml-0.5" />
-          </button>
+          {availablePortals.length > 1 ? (
+            <button
+              type="button"
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs transition shadow-sm cursor-pointer ${shownPortal.color}`}
+            >
+              <shownPortal.icon className="w-3.5 h-3.5" />
+              <span>{shownPortal.label}</span>
+              <ChevronDown className="w-3.5 h-3.5 ml-0.5" />
+            </button>
+          ) : (
+            <div className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs shadow-sm ${shownPortal.color}`}>
+              <shownPortal.icon className="w-3.5 h-3.5" />
+              <span>{shownPortal.label}</span>
+            </div>
+          )}
 
-          {isDropdownOpen && (
+          {availablePortals.length > 1 && isDropdownOpen && (
             <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-50 animate-fadeIn">
               <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1">
                 Switch Portal Surface
               </div>
-              {PORTALS.map((p) => {
+              {availablePortals.map((p) => {
                 const Icon = p.icon;
-                const isSelected = p.id === activePortal;
+                const isSelected = p.id === shownPortal.id;
                 return (
                   <button
                     key={p.id}

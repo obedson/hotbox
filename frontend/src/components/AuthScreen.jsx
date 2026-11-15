@@ -5,6 +5,7 @@ import {
   Loader2, Lock, LogIn, Mail, MapPin, Package, Phone, ShieldCheck, User,
   UserPlus
 } from 'lucide-react';
+import PhoneInput from './PhoneInput';
 
 const ACCOUNT_TYPES = [
   {
@@ -87,7 +88,7 @@ export default function AuthScreen({ initialView = 'signin', resetToken = '', on
   const [accountType, setAccountType] = useState('customer');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('+234');
+  const [phone, setPhone] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agree, setAgree] = useState(false);
   const [formErrors, setFormErrors] = useState({});
@@ -158,7 +159,8 @@ export default function AuthScreen({ initialView = 'signin', resetToken = '', on
     const nextErrors = {};
     if (name.trim().length < 2) nextErrors.name = 'Enter your full legal name.';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) nextErrors.email = 'Enter a valid email address.';
-    if (phone.trim().length < 11) nextErrors.phone = 'Enter a valid Nigerian phone number.';
+    const phoneDigits = String(phone || '').replace(/\D/g, '');
+    if (phoneDigits.length < 10) nextErrors.phone = 'Enter a valid phone number.';
     if (password.length < 8) nextErrors.password = 'Use at least 8 characters.';
     if (confirmPassword !== password) nextErrors.confirmPassword = 'Passwords do not match.';
     if (accountType === 'enterprise_shipper' && businessName.trim().length < 2) {
@@ -179,7 +181,7 @@ export default function AuthScreen({ initialView = 'signin', resetToken = '', on
       const payload = {
         name: name.trim(),
         email: email.trim(),
-        phone: phone.trim(),
+        phone,
         password,
         role: accountType
       };
@@ -348,7 +350,7 @@ export default function AuthScreen({ initialView = 'signin', resetToken = '', on
                     autoComplete="username"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    placeholder="+2348012345678 or you@email.com"
+                    placeholder="+2348108525262, 08108525262 or you@email.com"
                     className={inputClass}
                   />
                 </Field>
@@ -461,13 +463,11 @@ export default function AuthScreen({ initialView = 'signin', resetToken = '', on
                 </Field>
 
                 <Field label="Phone number" icon={Phone} error={formErrors.phone}>
-                  <input
-                    type="tel"
-                    autoComplete="tel"
+                  <PhoneInput
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+2348012345678"
-                    className={inputClass}
+                    onChange={setPhone}
+                    placeholder="08108525262"
+                    required
                   />
                 </Field>
 

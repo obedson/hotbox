@@ -6,6 +6,7 @@ const { authenticate } = require('../../middleware/auth');
 const notificationService = require('../../services/notificationService');
 const { normalizePostcode, resolvePostcode } = require('../../services/postcodeService');
 const { formatBoxNumber, getBoxSuffix, parseBoxNumber } = require('../../utils/boxNumber');
+const { normalizePhone } = require('../../lib/phone');
 // GET /api/v1/customer/profile
 router.get('/profile', authenticate, async (req, res) => {
   try {
@@ -80,11 +81,12 @@ router.get('/profile', authenticate, async (req, res) => {
 router.put('/profile', authenticate, async (req, res) => {
   const { name, email, phone, postcode, notification_preferences, privacy_settings } = req.body;
   try {
+    const normalizedPhone = phone ? normalizePhone(phone) : null;
     const existingRes = await db.query('SELECT phone, email, postcode FROM users WHERE id = $1', [req.user.id]);
     const currUser = existingRes.rows[0] || {};
 
     let phoneVerifiedUpdate = null;
-    if (phone && currUser.phone && phone !== currUser.phone) {
+    if (normalizedPhone && currUser.phone && normalizedPhone !== currUser.phone) {
       phoneVerifiedUpdate = false;
     }
     let emailVerifiedUpdate = null;
@@ -108,7 +110,7 @@ router.put('/profile', authenticate, async (req, res) => {
           updated_at = NOW()
       WHERE id = $9
       RETURNING id, name, phone, email, role, status, postcode, notification_preferences, privacy_settings, is_phone_verified, is_email_verified, created_at
-    `, [name, email, phone, cleanPostcode, notification_preferences, privacy_settings, phoneVerifiedUpdate, emailVerifiedUpdate, req.user.id]);
+    `, [name, email, normalizedPhone, cleanPostcode, notification_preferences, privacy_settings, phoneVerifiedUpdate, emailVerifiedUpdate, req.user.id]);
 
     const updatedUser = result.rows[0];
 

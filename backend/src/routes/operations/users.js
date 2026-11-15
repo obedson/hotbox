@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const db = require('../../config/db');
 const { validate, createStaffSchema } = require('../../middleware/validate');
 const logger = require('../../lib/logger');
+const { normalizePhone } = require('../../lib/phone');
 
 // Admin-only user administration. Staff roles can only be granted here, never
 // through public self-service registration.
@@ -11,12 +12,6 @@ const toSafeUser = (user) => {
   const { password_hash, ...safe } = user;
   return safe;
 };
-
-function normalizePhone(phone) {
-  const raw = String(phone || '').trim().replace(/[\s-]/g, '');
-  if (/^0\d{10}$/.test(raw)) return `+234${raw.slice(1)}`;
-  return raw;
-}
 
 // GET /api/v1/operations/users
 router.get('/users', async (req, res) => {

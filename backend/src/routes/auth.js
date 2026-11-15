@@ -8,6 +8,7 @@ const { authenticate, JWT_SECRET } = require('../middleware/auth');
 const { validate, registerSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema } = require('../middleware/validate');
 const { sendEmailNotification } = require('../services/notificationService');
 const { SELF_SIGNUP_ROLES, portalForRole } = require('../config/roles');
+const { normalizePhone, buildPhoneCandidates } = require('../lib/phone');
 
 const TOKEN_TTL = '7d';
 const RESET_TOKEN_TTL_MINUTES = 30;
@@ -21,14 +22,6 @@ const toSafeUser = (user) => {
   const { password_hash, ...safe } = user;
   return safe;
 };
-
-// Store local formats (0803...) and international formats (+234803...) in one
-// canonical shape so a customer can sign in either way.
-function normalizePhone(phone) {
-  const raw = String(phone || '').trim().replace(/[\s-]/g, '');
-  if (/^0\d{10}$/.test(raw)) return `+234${raw.slice(1)}`;
-  return raw;
-}
 
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 
@@ -63,6 +56,19 @@ router.post('/register', validate(registerSchema), async (req, res) => {
 
   const normalizedPhone = normalizePhone(phone);
   const normalizedEmail = normalizeEmail(email);
+
+  // Friendly early check. The unique index on email/phone is the real guard;
+  // this just turns a database error into a helpful message.
+  const existingRes = await db.query(
+    `SELECT lower(email) AS email FROM users WHERE lower(email) = lower($1) OR phone = $2 LIMIT 1`,
+    [normalizedEmail, normalizedPhone]
+  );
+  if (existingRes.rows.length > 0) {
+    const field = String(existingRes.rows[0].email || '').toLowerCase() === normalizedEmail
+      ? 'email address'
+      : 'phone number';
+    return res.status(409).json({ error: `An account with this ${field} already exists. Try signing in instead.` });
+  }
 
   try {
     const passwordHash = await hashPassword(password);
@@ -136,15 +142,31 @@ router.post('/register', validate(registerSchema), async (req, res) => {
 // POST /api/v1/auth/login
 router.post('/login', validate(loginSchema), async (req, res) => {
   const { identifier, password } = req.validatedBody;
-  const normalizedIdentifier = normalizePhone(identifier);
+  const trimmedIdentifier = String(identifier || '').trim();
+  const identifierIsEmail = trimmedIdentifier.includes('@');
 
   try {
-    const userRes = await db.query(
-      `SELECT id, name, phone, email, password_hash, role, status, postcode
-       FROM users
-       WHERE phone = $1 OR lower(email) = lower($2)`,
-      [normalizedIdentifier, normalizedIdentifier]
-    );
+    const userRes = identifierIsEmail
+      ? await db.query(
+          `SELECT id, name, phone, email, password_hash, role, status, postcode
+           FROM users
+           WHERE lower(email) = lower($1)`,
+          [trimmedIdentifier]
+        )
+      : await db.query(
+          `SELECT id, name, phone, email, password_hash, role, status, postcode
+           FROM users
+           WHERE phone = ANY($1)`,
+          [buildPhoneCandidates(trimmedIdentifier)]
+        );
+
+    // A contact detail must resolve to exactly one account. If it does not,
+    // fail closed instead of guessing which account the visitor meant.
+    if (userRes.rows.length > 1) {
+      return res.status(409).json({
+        error: 'This contact detail matches more than one account. Please contact Hotbox support.'
+      });
+    }
 
     const user = userRes.rows[0];
 

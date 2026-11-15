@@ -25,7 +25,7 @@ describe('AuthScreen', () => {
     render(<AuthScreen onAuthenticated={() => {}} />);
 
     expect(screen.getByText('Welcome back')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/\+2348012345678/)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('+2348108525262, 08108525262 or you@email.com')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Your password')).toBeInTheDocument();
   });
 
@@ -48,7 +48,7 @@ describe('AuthScreen', () => {
 
     render(<AuthScreen onAuthenticated={onAuthenticated} />);
 
-    fireEvent.change(screen.getByPlaceholderText(/\+2348012345678/), { target: { value: '+2348037778899' } });
+    fireEvent.change(screen.getByPlaceholderText('+2348108525262, 08108525262 or you@email.com'), { target: { value: '+2348037778899' } });
     fireEvent.change(screen.getByPlaceholderText('Your password'), { target: { value: 'Password123!' } });
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
 
@@ -71,7 +71,7 @@ describe('AuthScreen', () => {
 
     render(<AuthScreen onAuthenticated={() => {}} />);
 
-    fireEvent.change(screen.getByPlaceholderText(/\+2348012345678/), { target: { value: '+2348037778899' } });
+    fireEvent.change(screen.getByPlaceholderText('+2348108525262, 08108525262 or you@email.com'), { target: { value: '+2348037778899' } });
     fireEvent.change(screen.getByPlaceholderText('Your password'), { target: { value: 'wrong' } });
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
 
@@ -105,7 +105,7 @@ describe('AuthScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create an account' }));
     fireEvent.change(screen.getByPlaceholderText('e.g. Tunde Fashola'), { target: { value: 'Tunde Fashola' } });
     fireEvent.change(screen.getByPlaceholderText('you@email.com'), { target: { value: 'tunde@example.com' } });
-    fireEvent.change(screen.getByPlaceholderText('+2348012345678'), { target: { value: '+2348037778899' } });
+    fireEvent.change(screen.getByPlaceholderText('08108525262'), { target: { value: '+2348037778899' } });
     fireEvent.change(screen.getByPlaceholderText('At least 8 characters'), { target: { value: 'Password123!' } });
     fireEvent.change(screen.getByPlaceholderText('Repeat your password'), { target: { value: 'Password123!' } });
     fireEvent.click(screen.getByRole('button', { name: /Create Individual account/ }));

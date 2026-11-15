@@ -20,6 +20,7 @@ import ShipmentTracker from './components/ShipmentTracker';
 import BookingModal from './components/BookingModal';
 import AuthScreen from './components/AuthScreen';
 import RbacGuard from './components/RbacGuard';
+import { isRoleAuthorizedForPortal } from './lib/portals';
 import ShipmentDossierModal from './components/ShipmentDossierModal';
 import ShipmentManagement from './components/ShipmentManagement';
 import RiderManagement from './components/RiderManagement';
@@ -247,26 +248,7 @@ export default function App() {
   };
 
   // RBAC Permission Check
-  const isAuthorized = (portal) => {
-    if (!currentUser) return false;
-    const role = currentUser.role;
-    if (role === 'super_admin' || role === 'admin') return true;
-
-    switch (portal) {
-      case 'customer':
-        return true;
-      case 'operations':
-        return ['ops_admin', 'compliance_officer', 'super_admin'].includes(role);
-      case 'enterprise':
-        return ['enterprise_shipper', 'courier_company', 'ops_admin', 'super_admin'].includes(role);
-      case 'hub_owner':
-        return ['hub_owner', 'hub_staff', 'ops_admin', 'super_admin'].includes(role);
-      case 'rider':
-        return ['rider', 'courier_company', 'ops_admin', 'super_admin'].includes(role);
-      default:
-        return false;
-    }
-  };
+  const isAuthorized = (portal) => isRoleAuthorizedForPortal(currentUser?.role, portal);
 
   // Session restore in progress: keep the screen calm instead of flashing the
   // sign-in page for a frame before the token check resolves.
