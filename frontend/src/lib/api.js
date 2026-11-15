@@ -26,6 +26,19 @@ export const isApiRequest = (url) => {
   return API_BASE !== '' && url.startsWith(`${API_BASE}/api`);
 };
 
+const AUTH_ENDPOINTS = ['/auth/login', '/auth/register'];
+
+// Surface an expired or missing token to the app shell so it can reopen the
+// sign-in modal instead of letting protected calls fail with a bare error.
+const notifyIfUnauthorized = (response, url) => {
+  if (!response || response.status !== 401) return;
+  const target = String(url || '');
+  if (AUTH_ENDPOINTS.some((endpoint) => target.includes(endpoint))) return;
+  try {
+    window.dispatchEvent(new CustomEvent('hotbox:unauthorized'));
+  } catch (e) {}
+};
+
 // Explicit shared client. Components should import and call this instead of
 // using the global fetch directly.
 export async function apiFetch(path, options = {}) {
@@ -47,7 +60,9 @@ window.fetch = async (url, options = {}) => {
     };
   }
 
-  return originalFetch(resolvedUrl, options);
+  const response = await originalFetch(resolvedUrl, options);
+  notifyIfUnauthorized(response, resolvedUrl);
+  return response;
 };
 
 export default apiFetch;

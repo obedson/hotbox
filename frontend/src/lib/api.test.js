@@ -82,6 +82,32 @@ describe('window.fetch auth wrapper', () => {
     const [, options] = mockFetch.mock.calls[0];
     expect(options.headers || {}).not.toHaveProperty('Authorization');
   });
+
+  it('emits a global event when a protected request is rejected as unauthenticated', async () => {
+    const mockFetch = vi.fn(async () => ({ status: 401, ok: false }));
+    window.fetch = mockFetch;
+    const listener = vi.fn();
+    window.addEventListener('hotbox:unauthorized', listener);
+
+    await import('./api');
+    await window.fetch('/api/customer/digital-box');
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    window.removeEventListener('hotbox:unauthorized', listener);
+  });
+
+  it('stays silent on 401 responses from the auth endpoints themselves', async () => {
+    const mockFetch = vi.fn(async () => ({ status: 401, ok: false }));
+    window.fetch = mockFetch;
+    const listener = vi.fn();
+    window.addEventListener('hotbox:unauthorized', listener);
+
+    await import('./api');
+    await window.fetch('/api/v1/auth/login');
+
+    expect(listener).not.toHaveBeenCalled();
+    window.removeEventListener('hotbox:unauthorized', listener);
+  });
 });
 
 describe('apiFetch shared client', () => {

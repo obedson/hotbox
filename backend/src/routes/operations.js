@@ -18,6 +18,7 @@ router.use(require('./operations/exceptions'));
 router.use(require('./operations/exceptionResolution'));
 router.use(require('./operations/reports'));
 router.use(require('./operations/audit'));
+router.use(require('./operations/users'));
 router.use(require('./operations/settings'));
 
 module.exports = router;

@@ -67,10 +67,23 @@ async function testBackend() {
     // 4. Auth: Login with seeded customer
     const login = await req('/api/v1/auth/login', {
       method: 'POST',
-      body: { identifier: '+2348037778899' }
+      body: { identifier: '+2348037778899', password: 'Password123!' }
     });
     assert('Customer Auth Login', login.status === 200 && login.data.token, JSON.stringify(login.data));
     const token = login.data.token;
+
+    // Unknown accounts must never learn whether the identifier is registered.
+    const unknownLogin = await req('/api/v1/auth/login', {
+      method: 'POST',
+      body: { identifier: '+2348000000001', password: 'Password123!' }
+    });
+    assert('Unknown Login Is Rejected', unknownLogin.status === 401, JSON.stringify(unknownLogin.data));
+
+    const missingPassword = await req('/api/v1/auth/login', {
+      method: 'POST',
+      body: { identifier: '+2348037778899' }
+    });
+    assert('Password Is Required', missingPassword.status === 400, JSON.stringify(missingPassword.data));
 
     // 5. Book Shipment
     const book = await req('/api/v1/shipments/book', {
@@ -128,9 +141,19 @@ async function testBackend() {
     // 9. Operations Control Tower Stats (requires ops admin / super admin)
     const opsLogin = await req('/api/v1/auth/login', {
       method: 'POST',
-      body: { identifier: '+2348000000000' } // System Super Admin
+      body: { identifier: '+2348000000000', password: 'Password123!' } // System Super Admin
     });
     const opsToken = opsLogin.data.token;
+
+    // Self-service registration must never be able to grant a staff role.
+    const escalation = await req('/api/v1/auth/register', {
+      method: 'POST',
+      body: {
+        name: 'Escalation Probe', phone: '+2348000000999', email: 'probe@example.com',
+        password: 'Password123!', role: 'super_admin'
+      }
+    });
+    assert('Self-Service Staff Role Escalation Blocked', escalation.status === 400, JSON.stringify(escalation.data));
 
     const stats = await req('/api/v1/operations/stats', {
       headers: { Authorization: `Bearer ${opsToken}` }
@@ -140,7 +163,7 @@ async function testBackend() {
     // 10. Verification Queue (Compliance review with Compliance Officer login)
     const compLogin = await req('/api/v1/auth/login', {
       method: 'POST',
-      body: { identifier: '+2348079988776' } // Oluwaseun Adeyemi (compliance_officer)
+      body: { identifier: '+2348079988776', password: 'Password123!' } // Oluwaseun Adeyemi (compliance_officer)
     });
     const compToken = compLogin.data.token;
 

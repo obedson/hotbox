@@ -1,14 +1,62 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { validate, registerSchema, bookingSchema, custodyTransferSchema } = require('../../src/middleware/validate');
+const {
+  validate, registerSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema,
+  bookingSchema, custodyTransferSchema
+} = require('../../src/middleware/validate');
+const { SELF_SIGNUP_ROLES, STAFF_ROLES } = require('../../src/config/roles');
+
+const validRegistration = {
+  name: 'Test User',
+  phone: '+2348037778899',
+  email: 'test@example.com',
+  password: 'Password123!'
+};
 
 test('registerSchema defaults the role to customer', () => {
-  const parsed = registerSchema.parse({ name: 'Test User', phone: '+2348037778899' });
+  const parsed = registerSchema.parse(validRegistration);
   assert.equal(parsed.role, 'customer');
 });
 
 test('registerSchema rejects an unknown role', () => {
-  assert.throws(() => registerSchema.parse({ name: 'Test User', phone: '+2348037778899', role: 'wizard' }));
+  assert.throws(() => registerSchema.parse({ ...validRegistration, role: 'wizard' }));
+});
+
+test('registerSchema rejects privileged roles on the self-service path', () => {
+  for (const role of STAFF_ROLES) {
+    assert.throws(
+      () => registerSchema.parse({ ...validRegistration, role }),
+      `${role} must never be self-assignable`
+    );
+  }
+});
+
+test('registerSchema only exposes the four public account types', () => {
+  for (const role of SELF_SIGNUP_ROLES) {
+    const parsed = registerSchema.parse({ ...validRegistration, role });
+    assert.equal(parsed.role, role);
+  }
+});
+
+test('registerSchema requires a verified contact channel and a strong password', () => {
+  assert.throws(() => registerSchema.parse({ ...validRegistration, email: undefined }));
+  assert.throws(() => registerSchema.parse({ ...validRegistration, email: 'not-an-email' }));
+  assert.throws(() => registerSchema.parse({ ...validRegistration, password: undefined }));
+  assert.throws(() => registerSchema.parse({ ...validRegistration, password: 'short' }));
+});
+
+test('loginSchema requires both an identifier and a password', () => {
+  const parsed = loginSchema.parse({ identifier: 'test@example.com', password: 'Password123!' });
+  assert.equal(parsed.identifier, 'test@example.com');
+  assert.throws(() => loginSchema.parse({ identifier: 'test@example.com' }));
+  assert.throws(() => loginSchema.parse({ password: 'Password123!' }));
+});
+
+test('password recovery schemas validate their inputs', () => {
+  assert.throws(() => forgotPasswordSchema.parse({ email: 'nope' }));
+  assert.ok(forgotPasswordSchema.parse({ email: 'test@example.com' }));
+  assert.throws(() => resetPasswordSchema.parse({ token: 'short', password: 'Password123!' }));
+  assert.ok(resetPasswordSchema.parse({ token: 'a'.repeat(32), password: 'Password123!' }));
 });
 
 test('bookingSchema applies service defaults', () => {
@@ -53,7 +101,7 @@ test('validate middleware responds 400 with field details on invalid input', () 
 });
 
 test('validate middleware calls next and attaches the parsed body on valid input', () => {
-  const req = { body: { name: 'Test User', phone: '+2348037778899' } };
+  const req = { body: validRegistration };
   const res = {
     status(code) { this.statusCode = code; return this; },
     json(payload) { this.payload = payload; return this; }

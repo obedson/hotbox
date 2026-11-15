@@ -1,32 +1,56 @@
 const { z } = require('zod');
+const { SELF_SIGNUP_ROLES, STAFF_ROLES } = require('../config/roles');
 
 // Schema for User Registration
+// Identity is self-service only: visitors may create a customer, hub partner,
+// rider or enterprise account. Staff roles are provisioned by an administrator.
 const registerSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  phone: z.string().min(10, 'Valid phone number required'),
-  email: z.string().email().optional().or(z.literal('')),
-  password: z.string().min(6).optional(),
-  role: z.enum([
-    'customer',
-    'hub_owner',
-    'hub_staff',
-    'rider',
-    'courier_company',
-    'enterprise_shipper',
-    'ops_admin',
-    'compliance_officer',
-    'finance_officer',
-    'support_agent',
-    'super_admin'
-  ]).default('customer'),
-  businessName: z.string().optional(),
-  postcode: z.string().optional(),
-  addressText: z.string().optional(),
-  neighbourhood: z.string().optional(),
-  capacity: z.number().optional(),
-  vehicleType: z.string().optional(),
-  plateNumber: z.string().optional(),
-  cacNumber: z.string().optional()
+  name: z.string().trim().min(2, 'Enter your full name').max(120),
+  phone: z.string().trim().min(11, 'Enter a valid Nigerian phone number').max(25),
+  email: z.string().trim().email('Enter a valid email address').max(120),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(72),
+  role: z.enum(SELF_SIGNUP_ROLES).default('customer'),
+  businessName: z.string().trim().max(120).optional(),
+  postcode: z.string().trim().max(20).optional(),
+  addressText: z.string().trim().max(200).optional(),
+  neighbourhood: z.string().trim().max(120).optional(),
+  capacity: z.number().int().positive().max(5000).optional(),
+  vehicleType: z.enum(['bicycle', 'motorcycle', 'van', 'truck']).optional(),
+  plateNumber: z.string().trim().max(20).optional(),
+  cacNumber: z.string().trim().max(40).optional()
+});
+
+// Schema for Sign In
+const loginSchema = z.object({
+  identifier: z.string().trim().min(3, 'Enter your phone number or email address'),
+  password: z.string().min(1, 'Enter your password')
+});
+
+// Schema for a forgotten-password request
+const forgotPasswordSchema = z.object({
+  email: z.string().trim().email('Enter a valid email address')
+});
+
+// Schema for resetting a password with a token from the recovery email
+const resetPasswordSchema = z.object({
+  token: z.string().min(20, 'That recovery link is no longer valid'),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(72)
+});
+
+// Schema for an administrator provisioning a staff or partner account.
+const createStaffSchema = z.object({
+  name: z.string().trim().min(2, 'Enter the full name').max(120),
+  email: z.string().trim().email('Enter a valid email address').max(120),
+  phone: z.string().trim().min(11, 'Enter a valid Nigerian phone number').max(25),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(72),
+  role: z.enum([...STAFF_ROLES, ...SELF_SIGNUP_ROLES]),
+  businessName: z.string().trim().max(120).optional(),
+  cacNumber: z.string().trim().max(40).optional(),
+  postcode: z.string().trim().max(20).optional(),
+  neighbourhood: z.string().trim().max(120).optional(),
+  capacity: z.number().int().positive().max(5000).optional(),
+  vehicleType: z.enum(['bicycle', 'motorcycle', 'van', 'truck']).optional(),
+  plateNumber: z.string().trim().max(20).optional()
 });
 
 // Schema for Shipment Booking
@@ -78,7 +102,7 @@ function validate(schema) {
       const issues = err.issues || err.errors || [];
       if (issues.length > 0) {
         return res.status(400).json({
-          error: 'Validation Error',
+          error: issues[0].message,
           details: issues.map(e => ({ field: (e.path || []).join('.'), message: e.message }))
         });
       }
@@ -90,6 +114,10 @@ function validate(schema) {
 module.exports = {
   validate,
   registerSchema,
+  loginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  createStaffSchema,
   bookingSchema,
   custodyTransferSchema
 };

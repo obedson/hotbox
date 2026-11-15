@@ -36,21 +36,19 @@ describe('RbacGuard', () => {
     expect(screen.getByText('Role: anonymous')).toBeInTheDocument();
   });
 
-  it('invokes onSwitchDemoAccount with the demo account when clicked', () => {
-    const onSwitchDemoAccount = vi.fn();
+  it('invokes onSignOut when the sign out action is clicked', () => {
+    const onSignOut = vi.fn();
     render(
       <RbacGuard
         portalId="operations"
         currentUser={{ role: 'customer', name: 'Test User' }}
-        onSwitchDemoAccount={onSwitchDemoAccount}
+        onSignOut={onSignOut}
       />
     );
 
-    fireEvent.click(screen.getByText(/Log In as Kolawole Adeleke/));
+    fireEvent.click(screen.getByText('Sign out'));
 
-    expect(onSwitchDemoAccount).toHaveBeenCalledWith(
-      expect.objectContaining({ role: 'ops_admin', name: 'Kolawole Adeleke' })
-    );
+    expect(onSignOut).toHaveBeenCalledTimes(1);
   });
 
   it('invokes onReturnToAllowed when the return button is clicked', () => {
@@ -63,7 +61,7 @@ describe('RbacGuard', () => {
       />
     );
 
-    fireEvent.click(screen.getByText('Return to Customer Dashboard'));
+    fireEvent.click(screen.getByText('Go to my dashboard'));
 
     expect(onReturnToAllowed).toHaveBeenCalledTimes(1);
   });

@@ -122,7 +122,6 @@ export default function Sidebar({
   setActiveNav,
   currentUser,
   onLogout,
-  onOpenLogin,
   isMobileOpen = false,
   onCloseMobile
 }) {
@@ -209,41 +208,29 @@ export default function Sidebar({
 
       {/* User / Sign Out Footer */}
       <div className="p-4 border-t border-[#0d3b2b] bg-[#041a12]">
-        {currentUser ? (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs font-bold text-white truncate">{currentUser.name}</div>
-                <div className="text-[10px] text-emerald-400 font-mono capitalize truncate">
-                  {currentUser.role ? currentUser.role.replace(/_/g, ' ') : activePortal}
-                </div>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+              {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-white truncate">{currentUser.name}</div>
+              <div className="text-[10px] text-emerald-400 font-mono capitalize truncate">
+                {currentUser.role ? currentUser.role.replace(/_/g, ' ') : activePortal}
               </div>
             </div>
-            <button
-              onClick={() => {
-                onLogout();
-                if (isMobile && onCloseMobile) onCloseMobile();
-              }}
-              title="Sign Out"
-              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-[#0a3323] rounded-lg transition shrink-0 cursor-pointer"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
           </div>
-        ) : (
           <button
             onClick={() => {
-              onOpenLogin();
+              onLogout();
               if (isMobile && onCloseMobile) onCloseMobile();
             }}
-            className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition shadow-md shadow-emerald-600/20 cursor-pointer"
+            title="Sign Out"
+            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-[#0a3323] rounded-lg transition shrink-0 cursor-pointer"
           >
-            Sign In / Switch Role
+            <LogOut className="w-4 h-4" />
           </button>
-        )}
+        </div>
       </div>
     </div>
   );

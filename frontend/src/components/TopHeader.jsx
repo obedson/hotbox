@@ -2,7 +2,7 @@ import { apiFetch } from '../lib/api';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Search, Bell, ChevronDown, Check, Package, Store,
-  Bike, Building2, ShieldCheck, Wallet, LogIn, UserPlus, Clock, CheckCheck, Menu
+  Bike, Building2, ShieldCheck, Wallet, Clock, CheckCheck, Menu
 } from 'lucide-react';
 
 const PORTALS = [
@@ -19,8 +19,6 @@ export default function TopHeader({
   setActivePortal,
   currentUser,
   walletBalance,
-  onOpenLogin,
-  onOpenRegister,
   searchQuery,
   setSearchQuery,
   onSearch,
@@ -56,6 +54,11 @@ export default function TopHeader({
   const fetchNotifications = async () => {
     try {
       const token = localStorage.getItem('hotbox_token');
+      if (!token) {
+        setNotifications([]);
+        setUnreadCount(0);
+        return;
+      }
       const headers = token
         ? { Authorization: `Bearer ${token}` }
         : {}
@@ -340,24 +343,6 @@ export default function TopHeader({
         </div>
 
         {/* Auth CTA if unauthenticated */}
-        {!currentUser && (
-          <div className="flex items-center space-x-2 pl-2 border-l border-slate-200">
-            <button
-              onClick={onOpenLogin}
-              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 transition flex items-center space-x-1"
-            >
-              <LogIn className="w-3.5 h-3.5" />
-              <span>Sign In</span>
-            </button>
-            <button
-              onClick={onOpenRegister}
-              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white transition flex items-center space-x-1 shadow-sm"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>Register</span>
-            </button>
-          </div>
-        )}
       </div>
     </header>
   );

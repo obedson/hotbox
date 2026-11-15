@@ -17,3 +17,5 @@ services:
         sync: false
       - key: JWT_SECRET
         generateValue: true
+      - key: APP_BASE_URL
+        value: https://hotbox.onrender.com

@@ -1,11 +1,11 @@
 import { apiFetch } from './lib/api';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import {
   Package, MapPin, ShieldCheck, QrCode, Search,
-  Plus, CheckCircle2, AlertTriangle, ArrowRight, Wallet, Users, Store, Bike
+  Plus, CheckCircle2, AlertTriangle, ArrowRight, Wallet, Users, Store, Bike, Loader2
 } from 'lucide-react';
 
 import Sidebar from './components/Sidebar';
@@ -18,8 +18,7 @@ import CustodyScanner from './components/CustodyScanner';
 import CustomerDashboard from './components/CustomerDashboard';
 import ShipmentTracker from './components/ShipmentTracker';
 import BookingModal from './components/BookingModal';
-import LoginModal from './components/LoginModal';
-import RegisterModal from './components/RegisterModal';
+import AuthScreen from './components/AuthScreen';
 import RbacGuard from './components/RbacGuard';
 import ShipmentDossierModal from './components/ShipmentDossierModal';
 import ShipmentManagement from './components/ShipmentManagement';
@@ -99,23 +98,28 @@ export default function App() {
   };
 
   // Authentication State
-  const [currentUser, setCurrentUser] = useState(() => {
+  // The stored user is only a placeholder until the API confirms the token is
+  // still valid, so a stale session can never render protected screens.
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isRestoringSession, setIsRestoringSession] = useState(() => {
     try {
-      const saved = localStorage.getItem('hotbox_user');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return {
-      id: 'a0000000-0000-0000-0000-000000000005',
-      name: 'Kolawole Adeleke',
-      phone: '+2348061122335',
-      role: 'ops_admin'
-    };
+      return Boolean(localStorage.getItem('hotbox_token'));
+    } catch (e) {
+      return false;
+    }
+  });
+  const isRestoringRef = useRef(true);
+
+  const [resetToken] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('reset') || '';
+    } catch (e) {
+      return '';
+    }
   });
 
   const [walletBalance, setWalletBalance] = useState(1240500.00);
   const [isBookingOpen, setIsBookingOpen] = useState(false);
-  const [isLoginOpen, setIsLoginOpen] = useState(false);
-  const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [toast, setToast] = useState(null);
 
@@ -165,38 +169,80 @@ export default function App() {
     setTimeout(() => setToast(null), 4000);
   };
 
-  const handleLoginSuccess = (user, token) => {
-    setCurrentUser(user);
-    showToast(`Signed in as ${user.name} (${user.role})`);
-    if (['ops_admin', 'super_admin'].includes(user.role)) {
-      setActivePortal('operations');
-    } else if (user.role === 'compliance_officer') {
-      setActivePortal('operations');
-      setActiveNav('verification');
-    } else if (user.role === 'enterprise_shipper') {
-      setActivePortal('enterprise');
-    } else if (['hub_owner', 'hub_staff'].includes(user.role)) {
-      setActivePortal('hub_owner');
-    } else if (user.role === 'rider') {
-      setActivePortal('rider');
-    } else {
-      setActivePortal('customer');
+  // Confirm the stored session on first load. A rejected token clears local
+  // storage and drops the visitor onto the sign-in screen.
+  useEffect(() => {
+    const token = localStorage.getItem('hotbox_token');
+    if (!token) {
+      isRestoringRef.current = false;
+      setIsRestoringSession(false);
+      return undefined;
     }
-  };
 
-  const handleRegisterSuccess = (user, token) => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await apiFetch('/api/v1/auth/me');
+        if (cancelled) return;
+        if (res.ok) {
+          const data = await res.json();
+          setCurrentUser(data.user);
+        } else {
+          localStorage.removeItem('hotbox_token');
+          localStorage.removeItem('hotbox_user');
+        }
+      } catch (err) {
+        // Network failure: keep the stored session and let the next request retry.
+      } finally {
+        if (!cancelled) {
+          isRestoringRef.current = false;
+          setIsRestoringSession(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // A protected API call rejected the stored token: clear the session and let
+  // the auth screen take over instead of failing silently.
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      if (isRestoringRef.current) return;
+      localStorage.removeItem('hotbox_token');
+      localStorage.removeItem('hotbox_user');
+      setCurrentUser(null);
+      showToast('Your session has expired. Please sign in again.', 'error');
+    };
+    window.addEventListener('hotbox:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('hotbox:unauthorized', handleUnauthorized);
+  }, []);
+
+  const handleAuthenticated = (user) => {
     setCurrentUser(user);
-    showToast(`Account registered for ${user.name}`);
-    if (user.role === 'hub_owner') setActivePortal('hub_owner');
-    else if (user.role === 'rider') setActivePortal('rider');
-    else if (user.role === 'enterprise_shipper') setActivePortal('enterprise');
-    else setActivePortal('customer');
+    const portal = user.portal || 'customer';
+    setActivePortal(portal);
+    if (user.role === 'compliance_officer') setActiveNav('verification');
+    if (portal !== 'customer') {
+      try {
+        localStorage.setItem('hotbox_active_portal', portal);
+      } catch (e) {}
+    }
+    showToast(`Welcome back, ${user.name.split(' ')[0]}`);
+    try {
+      window.history.replaceState({}, '', window.location.pathname);
+    } catch (e) {}
   };
 
   const handleLogout = () => {
     localStorage.removeItem('hotbox_token');
     localStorage.removeItem('hotbox_user');
     setCurrentUser(null);
+    setActivePortal('customer');
+    setActiveNav(DEFAULT_PORTAL_NAVS.customer);
     showToast('Signed out successfully.');
   };
 
@@ -222,6 +268,27 @@ export default function App() {
     }
   };
 
+  // Session restore in progress: keep the screen calm instead of flashing the
+  // sign-in page for a frame before the token check resolves.
+  if (isRestoringSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
+      </div>
+    );
+  }
+
+  // Signed out: a dedicated full-screen authentication experience.
+  if (!currentUser) {
+    return (
+      <AuthScreen
+        initialView={resetToken ? 'reset' : 'signin'}
+        resetToken={resetToken}
+        onAuthenticated={handleAuthenticated}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex font-sans antialiased">
       {/* 1. Sleek Left Sidebar (as in 10-operations-dashboard.jpg) */}
@@ -245,8 +312,6 @@ export default function App() {
           setActivePortal={handlePortalChange}
           currentUser={currentUser}
           walletBalance={walletBalance}
-          onOpenLogin={() => setIsLoginOpen(true)}
-          onOpenRegister={() => setIsRegisterOpen(true)}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           onSearch={handleGlobalSearch}
@@ -260,16 +325,11 @@ export default function App() {
             <RbacGuard
               portalId={activePortal}
               currentUser={currentUser}
-              onSwitchDemoAccount={(demoAcc) => {
-                setCurrentUser({
-                  id: 'a0000000-0000-0000-0000-000000000005',
-                  name: demoAcc.name,
-                  phone: demoAcc.phone,
-                  role: demoAcc.role
-                });
-                showToast(`Switched session to ${demoAcc.name}`);
+              onReturnToAllowed={() => {
+                setActivePortal(currentUser.portal || 'customer');
+                setActiveNav(DEFAULT_PORTAL_NAVS[currentUser.portal || 'customer'] || 'nearby_hubs');
               }}
-              onReturnToAllowed={() => setActivePortal('customer')}
+              onSignOut={handleLogout}
             />
           ) : (
             <>
@@ -400,28 +460,6 @@ export default function App() {
           }}
         />
       )}
-
-      {/* Login Modal */}
-      <LoginModal
-        isOpen={isLoginOpen}
-        onClose={() => setIsLoginOpen(false)}
-        onLoginSuccess={handleLoginSuccess}
-        onSwitchToRegister={() => {
-          setIsLoginOpen(false);
-          setIsRegisterOpen(true);
-        }}
-      />
-
-      {/* Register Modal */}
-      <RegisterModal
-        isOpen={isRegisterOpen}
-        onClose={() => setIsRegisterOpen(false)}
-        onRegisterSuccess={handleRegisterSuccess}
-        onSwitchToLogin={() => {
-          setIsRegisterOpen(false);
-          setIsLoginOpen(true);
-        }}
-      />
 
       {/* Operations Chain-of-Custody Dossier Modal */}
       <ShipmentDossierModal
