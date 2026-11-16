@@ -68,7 +68,7 @@ router.put('/settings', async (req, res) => {
     }
 
     const previousValue = prevRes.rows[0].setting_value;
-    const actorId = req.headers['x-user-id'] || 'a0000000-0000-0000-0000-000000000002';
+    const actorId = req.user ? req.user.id : req.headers['x-user-id'] || null;
 
     // Update settings table
     const updateRes = await db.query(`

@@ -4,7 +4,7 @@
 // scoped to one request and one action, so it can never be replayed or widened.
 const jwt = require('jsonwebtoken');
 const settingsService = require('./settingsService');
-const { sendEmailNotification } = require('./notificationService');
+const notificationService = require('./notificationService');
 
 const REVIEW_TOKEN_TTL = '7d';
 const TOKEN_PURPOSE = 'legacy_link_review';
@@ -21,7 +21,14 @@ function signReviewToken(requestId, action) {
 }
 
 function verifyReviewToken(token) {
-  const decoded = jwt.verify(String(token || ''), secret());
+  let decoded;
+  try {
+    decoded = jwt.verify(String(token || ''), secret());
+  } catch (err) {
+    const error = new Error('This review link is invalid or has expired.');
+    error.status = 400;
+    throw error;
+  }
   if (decoded.purpose !== TOKEN_PURPOSE) throw new Error('This review link is not valid.');
   if (!decoded.requestId || !['approve', 'reject'].includes(decoded.action)) {
     throw new Error('This review link is incomplete.');
@@ -66,7 +73,7 @@ async function sendReviewRequestEmail({ request, boxNumber }) {
 
   const urls = reviewUrls(request.id);
   try {
-    await sendEmailNotification({
+    await notificationService.sendEmailNotification({
       to,
       subject: `NIPOST verification requested: old P.O. Box ${request.legacy_box_number_raw}`,
       text: `Customer ${request.user_name || request.user_email} requested linking old P.O. Box ${request.legacy_box_number_raw} to ${boxNumber}. Approve: ${urls.approve} Reject: ${urls.reject}`,

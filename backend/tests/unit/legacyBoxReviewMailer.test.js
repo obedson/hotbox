@@ -51,8 +51,11 @@ test('rejects an incomplete token', () => {
   assert.throws(() => mailer.verifyReviewToken(forged), /incomplete/i);
 });
 
-test('rejects a garbage token', () => {
-  assert.throws(() => mailer.verifyReviewToken('not-a-token'));
+test('rejects a garbage token as a bad request', () => {
+  assert.throws(
+    () => mailer.verifyReviewToken('not-a-token'),
+    (err) => err.status === 400 && /invalid or has expired/i.test(err.message)
+  );
 });
 
 test('refuses to sign without a JWT secret', () => {
