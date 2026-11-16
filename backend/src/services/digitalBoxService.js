@@ -44,8 +44,7 @@ function findBoxByLegacyNumber(input) {
   if (!key) return Promise.resolve(null);
   return db.query(
     `SELECT * FROM digital_boxes
-      WHERE UPPER(regexp_replace(legacy_box_number, '[^A-Z0-9]+', '', 'g')) = $1
-        AND legacy_box_status = 'APPROVED'
+      WHERE legacy_box_number_norm = $1 AND legacy_box_status = 'APPROVED'
       LIMIT 1`,
     [key]
   ).then((res) => res.rows[0] || null);

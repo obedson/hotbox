@@ -856,6 +856,7 @@ CREATE TABLE IF NOT EXISTS digital_boxes (
   status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
   plan VARCHAR(20) NOT NULL DEFAULT 'ANNUAL',
   legacy_box_number VARCHAR(60) UNIQUE,
+  legacy_box_number_norm VARCHAR(120),
   legacy_linked_at TIMESTAMP WITH TIME ZONE,
   legacy_box_status VARCHAR(20) NOT NULL DEFAULT 'UNLINKED',
   legacy_box_approved_at TIMESTAMP WITH TIME ZONE,
@@ -904,8 +905,13 @@ CREATE INDEX IF NOT EXISTS idx_legacy_link_requests_user
 CREATE INDEX IF NOT EXISTS idx_legacy_link_requests_status
   ON legacy_box_link_requests (status, expires_at);
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_digital_boxes_approved_legacy_norm
+  ON digital_boxes (legacy_box_number_norm)
+  WHERE legacy_box_status = 'APPROVED';
+
 UPDATE digital_boxes
    SET legacy_box_status = 'APPROVED',
+       legacy_box_number_norm = UPPER(regexp_replace(legacy_box_number, '[^A-Z0-9]+', '', 'g')),
        legacy_box_approved_at = COALESCE(legacy_box_approved_at, legacy_linked_at, NOW())
  WHERE legacy_box_number IS NOT NULL
    AND (legacy_box_status IS NULL OR legacy_box_status = 'UNLINKED');

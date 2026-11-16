@@ -13,9 +13,6 @@ function failure(message, status = 400) {
   return error;
 }
 
-function canonicalColumn(column) {
-  return `UPPER(regexp_replace(${column}, '[^A-Z0-9]+', '', 'g'))`;
-}
 
 function expiryDate() {
   return new Date(Date.now() + REQUEST_TTL_DAYS * 24 * 3600 * 1000);
@@ -43,7 +40,7 @@ async function createRequest({
 
   const taken = await db.query(
     `SELECT * FROM digital_boxes
-      WHERE ${canonicalColumn('legacy_box_number')} = $1 AND legacy_box_status = 'APPROVED'
+      WHERE legacy_box_number_norm = $1 AND legacy_box_status = 'APPROVED'
       LIMIT 1`,
     [key]
   );
@@ -162,10 +159,10 @@ async function approveRequest({ requestId, reviewerId, note = null }) {
 
     const box = await client.query(
       `UPDATE digital_boxes
-          SET legacy_box_number = $2, legacy_linked_at = NOW(),
+          SET legacy_box_number = $2, legacy_box_number_norm = $3, legacy_linked_at = NOW(),
               legacy_box_status = 'APPROVED', legacy_box_approved_at = NOW(), updated_at = NOW()
         WHERE id = $1 RETURNING *`,
-      [request.box_id, request.legacy_box_number_raw]
+      [request.box_id, request.legacy_box_number_raw, request.legacy_box_number_norm]
     );
 
     await client.query(
@@ -291,7 +288,7 @@ async function findLegacyLinkState(input) {
 
   const box = await db.query(
     `SELECT * FROM digital_boxes
-      WHERE ${canonicalColumn('legacy_box_number')} = $1 AND legacy_box_status = 'APPROVED'
+      WHERE legacy_box_number_norm = $1 AND legacy_box_status = 'APPROVED'
       LIMIT 1`,
     [key]
   );
