@@ -7,6 +7,7 @@ const notificationService = require('../../services/notificationService');
 const { normalizePostcode, resolvePostcode } = require('../../services/postcodeService');
 const { parseBoxNumber } = require('../../utils/boxNumber');
 const digitalBoxService = require('../../services/digitalBoxService');
+const settingsService = require('../../services/settingsService');
 const { normalizePhone } = require('../../lib/phone');
 // GET /api/v1/customer/profile
 router.get('/profile', authenticate, async (req, res) => {
@@ -326,6 +327,7 @@ router.get('/digital-box', authenticate, async (req, res) => {
 
     const expiresAt = box.expires_at ? new Date(box.expires_at) : new Date(Date.now() + 300 * 24 * 3600 * 1000);
     const daysRemaining = Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 3600 * 24)));
+    const fees = await settingsService.getDigitalBoxFees();
 
     res.json({
       boxNumber: box.box_number,
@@ -346,7 +348,9 @@ router.get('/digital-box', authenticate, async (req, res) => {
       expiresAt: expiresAt.toISOString(),
       daysRemaining,
       annualFeeNgn: digitalBoxService.ANNUAL_FEE_NGN,
-      groundTruthingFeeNgn: digitalBoxService.GROUND_TRUTH_FEE_NGN,
+      groundTruthingFeeNgn: fees.doorwayInspectionFeeNgn,
+      doorwayInspectionFeeNgn: fees.doorwayInspectionFeeNgn,
+      revalidationFeeNgn: fees.revalidationFeeNgn,
       legacyBoxNumber: box.legacy_box_number || null,
       legacyLinkedAt: box.legacy_linked_at ? new Date(box.legacy_linked_at).toISOString() : null,
       relocations: relocations.map((rel) => ({
@@ -477,11 +481,15 @@ router.post('/link-legacy-box', authenticate, async (req, res) => {
 
 // POST /api/v1/customer/request-ground-truthing
 router.post('/request-ground-truthing', authenticate, async (req, res) => {
-  const verificationFee = digitalBoxService.GROUND_TRUTH_FEE_NGN;
   try {
     const userRes = await db.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
     const user = userRes.rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const box = await digitalBoxService.ensureDigitalBox(user.id);
+    const isRenewal = Boolean(box.is_ground_truth_verified);
+    const fees = await settingsService.getDigitalBoxFees();
+    const verificationFee = isRenewal ? fees.revalidationFeeNgn : fees.doorwayInspectionFeeNgn;
 
     const walletRes = await db.query('SELECT * FROM wallets WHERE user_id = $1', [req.user.id]);
     let wallet = walletRes.rows[0];
@@ -493,7 +501,7 @@ router.post('/request-ground-truthing', authenticate, async (req, res) => {
     const curBal = parseFloat(wallet.balance_ngn || 0);
     if (curBal < verificationFee) {
       return res.status(400).json({
-        error: `Insufficient prepaid wallet balance for physical ground-truthing (₦${verificationFee.toFixed(2)} required). Please top up your wallet.`,
+        error: `Insufficient prepaid wallet balance for ${isRenewal ? 'certificate revalidation' : 'physical ground-truthing'} (₦${verificationFee.toFixed(2)} required). Please top up your wallet.`,
         required: verificationFee,
         currentBalance: curBal
       });
@@ -514,10 +522,12 @@ router.post('/request-ground-truthing', authenticate, async (req, res) => {
       curBal,
       newBal,
       ref,
-      JSON.stringify({ description: 'Physical Ground-Truthing Field Inspection & Geofenced Doorway Validation' })
+      JSON.stringify({
+        description: isRenewal
+          ? 'Proof of Address Certificate Revalidation & Geofenced Doorway Validation'
+          : 'Physical Ground-Truthing Field Inspection & Geofenced Doorway Validation'
+      })
     ]);
-
-    const box = await digitalBoxService.ensureDigitalBox(user.id);
 
     // Geocode the address under inspection so the record can later be opened in
     // a map application for mail delivery.

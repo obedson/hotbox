@@ -6,6 +6,7 @@ import DeliveryTargetsTab from './DeliveryTargetsTab';
 import StorageFeesTab from './StorageFeesTab';
 import PartnerPayoutsTab from './PartnerPayoutsTab';
 import DeliveryRatesTab from './DeliveryRatesTab';
+import DigitalBoxFeesTab from './DigitalBoxFeesTab';
 
 export default function SettingsPanel({ directory }) {
   const {
@@ -248,6 +249,21 @@ export default function SettingsPanel({ directory }) {
         </button>
 
         <button
+          onClick={() => setActiveTab('digitalbox')}
+          className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all ${
+            activeTab === 'digitalbox'
+              ? 'bg-slate-900 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200/80'
+          }`}
+        >
+          <ShieldCheck className="w-4 h-4" />
+          <span>Digital Box Fees</span>
+          {hasChangesInTab('digitalbox') && (
+            <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+          )}
+        </button>
+
+        <button
           onClick={() => setActiveTab('history')}
           className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all ${
             activeTab === 'history'
@@ -275,7 +291,10 @@ export default function SettingsPanel({ directory }) {
       {/* TAB 4: DELIVERY TARGETS & RULES (Simplified Layman Terms) */}
       {activeTab === 'sla' && <DeliveryTargetsTab slaVal={directory.slaVal} updateField={directory.updateField} />}
 
-      {/* TAB 5: AUDIT HISTORY */}
+      {/* TAB 5: DIGITAL BOX FEES */}
+      {activeTab === 'digitalbox' && <DigitalBoxFeesTab digitalBoxVal={directory.digitalBoxVal} updateField={directory.updateField} />}
+
+      {/* TAB 6: AUDIT HISTORY */}
       {activeTab === 'history' && <AuditHistoryTab auditHistory={directory.auditHistory} copiedId={directory.copiedId} handleCopy={directory.handleCopy} />}
 
       {/* CONFIRMATION SAVE MODAL */}

@@ -58,7 +58,8 @@ export default function useSettings() {
       commissions: 'partner_commissions',
       storage: 'hub_storage_policy',
       sla: 'sla_benchmarks',
-      security: 'security_governance'
+      security: 'security_governance',
+      digitalbox: 'digital_box_fees'
     };
     const key = settingMap[tabKey];
     if (!key || !serverSettings[key] || !formSettings[key]) return false;
@@ -69,7 +70,8 @@ export default function useSettings() {
     pricing: 'pricing_matrix',
     commissions: 'partner_commissions',
     storage: 'hub_storage_policy',
-    sla: 'sla_benchmarks'
+    sla: 'sla_benchmarks',
+    digitalbox: 'digital_box_fees'
   }[activeTab];
 
   // Nested field updater
@@ -142,6 +144,7 @@ export default function useSettings() {
   const storageVal = formSettings.hub_storage_policy?.value || {};
   const slaVal = formSettings.sla_benchmarks?.value || {};
   const secVal = formSettings.security_governance?.value || {};
+  const digitalBoxVal = formSettings.digital_box_fees?.value || {};
 
 
   return {
@@ -151,6 +154,7 @@ export default function useSettings() {
     commsVal,
     copiedId,
     currentTabSettingKey,
+    digitalBoxVal,
     error,
     fetchSettings,
     formSettings,

@@ -20,6 +20,7 @@ after(() => {
 test('the registry only ever issues the short HBX prefix', () => {
   assert.equal(digitalBoxService.ANNUAL_FEE_NGN, 3500);
   assert.equal(digitalBoxService.GROUND_TRUTH_FEE_NGN, 2500);
+  assert.equal(digitalBoxService.REVALIDATION_FEE_NGN, 2500);
 });
 
 test('ensureDigitalBox allocates a sequential number once', async () => {

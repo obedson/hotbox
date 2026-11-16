@@ -1,4 +1,4 @@
-import { BadgeCheck, Copy, FileText, MapPin } from 'lucide-react';
+import { BadgeCheck, Copy, FileText } from 'lucide-react';
 
 function Metric({ label, children }) {
   return (
@@ -12,14 +12,10 @@ function Metric({ label, children }) {
 export default function DigitalBoxHero({ digitalBox, profile, onOpenCertificate, showToast }) {
   const boxNumber = digitalBox?.boxNumber || 'Allocating…';
   const postcode = digitalBox?.activePostcode || profile?.postcode || 'Not set';
-  const hierarchy = digitalBox?.hierarchy || {};
   const verified = Boolean(digitalBox?.isGroundTruthVerified);
-  const subscriptionStatus = digitalBox?.subscriptionStatus || 'ACTIVE';
   const daysRemaining = digitalBox?.daysRemaining ?? 365;
   const moveCount = (digitalBox?.relocations || []).length;
   const certificate = digitalBox?.certificate || null;
-  const coordinates = digitalBox?.coordinates || {};
-  const hasCoordinates = coordinates.lat != null && coordinates.lng != null;
 
   const copyBoxNumber = () => {
     if (!digitalBox?.boxNumber) {
@@ -40,41 +36,23 @@ export default function DigitalBoxHero({ digitalBox, profile, onOpenCertificate,
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 inline-flex items-center gap-1.5">
               <BadgeCheck className="w-3.5 h-3.5 text-emerald-400" />
-              NIPOST Digital Post Office Box
-            </span>
-            <span className={`text-[11px] font-black uppercase px-2.5 py-1 rounded-full font-mono border ${
-              subscriptionStatus === 'ACTIVE'
-                ? 'bg-emerald-400 text-slate-950 border-emerald-300'
-                : 'bg-amber-400 text-slate-950 border-amber-300'
-            }`}>
-              {subscriptionStatus}
+              DIGITAL POST OFFICE BOX
             </span>
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight">
-            Your Digital P.O.Box and Ground-Truth, NIPOST Verified Proof of Address
+            Your Digital P.O.Box and Ground-Truth, Verified Proof of Address
           </h1>
 
           <p className="text-xs sm:text-sm text-emerald-100/80 leading-relaxed max-w-2xl">
-            Replacing the traditional physical P.O. Box with a verified digital anchor. Enjoy guaranteed mail delivery, dynamic parcel rerouting upon relocation, and bank-grade NIPOST Ground-Truth Verified Proof of Address.
+            Replacing the traditional physical P.O. Box with a verified digital anchor. Enjoy guaranteed mail delivery, dynamic parcel rerouting upon relocation, and bank-grade Ground-Truth Verified Proof of Address.
           </p>
 
-          <div className="flex flex-wrap gap-2 pt-1">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border bg-white/10 text-emerald-100/80 border-white/15">
-              <MapPin className="w-3.5 h-3.5" />
-              {hierarchy.district || 'Address'}, {hierarchy.lga || 'LGA'}
-            </span>
-            {hasCoordinates && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-mono font-bold bg-white/10 text-emerald-100/80 border border-white/15">
-                {Number(coordinates.lat).toFixed(5)}, {Number(coordinates.lng).toFixed(5)}
-              </span>
-            )}
-          </div>
         </div>
 
         <div className="w-full lg:w-[300px] shrink-0 bg-white/10 backdrop-blur-md border border-white/20 p-5 rounded-2xl text-center shadow-lg">
           <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-300">
-            Digital P.O. Box Number
+            Your Digital P.O. Box Number
           </span>
           <span className="block text-2xl font-mono font-black text-white my-2 tracking-wider break-all">
             {boxNumber}
@@ -104,7 +82,13 @@ export default function DigitalBoxHero({ digitalBox, profile, onOpenCertificate,
 
       <div className="relative z-10 grid grid-cols-2 lg:grid-cols-4 gap-3 px-6 sm:px-8 pb-6 sm:pb-8">
         <Metric label="Postcode">
-          <p className="text-sm font-mono font-black text-white break-all">{postcode}</p>
+          <p className="text-sm font-mono font-black text-white break-words">
+            {postcode.split('-').map((part, index, parts) => (
+              <span key={index} className="inline-block">
+                {part}{index < parts.length - 1 ? '-' : ''}
+              </span>
+            ))}
+          </p>
         </Metric>
         <Metric label="Address Verification">
           <p className={`text-xs font-bold ${verified ? 'text-emerald-300' : 'text-emerald-100/80'}`}>

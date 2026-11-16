@@ -36,11 +36,11 @@ function DeliveryAddressCard({ digitalBox, profile, onChangeAddress, showToast }
   return (
     <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
+        <div className="flex flex-1 min-w-0 items-start gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
             <MapPin className="w-5 h-5" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h3 className="text-sm font-black text-slate-900">Your Delivery Address</h3>
             <p className="text-[11px] text-slate-500">What a courier resolves when your box number is searched.</p>
           </div>
@@ -107,11 +107,11 @@ function SubscriptionCard({ digitalBox, wallet, onRenew, isRenewing }) {
 
   return (
     <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 shrink-0">
           <Calendar className="w-5 h-5" />
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <h3 className="text-sm font-black text-slate-900">Box Subscription</h3>
           <p className="text-[11px] text-slate-500">Annual digital P.O. Box & forwarding cover.</p>
         </div>
@@ -200,11 +200,11 @@ function LinkLegacyBoxCard({ digitalBox, getAuthHeaders, fetchCustomerData, show
 
   return (
     <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700 shrink-0">
           <Link2 className="w-5 h-5" />
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <h3 className="text-sm font-black text-slate-900">Link Your Old P.O. Box</h3>
           <p className="text-[11px] text-slate-500">
             Have an old Post office box number? Link it to your new Digital P.O. Box so mail sent to the old number still reaches you.
@@ -254,21 +254,16 @@ function RelocationLedger({ relocations }) {
 
   return (
     <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
-            <ArrowUpDown className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="text-sm font-black text-slate-900">Relocation & Forwarding Ledger</h3>
-            <p className="text-[11px] text-slate-500">
-              Mail addressed to a previous postcode routes to your active address automatically.
-            </p>
-          </div>
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
+          <ArrowUpDown className="w-5 h-5" />
         </div>
-        <span className="text-[11px] font-bold px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200 shrink-0 self-start sm:self-auto">
-          Auto-forwarding active
-        </span>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-black text-slate-900">Your Relocation & Mail Forwarding Records</h3>
+          <p className="text-[11px] text-slate-500">
+            Mail addressed to a previous postcode routes to your active address automatically.
+          </p>
+        </div>
       </div>
 
       <div className="overflow-x-auto">

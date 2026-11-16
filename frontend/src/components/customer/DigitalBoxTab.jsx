@@ -5,7 +5,6 @@ import CertificateModal from './CertificateModal';
 import DigitalBoxHero from './digitalbox/DigitalBoxHero';
 import AddressAndForwarding from './digitalbox/AddressAndForwarding';
 import ProofOfAddress from './digitalbox/ProofOfAddress';
-import ProposalPillars from './digitalbox/ProposalPillars';
 
 function ActLabel({ index, title, hint }) {
   return (
@@ -61,7 +60,10 @@ export default function DigitalBoxTab({
   const handleRequestGroundTruth = async () => {
     setIsRequestingGroundTruth(true);
     try {
-      const verificationFee = digitalBox?.groundTruthingFeeNgn || 2500;
+      const isRenewal = Boolean(digitalBox?.isGroundTruthVerified);
+      const verificationFee = isRenewal
+        ? (digitalBox?.revalidationFeeNgn || 2500)
+        : (digitalBox?.doorwayInspectionFeeNgn || 2500);
       const balance = Number(wallet?.balance || 0);
       if (balance < verificationFee) {
         await fundWalletWithCard({
@@ -124,8 +126,6 @@ export default function DigitalBoxTab({
           showToast={showToast}
         />
       </div>
-
-      <ProposalPillars />
 
       <CertificateModal
         isOpen={isCertificateModalOpen}

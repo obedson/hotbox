@@ -4,7 +4,8 @@ import ProofOfAddress from './ProofOfAddress';
 
 const baseBox = {
   boxNumber: 'HBX-0001',
-  groundTruthingFeeNgn: 2500,
+  doorwayInspectionFeeNgn: 2500,
+  revalidationFeeNgn: 1500,
   isGroundTruthVerified: false,
   hasPendingInspection: false,
   certificate: null
@@ -31,8 +32,18 @@ describe('Proof of Address certificate action', () => {
 
   it('offers a renewal when the address is verified but no certificate is active', () => {
     renderCard({ isGroundTruthVerified: true });
-    expect(screen.getByRole('button', { name: /Renew your POA Certificate/ })).toBeTruthy();
+    const renew = screen.getByRole('button', { name: /Renew your POA Certificate/ });
+    expect(renew).toBeTruthy();
+    expect(renew.textContent).toContain('1,500');
     expect(screen.queryByRole('button', { name: /Download NIPOST POA Certificate/ })).toBeNull();
+  });
+
+  it('shows the admin-configured inspection and revalidation fees separately', () => {
+    renderCard();
+    expect(screen.getByText('₦2,500 (one-time)')).toBeTruthy();
+    expect(screen.getByText('₦1,500 / 12 months')).toBeTruthy();
+    const request = screen.getByRole('button', { name: /Request Doorway Verification/ });
+    expect(request.textContent).toContain('2,500');
   });
 
   it('only offers the download once a certificate has been issued', () => {

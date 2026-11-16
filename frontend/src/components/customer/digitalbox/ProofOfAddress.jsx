@@ -22,7 +22,8 @@ export default function ProofOfAddress({
   const certificate = digitalBox?.certificate || null;
   const verified = Boolean(digitalBox?.isGroundTruthVerified);
   const pending = Boolean(digitalBox?.hasPendingInspection);
-  const fee = digitalBox?.groundTruthingFeeNgn || 2500;
+  const inspectionFee = digitalBox?.doorwayInspectionFeeNgn || 2500;
+  const revalidationFee = digitalBox?.revalidationFeeNgn || 2500;
   const status = certificate
     ? 'Certificate Issued'
     : verified
@@ -73,8 +74,8 @@ export default function ProofOfAddress({
             <Crosshair className="w-3.5 h-3.5 text-slate-500" />
             <span>
               {renewing
-                ? `Renew your POA Certificate (₦${Number(fee).toLocaleString('en-NG')})`
-                : `Request Doorway Verification (₦${Number(fee).toLocaleString('en-NG')})`}
+                ? `Renew your POA Certificate (₦${Number(revalidationFee).toLocaleString('en-NG')})`
+                : `Request Doorway Verification (₦${Number(inspectionFee).toLocaleString('en-NG')})`}
             </span>
           </>
         )}
@@ -85,11 +86,11 @@ export default function ProofOfAddress({
   return (
     <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
+        <div className="flex flex-1 min-w-0 items-start gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
             <ShieldCheck className="w-5 h-5" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h3 className="text-sm font-black text-slate-900">Proof of Address Certificate</h3>
             <p className="text-[11px] text-slate-500 leading-relaxed">
               A doorway inspection by an accredited Hotbox officer, recorded with GPS coordinates and issued as a
@@ -111,7 +112,8 @@ export default function ProofOfAddress({
 
       <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2">
         <Fact label="Verification level" value={verified ? 'Ground-Truth Verified' : 'Registry Verified'} tone={verified ? 'emerald' : 'amber'} />
-        <Fact label="Doorway inspection" value={`₦${Number(fee).toLocaleString('en-NG')} (one-time)`} />
+        <Fact label="Doorway inspection" value={`₦${Number(inspectionFee).toLocaleString('en-NG')} (one-time)`} />
+        <Fact label="Revalidation" value={`₦${Number(revalidationFee).toLocaleString('en-NG')} / 12 months`} />
         <Fact label="Certificate validity" value={certificate ? '12 months from issue' : '12 months once issued'} />
       </div>
 
@@ -119,8 +121,8 @@ export default function ProofOfAddress({
         {action}
         <p className="text-[10px] text-center text-slate-400">
           {certificate
-            ? 'Your certificate is active and can be verified publicly by serial.'
-            : 'An inspection is ordered immediately; the certificate is issued once the report is approved.'}
+            ? 'Your certificate is active and can be verified publicly by serial. Revalidation is due every 12 months.'
+            : 'An inspection is ordered immediately; the certificate is issued once the report is approved. Revalidation applies every 12 months.'}
         </p>
       </div>
 

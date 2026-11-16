@@ -6,6 +6,7 @@ const { parseBoxNumber } = require('../utils/boxNumber');
 
 const ANNUAL_FEE_NGN = 3500;
 const GROUND_TRUTH_FEE_NGN = 2500;
+const REVALIDATION_FEE_NGN = 2500;
 const BOX_TTL_DAYS = 365;
 const CERTIFICATE_TTL_DAYS = 365;
 
@@ -133,6 +134,7 @@ async function issueCertificate({ box, user, verificationRecordId, postcode, add
 module.exports = {
   ANNUAL_FEE_NGN,
   GROUND_TRUTH_FEE_NGN,
+  REVALIDATION_FEE_NGN,
   BOX_TTL_DAYS,
   CERTIFICATE_TTL_DAYS,
   ensureDigitalBox,
