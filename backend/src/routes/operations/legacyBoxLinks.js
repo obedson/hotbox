@@ -37,7 +37,7 @@ function notifyCustomer(userId, title, message) {
   );
 }
 
-router.get('/', async (req, res) => {
+router.get('/legacy-box-links', async (req, res) => {
   try {
     await legacyBoxLinkService.expireOverdueRequests();
 
@@ -56,7 +56,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/:id/approve', async (req, res) => {
+router.post('/legacy-box-links/:id/approve', async (req, res) => {
   try {
     const { request, box } = await legacyBoxLinkService.approveRequest({
       requestId: req.params.id,
@@ -76,7 +76,7 @@ router.post('/:id/approve', async (req, res) => {
   }
 });
 
-router.post('/:id/reject', async (req, res) => {
+router.post('/legacy-box-links/:id/reject', async (req, res) => {
   try {
     const reason = req.body.reason || '';
     const request = await legacyBoxLinkService.rejectRequest({
