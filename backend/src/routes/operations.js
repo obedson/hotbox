@@ -7,6 +7,10 @@ const { handlePostcodeOccupants } = require('./operations/helpers');
 // exposes resident names and phone numbers.
 router.get('/postcode-occupants', authenticate, requireRoles('ops_admin', 'compliance_officer', 'super_admin'), handlePostcodeOccupants);
 
+// Legacy P.O. Box linking carries its own role gate so NIPOST verifiers can
+// reach the queue without gaining access to the rest of operations.
+router.use(require('./operations/legacyBoxLinks'));
+
 // Every other endpoint in this router is restricted to operations staff.
 router.use(authenticate, requireRoles('ops_admin', 'super_admin'));
 

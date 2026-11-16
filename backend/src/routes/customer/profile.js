@@ -7,6 +7,7 @@ const notificationService = require('../../services/notificationService');
 const { normalizePostcode, resolvePostcode } = require('../../services/postcodeService');
 const { parseBoxNumber } = require('../../utils/boxNumber');
 const digitalBoxService = require('../../services/digitalBoxService');
+const legacyBoxLinkService = require('../../services/legacyBoxLinkService');
 const settingsService = require('../../services/settingsService');
 const { normalizePhone } = require('../../lib/phone');
 // GET /api/v1/customer/profile
@@ -328,6 +329,7 @@ router.get('/digital-box', authenticate, async (req, res) => {
     const expiresAt = box.expires_at ? new Date(box.expires_at) : new Date(Date.now() + 300 * 24 * 3600 * 1000);
     const daysRemaining = Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 3600 * 24)));
     const fees = await settingsService.getDigitalBoxFees();
+    const latestLinkRequest = await legacyBoxLinkService.getLatestRequestForUser(user.id);
 
     res.json({
       boxNumber: box.box_number,
@@ -353,6 +355,17 @@ router.get('/digital-box', authenticate, async (req, res) => {
       revalidationFeeNgn: fees.revalidationFeeNgn,
       legacyBoxNumber: box.legacy_box_number || null,
       legacyLinkedAt: box.legacy_linked_at ? new Date(box.legacy_linked_at).toISOString() : null,
+      legacyBoxStatus: box.legacy_box_status || (box.legacy_box_number ? 'APPROVED' : 'UNLINKED'),
+      legacyBoxApprovedAt: box.legacy_box_approved_at ? new Date(box.legacy_box_approved_at).toISOString() : null,
+      legacyRequest: latestLinkRequest ? {
+        id: latestLinkRequest.id,
+        legacyBoxNumber: latestLinkRequest.legacy_box_number_raw,
+        status: latestLinkRequest.status,
+        submittedAt: new Date(latestLinkRequest.submitted_at).toISOString(),
+        expiresAt: latestLinkRequest.expires_at ? new Date(latestLinkRequest.expires_at).toISOString() : null,
+        reviewedAt: latestLinkRequest.reviewed_at ? new Date(latestLinkRequest.reviewed_at).toISOString() : null,
+        reviewNote: latestLinkRequest.review_note || null
+      } : null,
       relocations: relocations.map((rel) => ({
         oldPostcode: rel.old_postcode,
         oldAddress: rel.old_address,
@@ -437,8 +450,10 @@ router.post('/renew-digital-box', authenticate, async (req, res) => {
 });
 
 // POST /api/v1/customer/link-legacy-box
+// Creates a verification request. The old number is not linked until NIPOST
+// approves it, so mail forwarding never activates on a self-assertion.
 router.post('/link-legacy-box', authenticate, async (req, res) => {
-  const { legacyBoxNumber } = req.body;
+  const { legacyBoxNumber, registeredPhone, declaration } = req.body;
   const cleanInput = String(legacyBoxNumber || '').trim();
 
   if (!cleanInput) {
@@ -451,31 +466,57 @@ router.post('/link-legacy-box', authenticate, async (req, res) => {
   }
 
   try {
-    const existing = await digitalBoxService.findBoxByLegacyNumber(cleanInput);
-    if (existing && existing.user_id !== req.user.id) {
-      return res.status(409).json({ error: 'That old P.O. Box number is already linked to another Digital P.O. Box.' });
-    }
-
     const box = await digitalBoxService.ensureDigitalBox(req.user.id);
-    const updated = await digitalBoxService.linkLegacyBox(box.id, cleanInput);
+    const request = await legacyBoxLinkService.createRequest({
+      userId: req.user.id,
+      boxId: box.id,
+      legacyBoxNumberRaw: cleanInput,
+      registeredPhone: registeredPhone || null,
+      declaration: Boolean(declaration)
+    });
 
-    await db.query(
-      `INSERT INTO notifications (user_id, title, message, type, is_read, created_at)
-       VALUES ($1, 'Legacy P.O. Box Linked', 'Your old P.O. Box number has been linked to your Digital P.O. Box. Mail addressed to either number now reaches you.', 'SYSTEM_NOTICE', FALSE, NOW())`,
-      [req.user.id]
-    );
-
-    res.json({
-      message: 'Old P.O. Box number linked successfully. Mail addressed to your old number will now reach your Digital P.O. Box.',
-      legacyBoxNumber: updated.legacy_box_number,
+    res.status(201).json({
+      message: 'Link request submitted. NIPOST will verify your ownership of the old P.O. Box before mail forwarding starts.',
+      status: request.status,
+      requestId: request.id,
+      legacyBoxNumber: request.legacy_box_number_raw,
       digitalBoxNumber: box.box_number,
-      linkedAt: updated.legacy_linked_at ? new Date(updated.legacy_linked_at).toISOString() : null
+      submittedAt: new Date(request.submitted_at).toISOString(),
+      expiresAt: request.expires_at ? new Date(request.expires_at).toISOString() : null
     });
   } catch (err) {
-    if (err.code === '23505') {
-      return res.status(409).json({ error: 'That old P.O. Box number is already linked to another Digital P.O. Box.' });
-    }
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+// GET /api/v1/customer/legacy-box-request
+router.get('/legacy-box-request', authenticate, async (req, res) => {
+  try {
+    const request = await legacyBoxLinkService.getLatestRequestForUser(req.user.id);
+    res.json({
+      request: request ? {
+        id: request.id,
+        legacyBoxNumber: request.legacy_box_number_raw,
+        status: request.status,
+        submittedAt: new Date(request.submitted_at).toISOString(),
+        expiresAt: request.expires_at ? new Date(request.expires_at).toISOString() : null,
+        reviewedAt: request.reviewed_at ? new Date(request.reviewed_at).toISOString() : null,
+        reviewNote: request.review_note || null
+      } : null
+    });
+  } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/v1/customer/legacy-box-request/withdraw
+router.post('/legacy-box-request/withdraw', authenticate, async (req, res) => {
+  const requestId = req.body.requestId || req.query.requestId;
+  try {
+    const request = await legacyBoxLinkService.withdrawRequest({ requestId, userId: req.user.id });
+    res.json({ message: 'Link request withdrawn.', status: request.status });
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 

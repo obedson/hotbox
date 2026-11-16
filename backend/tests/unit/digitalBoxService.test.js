@@ -108,14 +108,6 @@ test('addRelocation persists the old and new address', async () => {
   ]);
 });
 
-test('linkLegacyBox writes the alias and the link timestamp', async () => {
-  calls = [];
-  handler = async () => ({ rows: [{ id: 'box-1', legacy_box_number: '0005' }] });
-
-  const updated = await digitalBoxService.linkLegacyBox('box-1', ' 0005 ');
-  assert.equal(updated.legacy_box_number, '0005');
-  assert.match(calls[0].sql, /SET legacy_box_number = \$1, legacy_linked_at = NOW\(\)/);
-});
 
 test('renewBox extends the box by a year and reactivates it', async () => {
   calls = [];

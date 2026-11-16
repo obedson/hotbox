@@ -8,7 +8,7 @@ export const PORTALS = [
   { id: 'rider', label: 'Rider Radar', icon: Bike, color: 'bg-blue-600 text-white font-semibold' }
 ];
 
-const OPERATIONS_ROLES = ['ops_admin', 'compliance_officer', 'super_admin'];
+const OPERATIONS_ROLES = ['ops_admin', 'compliance_officer', 'nipost_verifier', 'super_admin'];
 const ENTERPRISE_ROLES = ['enterprise_shipper', 'courier_company', 'ops_admin', 'super_admin'];
 const HUB_ROLES = ['hub_owner', 'hub_staff', 'ops_admin', 'super_admin'];
 const RIDER_ROLES = ['rider', 'courier_company', 'ops_admin', 'super_admin'];

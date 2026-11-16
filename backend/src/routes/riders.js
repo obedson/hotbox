@@ -4,6 +4,7 @@ const db = require('../config/db');
 const { authenticate, requireRoles } = require('../middleware/auth');
 const { parseBoxNumber } = require('../utils/boxNumber');
 const digitalBoxService = require('../services/digitalBoxService');
+const legacyBoxLinkService = require('../services/legacyBoxLinkService');
 
 // Rider endpoints are restricted to riders and operations staff.
 router.use(authenticate, requireRoles('rider', 'ops_admin'));
@@ -47,9 +48,22 @@ router.get('/lookup', authenticate, async (req, res) => {
       );
       userRows = boxRes.rows;
     } else {
-      // An old P.O. Box number resolves through the linked alias on the box.
-      const legacyBox = await digitalBoxService.findBoxByLegacyNumber(rawInput);
-      if (legacyBox) {
+      // An old P.O. Box number resolves only when NIPOST has approved the link.
+      const legacyState = await legacyBoxLinkService.findLegacyLinkState(rawInput);
+      if (legacyState.state === 'PENDING') {
+        return res.json({
+          input,
+          inputType: 'LEGACY_P_O_BOX',
+          matched: false,
+          pendingVerification: true,
+          reason: 'This old P.O. Box number is under verification and cannot be used for delivery yet.',
+          postcodeValid: false,
+          hierarchy: null,
+          residents: [],
+          relocatedMatches: []
+        });
+      }
+      if (legacyState.state === 'APPROVED' && legacyState.box) {
         inputType = 'LEGACY_P_O_BOX';
         const legacyRes = await db.query(
           `SELECT ${userColumns}
@@ -58,7 +72,7 @@ router.get('/lookup', authenticate, async (req, res) => {
            ${postcodeJoin}
            WHERE u.id = $1
            LIMIT 1`,
-          [legacyBox.user_id]
+          [legacyState.box.user_id]
         );
         userRows = legacyRes.rows;
       } else {

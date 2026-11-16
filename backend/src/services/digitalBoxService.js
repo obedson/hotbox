@@ -3,6 +3,7 @@
 // relational entity rather than a JSON blob on the user row.
 const db = require('../config/db');
 const { parseBoxNumber } = require('../utils/boxNumber');
+const { canonicalLegacyKey } = require('../utils/legacyBoxNumber');
 
 const ANNUAL_FEE_NGN = 3500;
 const GROUND_TRUTH_FEE_NGN = 2500;
@@ -36,11 +37,18 @@ function findBoxByNumber(input) {
     .then((res) => res.rows[0] || null);
 }
 
+// Only an approved link may resolve to a delivery address. A pending or
+// rejected request must never expose the box holder's address.
 function findBoxByLegacyNumber(input) {
-  const clean = String(input || '').trim();
-  if (!clean) return Promise.resolve(null);
-  return db.query('SELECT * FROM digital_boxes WHERE legacy_box_number = $1', [clean])
-    .then((res) => res.rows[0] || null);
+  const key = canonicalLegacyKey(input);
+  if (!key) return Promise.resolve(null);
+  return db.query(
+    `SELECT * FROM digital_boxes
+      WHERE UPPER(regexp_replace(legacy_box_number, '[^A-Z0-9]+', '', 'g')) = $1
+        AND legacy_box_status = 'APPROVED'
+      LIMIT 1`,
+    [key]
+  ).then((res) => res.rows[0] || null);
 }
 
 function listRelocations(boxId) {
@@ -67,16 +75,6 @@ function addRelocation(boxId, relocation) {
   ).then((res) => res.rows[0]);
 }
 
-function linkLegacyBox(boxId, legacyBoxNumber) {
-  const clean = String(legacyBoxNumber || '').trim();
-  return db.query(
-    `UPDATE digital_boxes
-     SET legacy_box_number = $1, legacy_linked_at = NOW(), updated_at = NOW()
-     WHERE id = $2
-     RETURNING *`,
-    [clean, boxId]
-  ).then((res) => res.rows[0]);
-}
 
 function renewBox(boxId) {
   return db.query(
@@ -143,7 +141,6 @@ module.exports = {
   findBoxByLegacyNumber,
   listRelocations,
   addRelocation,
-  linkLegacyBox,
   renewBox,
   setGroundTruthVerified,
   getCertificate,

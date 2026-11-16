@@ -29,6 +29,7 @@ import PostcodeManagement from './components/PostcodeManagement';
 import ExceptionManagement from './components/ExceptionManagement';
 import ReportsManagement from './components/ReportsManagement';
 import AuditLogManagement from './components/AuditLogManagement';
+import LegacyBoxLinkManagement from './components/LegacyBoxLinkManagement';
 import SettingsManagement from './components/SettingsManagement';
 import HubStationConsole from './components/HubStationConsole';
 import RiderRadarConsole from './components/RiderRadarConsole';
@@ -164,6 +165,17 @@ export default function App() {
     fetchHubs();
     if (activePortal === 'rider') fetchRiderData();
   }, [coords, activePortal]);
+
+  // A NIPOST verifier has exactly one job: decide legacy P.O. Box claims.
+  useEffect(() => {
+    if (
+      currentUser?.role === 'nipost_verifier' &&
+      activePortal === 'operations' &&
+      activeNav !== 'legacy_links'
+    ) {
+      setActiveNav('legacy_links');
+    }
+  }, [currentUser, activePortal, activeNav]);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -335,6 +347,10 @@ export default function App() {
 
                   {activeNav === 'verification' && (
                     <VerificationQueue />
+                  )}
+
+                  {activeNav === 'legacy_links' && (
+                    <LegacyBoxLinkManagement />
                   )}
 
                   {activeNav === 'riders' && (
