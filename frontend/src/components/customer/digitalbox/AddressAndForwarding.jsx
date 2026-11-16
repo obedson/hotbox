@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { apiFetch } from '../../../lib/api';
 import {
   ArrowRight, ArrowUpDown, BadgeCheck, Calendar, CheckCircle2, Clock, Copy,
@@ -172,14 +172,45 @@ function LinkLegacyBoxCard({ digitalBox, getAuthHeaders, fetchCustomerData, show
   const [legacyBoxInput, setLegacyBoxInput] = useState('');
   const [registeredPhone, setRegisteredPhone] = useState('');
   const [declaration, setDeclaration] = useState(false);
+  const [documentDataUrl, setDocumentDataUrl] = useState(null);
+  const [documentName, setDocumentName] = useState('');
+  const [documentError, setDocumentError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [message, setMessage] = useState(null);
+  const fileInputRef = useRef(null);
 
   const linked = digitalBox?.legacyBoxNumber || null;
   const isLinked = digitalBox?.legacyBoxStatus === 'APPROVED' && Boolean(linked);
   const request = digitalBox?.legacyRequest || null;
   const isOpen = Boolean(request && ['PENDING', 'CONTESTED'].includes(request.status));
+  const fees = digitalBox?.legacyLinkFees || { nipostVerificationFeeNgn: 0, hotboxPlatformFeeNgn: 0, totalNgn: 0 };
+  const feeTotal = Number(fees.totalNgn) || 0;
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!allowed.includes(file.type)) {
+      setDocumentError('Please choose a JPEG, PNG, WebP or PDF file.');
+      setDocumentDataUrl(null);
+      setDocumentName('');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setDocumentError('The document must be 2 MB or smaller.');
+      setDocumentDataUrl(null);
+      setDocumentName('');
+      return;
+    }
+    setDocumentError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setDocumentDataUrl(String(reader.result));
+      setDocumentName(file.name);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const statusPill = (() => {
     if (isLinked) {
@@ -195,6 +226,7 @@ function LinkLegacyBoxCard({ digitalBox, getAuthHeaders, fetchCustomerData, show
       PENDING: { label: 'Awaiting NIPOST', classes: 'bg-amber-100 text-amber-800 border-amber-200' },
       CONTESTED: { label: 'Contested', classes: 'bg-amber-100 text-amber-800 border-amber-200' },
       REJECTED: { label: 'Not Approved', classes: 'bg-rose-100 text-rose-800 border-rose-200' },
+      REVOKED: { label: 'Revoked', classes: 'bg-slate-100 text-slate-600 border-slate-200' },
       EXPIRED: { label: 'Expired', classes: 'bg-slate-100 text-slate-600 border-slate-200' },
       WITHDRAWN: { label: 'Withdrawn', classes: 'bg-slate-100 text-slate-600 border-slate-200' }
     };
@@ -217,6 +249,10 @@ function LinkLegacyBoxCard({ digitalBox, getAuthHeaders, fetchCustomerData, show
       setMessage({ type: 'error', text: 'Please confirm the ownership declaration before submitting.' });
       return;
     }
+    if (!documentDataUrl) {
+      setMessage({ type: 'error', text: 'Attach a proof document (NIPOST certificate, renewal receipt or box key photo).' });
+      return;
+    }
     setIsSubmitting(true);
     setMessage(null);
     try {
@@ -226,7 +262,8 @@ function LinkLegacyBoxCard({ digitalBox, getAuthHeaders, fetchCustomerData, show
         body: JSON.stringify({
           legacyBoxNumber: clean,
           registeredPhone: registeredPhone.trim(),
-          declaration: true
+          declaration: true,
+          documentDataUrl
         })
       });
       const data = await res.json();
@@ -235,6 +272,9 @@ function LinkLegacyBoxCard({ digitalBox, getAuthHeaders, fetchCustomerData, show
         setLegacyBoxInput('');
         setRegisteredPhone('');
         setDeclaration(false);
+        setDocumentDataUrl(null);
+        setDocumentName('');
+        if (fileInputRef.current) fileInputRef.current.value = '';
         fetchCustomerData();
       } else {
         setMessage({ type: 'error', text: data.error || 'Could not submit that link request.' });
@@ -329,6 +369,14 @@ function LinkLegacyBoxCard({ digitalBox, getAuthHeaders, fetchCustomerData, show
         </div>
       )}
 
+      {feeTotal > 0 && (
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-[11px] text-slate-600 space-y-1">
+          <p className="font-black text-slate-800">Charged to your wallet only when NIPOST approves</p>
+          <p>NIPOST verification fee: <span className="font-mono font-bold">₦{Number(fees.nipostVerificationFeeNgn || 0).toLocaleString('en-NG')}</span></p>
+          <p>Hotbox platform fee: <span className="font-mono font-bold">₦{Number(fees.hotboxPlatformFeeNgn || 0).toLocaleString('en-NG')}</span></p>
+        </div>
+      )}
+
       {!isOpen && (
         <form onSubmit={handleSubmit} className="space-y-2">
           <input
@@ -345,6 +393,20 @@ function LinkLegacyBoxCard({ digitalBox, getAuthHeaders, fetchCustomerData, show
             placeholder="Phone number registered on the old box (optional)"
             className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:border-emerald-600 focus:outline-none bg-slate-50"
           />
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-bold text-slate-700">
+              Proof document <span className="text-slate-400 font-medium">(NIPOST certificate, renewal receipt or box key photo)</span>
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
+              onChange={handleFileChange}
+              className="w-full text-[11px] text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-slate-300 file:text-[11px] file:font-bold file:text-slate-700 file:bg-white hover:file:bg-slate-50"
+            />
+            {documentName && <p className="text-[10px] text-emerald-700 font-bold">{documentName} attached</p>}
+            {documentError && <p className="text-[10px] text-rose-600 font-bold">{documentError}</p>}
+          </div>
           <label className="flex items-start gap-2 text-[11px] text-slate-600">
             <input
               type="checkbox"

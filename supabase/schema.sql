@@ -454,7 +454,9 @@ CREATE TABLE IF NOT EXISTS transactions (
     'ESCROW_HOLD',
     'ESCROW_RELEASE',
     'DISPUTE_REFUND',
-    'WITHDRAWAL'
+    'WITHDRAWAL',
+    'LEGACY_LINK_FEE',
+    'LEGACY_LINK_PLATFORM_FEE'
   )),
   amount_ngn DECIMAL(10, 2) NOT NULL,
   fee_ngn DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
@@ -886,6 +888,10 @@ CREATE TABLE IF NOT EXISTS legacy_box_link_requests (
   declaration BOOLEAN NOT NULL DEFAULT FALSE,
   document_url TEXT,
   document_hash VARCHAR(128),
+  reminder_sent_at TIMESTAMP WITH TIME ZONE,
+  contested_at TIMESTAMP WITH TIME ZONE,
+  fee_ngn NUMERIC(12,2),
+  fee_reference VARCHAR(100),
   submitted_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL,
   reviewed_at TIMESTAMP WITH TIME ZONE,
@@ -897,7 +903,7 @@ CREATE TABLE IF NOT EXISTS legacy_box_link_requests (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_legacy_link_open_number
   ON legacy_box_link_requests (UPPER(legacy_box_number_norm))
-  WHERE status IN ('PENDING', 'CONTESTED');
+  WHERE status = 'PENDING';
 
 CREATE INDEX IF NOT EXISTS idx_legacy_link_requests_user
   ON legacy_box_link_requests (user_id, submitted_at DESC);

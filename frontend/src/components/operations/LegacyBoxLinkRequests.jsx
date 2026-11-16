@@ -1,15 +1,17 @@
 import { apiFetch } from '../../lib/api';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Inbox,
-  Link2, RefreshCw, Search, ShieldCheck, XCircle
+  AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Clock, ExternalLink, Inbox,
+  Link2, RefreshCw, Search, ShieldCheck, Undo2, XCircle
 } from 'lucide-react';
 
 const STATUS_TABS = [
   { id: 'ALL', label: 'All' },
   { id: 'PENDING', label: 'Pending' },
+  { id: 'CONTESTED', label: 'Contested' },
   { id: 'APPROVED', label: 'Approved' },
   { id: 'REJECTED', label: 'Rejected' },
+  { id: 'REVOKED', label: 'Revoked' },
   { id: 'EXPIRED', label: 'Expired' },
   { id: 'WITHDRAWN', label: 'Withdrawn' }
 ];
@@ -52,6 +54,8 @@ export default function LegacyBoxLinkRequests() {
   const [busyId, setBusyId] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [revokeTarget, setRevokeTarget] = useState(null);
+  const [revokeReason, setRevokeReason] = useState('');
 
   const fetchRequests = useCallback(async (isManualRefresh = false) => {
     if (isManualRefresh) setRefreshing(true);
@@ -133,6 +137,34 @@ export default function LegacyBoxLinkRequests() {
       }
     } catch (err) {
       setNotice({ type: 'error', message: 'Network error while rejecting the request.' });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleRevoke = async () => {
+    if (!revokeTarget) return;
+    const reason = revokeReason.trim();
+    if (!reason) {
+      setNotice({ type: 'error', message: 'A revocation reason is required.' });
+      return;
+    }
+    setBusyId(revokeTarget.id);
+    try {
+      const res = await apiFetch(`/api/v1/operations/legacy-box-links/${revokeTarget.id}/revoke`, {
+        method: 'POST', headers: {}, body: JSON.stringify({ reason })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setNotice({ type: 'success', message: `Revoked ${revokeTarget.legacyBoxNumber}. Mail forwarding stopped.` });
+        setRevokeTarget(null);
+        setRevokeReason('');
+        await fetchRequests();
+      } else {
+        setNotice({ type: 'error', message: data.error || 'Could not revoke that link.' });
+      }
+    } catch (err) {
+      setNotice({ type: 'error', message: 'Network error while revoking the link.' });
     } finally {
       setBusyId(null);
     }
@@ -220,6 +252,7 @@ export default function LegacyBoxLinkRequests() {
                   <th className="px-4 py-3 font-black">Old P.O. Box</th>
                   <th className="px-4 py-3 font-black">Customer</th>
                   <th className="px-4 py-3 font-black">Digital Box</th>
+                  <th className="px-4 py-3 font-black">Evidence</th>
                   <th className="px-4 py-3 font-black">Submitted</th>
                   <th className="px-4 py-3 font-black">Status</th>
                   <th className="px-4 py-3 font-black text-right">Decision</th>
@@ -233,12 +266,36 @@ export default function LegacyBoxLinkRequests() {
                       {request.registeredPhone && (
                         <p className="text-[10px] text-slate-400 mt-0.5">{request.registeredPhone}</p>
                       )}
+                      {request.openClaims > 1 && (
+                        <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-100 text-amber-800 border border-amber-200">
+                          <AlertTriangle className="w-2.5 h-2.5" />
+                          {request.openClaims} claims
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <p className="font-bold text-slate-800">{request.userName}</p>
                       <p className="text-[10px] text-slate-400">{request.userEmail}</p>
                     </td>
                     <td className="px-4 py-3 font-mono font-bold text-emerald-800">{request.boxNumber}</td>
+                    <td className="px-4 py-3">
+                      {request.documentUrl ? (
+                        <a
+                          href={request.documentUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 hover:text-emerald-900"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          View
+                        </a>
+                      ) : (
+                        <span className="text-[10px] text-slate-400">—</span>
+                      )}
+                      {request.declaration && (
+                        <p className="text-[9px] text-slate-400 mt-0.5">Declaration signed</p>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-slate-500">{formatDate(request.submittedAt)}</td>
                     <td className="px-4 py-3"><StatusPill status={request.status} /></td>
                     <td className="px-4 py-3">
@@ -262,6 +319,23 @@ export default function LegacyBoxLinkRequests() {
                             <XCircle className="w-3 h-3" />
                             Reject
                           </button>
+                        </div>
+                      ) : request.status === 'APPROVED' ? (
+                        <div className="flex flex-col items-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => { setRevokeTarget(request); setRevokeReason(''); }}
+                            disabled={busyId === request.id}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-black hover:bg-slate-200 disabled:opacity-50 cursor-pointer"
+                          >
+                            <Undo2 className="w-3 h-3" />
+                            Revoke
+                          </button>
+                          {request.feeNgn != null && request.feeNgn > 0 && (
+                            <span className="text-[9px] text-slate-400 font-mono">
+                              Fee ₦{Number(request.feeNgn).toLocaleString('en-NG')}
+                            </span>
+                          )}
                         </div>
                       ) : (
                         <p className="text-[10px] text-slate-400 text-right">
@@ -333,6 +407,44 @@ export default function LegacyBoxLinkRequests() {
                 className="px-3 py-2 rounded-xl bg-rose-600 text-white text-xs font-black hover:bg-rose-700 disabled:opacity-50 cursor-pointer"
               >
                 Reject request
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {revokeTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <Undo2 className="w-5 h-5 text-slate-700" />
+              <h2 className="text-sm font-black text-slate-900">Revoke {revokeTarget.legacyBoxNumber}</h2>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Mail addressed to the old number stops forwarding immediately. The customer is notified with this reason.
+            </p>
+            <textarea
+              value={revokeReason}
+              onChange={(e) => setRevokeReason(e.target.value)}
+              rows={3}
+              placeholder="Reason for revocation"
+              className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:border-slate-500 focus:outline-none"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => { setRevokeTarget(null); setRevokeReason(''); }}
+                className="px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-600 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRevoke}
+                disabled={busyId === revokeTarget.id}
+                className="px-3 py-2 rounded-xl bg-slate-900 text-white text-xs font-black hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
+              >
+                Revoke link
               </button>
             </div>
           </div>

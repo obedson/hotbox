@@ -8,6 +8,7 @@ const { normalizePostcode, resolvePostcode } = require('../../services/postcodeS
 const { parseBoxNumber } = require('../../utils/boxNumber');
 const digitalBoxService = require('../../services/digitalBoxService');
 const legacyBoxLinkService = require('../../services/legacyBoxLinkService');
+const legacyBoxReviewMailer = require('../../services/legacyBoxReviewMailer');
 const settingsService = require('../../services/settingsService');
 const { normalizePhone } = require('../../lib/phone');
 // GET /api/v1/customer/profile
@@ -329,6 +330,7 @@ router.get('/digital-box', authenticate, async (req, res) => {
     const expiresAt = box.expires_at ? new Date(box.expires_at) : new Date(Date.now() + 300 * 24 * 3600 * 1000);
     const daysRemaining = Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 3600 * 24)));
     const fees = await settingsService.getDigitalBoxFees();
+    const legacyFees = await settingsService.getLegacyBoxLinkFees();
     const latestLinkRequest = await legacyBoxLinkService.getLatestRequestForUser(user.id);
 
     res.json({
@@ -353,6 +355,11 @@ router.get('/digital-box', authenticate, async (req, res) => {
       groundTruthingFeeNgn: fees.doorwayInspectionFeeNgn,
       doorwayInspectionFeeNgn: fees.doorwayInspectionFeeNgn,
       revalidationFeeNgn: fees.revalidationFeeNgn,
+      legacyLinkFees: {
+        nipostVerificationFeeNgn: legacyFees.nipostVerificationFeeNgn,
+        hotboxPlatformFeeNgn: legacyFees.hotboxPlatformFeeNgn,
+        totalNgn: legacyFees.totalNgn
+      },
       legacyBoxNumber: box.legacy_box_number || null,
       legacyLinkedAt: box.legacy_linked_at ? new Date(box.legacy_linked_at).toISOString() : null,
       legacyBoxStatus: box.legacy_box_status || (box.legacy_box_number ? 'APPROVED' : 'UNLINKED'),
@@ -453,7 +460,7 @@ router.post('/renew-digital-box', authenticate, async (req, res) => {
 // Creates a verification request. The old number is not linked until NIPOST
 // approves it, so mail forwarding never activates on a self-assertion.
 router.post('/link-legacy-box', authenticate, async (req, res) => {
-  const { legacyBoxNumber, registeredPhone, declaration } = req.body;
+  const { legacyBoxNumber, registeredPhone, declaration, documentDataUrl } = req.body;
   const cleanInput = String(legacyBoxNumber || '').trim();
 
   if (!cleanInput) {
@@ -472,8 +479,18 @@ router.post('/link-legacy-box', authenticate, async (req, res) => {
       boxId: box.id,
       legacyBoxNumberRaw: cleanInput,
       registeredPhone: registeredPhone || null,
-      declaration: Boolean(declaration)
+      declaration: Boolean(declaration),
+      documentDataUrl
     });
+
+    // Best-effort email fallback: the in-app queue remains the primary channel.
+    const emailResult = await legacyBoxReviewMailer.sendReviewRequestEmail({
+      request: { ...request, user_name: req.user.name, user_email: req.user.email },
+      boxNumber: box.box_number
+    });
+    if (!emailResult.sent) {
+      console.warn(`[LegacyLink] Review email not sent for ${request.id}: ${emailResult.reason}`);
+    }
 
     res.status(201).json({
       message: 'Link request submitted. NIPOST will verify your ownership of the old P.O. Box before mail forwarding starts.',
@@ -482,7 +499,9 @@ router.post('/link-legacy-box', authenticate, async (req, res) => {
       legacyBoxNumber: request.legacy_box_number_raw,
       digitalBoxNumber: box.box_number,
       submittedAt: new Date(request.submitted_at).toISOString(),
-      expiresAt: request.expires_at ? new Date(request.expires_at).toISOString() : null
+      expiresAt: request.expires_at ? new Date(request.expires_at).toISOString() : null,
+      documentHash: request.document_hash || null,
+      reviewEmailSent: Boolean(emailResult.sent)
     });
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });
@@ -501,7 +520,11 @@ router.get('/legacy-box-request', authenticate, async (req, res) => {
         submittedAt: new Date(request.submitted_at).toISOString(),
         expiresAt: request.expires_at ? new Date(request.expires_at).toISOString() : null,
         reviewedAt: request.reviewed_at ? new Date(request.reviewed_at).toISOString() : null,
-        reviewNote: request.review_note || null
+        reviewNote: request.review_note || null,
+        contestedAt: request.contested_at ? new Date(request.contested_at).toISOString() : null,
+        reminderSentAt: request.reminder_sent_at ? new Date(request.reminder_sent_at).toISOString() : null,
+        documentHash: request.document_hash || null,
+        hasDocument: Boolean(request.document_url)
       } : null
     });
   } catch (err) {

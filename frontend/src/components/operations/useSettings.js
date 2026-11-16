@@ -59,7 +59,8 @@ export default function useSettings() {
       storage: 'hub_storage_policy',
       sla: 'sla_benchmarks',
       security: 'security_governance',
-      digitalbox: 'digital_box_fees'
+      digitalbox: 'digital_box_fees',
+      legacylink: 'legacy_box_link_fees'
     };
     const key = settingMap[tabKey];
     if (!key || !serverSettings[key] || !formSettings[key]) return false;
@@ -71,7 +72,8 @@ export default function useSettings() {
     commissions: 'partner_commissions',
     storage: 'hub_storage_policy',
     sla: 'sla_benchmarks',
-    digitalbox: 'digital_box_fees'
+    digitalbox: 'digital_box_fees',
+    legacylink: 'legacy_box_link_fees'
   }[activeTab];
 
   // Nested field updater
@@ -145,6 +147,7 @@ export default function useSettings() {
   const slaVal = formSettings.sla_benchmarks?.value || {};
   const secVal = formSettings.security_governance?.value || {};
   const digitalBoxVal = formSettings.digital_box_fees?.value || {};
+  const legacyBoxLinkVal = formSettings.legacy_box_link_fees?.value || {};
 
 
   return {
@@ -159,6 +162,7 @@ export default function useSettings() {
     fetchSettings,
     formSettings,
     handleConfirmSave,
+    legacyBoxLinkVal,
     handleCopy,
     handleRevertTab,
     hasChangesInTab,
