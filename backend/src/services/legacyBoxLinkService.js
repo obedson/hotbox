@@ -672,7 +672,7 @@ async function listRemittanceLineItems(options = {}) {
        FROM transactions t
        JOIN wallets w ON w.id = t.wallet_id
        JOIN users u ON u.id = w.user_id
-       LEFT JOIN legacy_box_link_requests lr ON lr.id = t.metadata->>'request_id'
+       LEFT JOIN legacy_box_link_requests lr ON lr.id = NULLIF(t.metadata->>'request_id', '')::uuid
        LEFT JOIN digital_boxes b ON b.id = lr.box_id
        ${sql}
       ORDER BY t.created_at DESC
