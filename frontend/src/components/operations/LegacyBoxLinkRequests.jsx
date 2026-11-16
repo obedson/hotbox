@@ -1,8 +1,8 @@
 import { apiFetch } from '../../lib/api';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Clock, ExternalLink, Inbox,
-  Link2, RefreshCw, Search, ShieldCheck, Undo2, XCircle
+  AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Download, ExternalLink, Inbox,
+  Link2, RefreshCw, ScanSearch, Search, ShieldCheck, Undo2, XCircle
 } from 'lucide-react';
 
 const STATUS_TABS = [
@@ -56,6 +56,7 @@ export default function LegacyBoxLinkRequests() {
   const [rejectReason, setRejectReason] = useState('');
   const [revokeTarget, setRevokeTarget] = useState(null);
   const [revokeReason, setRevokeReason] = useState('');
+  const [registryConfigured, setRegistryConfigured] = useState(false);
 
   const fetchRequests = useCallback(async (isManualRefresh = false) => {
     if (isManualRefresh) setRefreshing(true);
@@ -85,6 +86,20 @@ export default function LegacyBoxLinkRequests() {
   }, [statusFilter, search, page, pageSize]);
 
   useEffect(() => { fetchRequests(); }, [fetchRequests]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiFetch('/api/v1/operations/legacy-box-links/registry-status', { headers: {} });
+        const data = await res.json();
+        if (!cancelled) setRegistryConfigured(Boolean(data.configured));
+      } catch (err) {
+        if (!cancelled) setRegistryConfigured(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (!notice) return undefined;
@@ -142,6 +157,52 @@ export default function LegacyBoxLinkRequests() {
     }
   };
 
+  const handleExport = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (statusFilter !== 'ALL') params.append('status', statusFilter);
+      if (search.trim()) params.append('search', search.trim());
+
+      const res = await apiFetch(`/api/v1/operations/legacy-box-links/export?${params.toString()}`, { headers: {} });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Export failed.');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'legacy-box-link-requests.csv';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setNotice({ type: 'success', message: 'CSV export downloaded.' });
+    } catch (err) {
+      setNotice({ type: 'error', message: err.message });
+    }
+  };
+
+  const handleAutoVerify = async (request) => {
+    setBusyId(request.id);
+    try {
+      const res = await apiFetch(`/api/v1/operations/legacy-box-links/${request.id}/auto-verify`, {
+        method: 'POST', headers: {}, body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setNotice({ type: 'success', message: `NIPOST registry confirmed ${request.legacyBoxNumber}.` });
+        await fetchRequests();
+      } else {
+        setNotice({ type: 'error', message: data.error || 'The NIPOST registry did not confirm this claim.' });
+      }
+    } catch (err) {
+      setNotice({ type: 'error', message: 'Network error during registry verification.' });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const handleRevoke = async () => {
     if (!revokeTarget) return;
     const reason = revokeReason.trim();
@@ -184,6 +245,14 @@ export default function LegacyBoxLinkRequests() {
             </p>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={handleExport}
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+        >
+          <Download className="w-3.5 h-3.5" />
+          Export CSV
+        </button>
         <button
           type="button"
           onClick={() => fetchRequests(true)}
@@ -301,6 +370,16 @@ export default function LegacyBoxLinkRequests() {
                     <td className="px-4 py-3">
                       {request.status === 'PENDING' || request.status === 'CONTESTED' ? (
                         <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleAutoVerify(request)}
+                            disabled={busyId === request.id || !registryConfigured}
+                            title={registryConfigured ? 'Verify against the NIPOST registry' : 'NIPOST registry is not configured'}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-sky-50 text-sky-700 border border-sky-200 text-[10px] font-black hover:bg-sky-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                          >
+                            <ScanSearch className="w-3 h-3" />
+                            Auto-verify
+                          </button>
                           <button
                             type="button"
                             onClick={() => handleApprove(request)}

@@ -892,6 +892,9 @@ CREATE TABLE IF NOT EXISTS legacy_box_link_requests (
   contested_at TIMESTAMP WITH TIME ZONE,
   fee_ngn NUMERIC(12,2),
   fee_reference VARCHAR(100),
+  registry_source VARCHAR(40),
+  registry_ref VARCHAR(120),
+  registry_verified_at TIMESTAMP WITH TIME ZONE,
   submitted_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL,
   reviewed_at TIMESTAMP WITH TIME ZONE,
@@ -910,6 +913,29 @@ CREATE INDEX IF NOT EXISTS idx_legacy_link_requests_user
 
 CREATE INDEX IF NOT EXISTS idx_legacy_link_requests_status
   ON legacy_box_link_requests (status, expires_at);
+
+-- Remittance statements for the NIPOST verification fee and Hotbox platform
+-- fee. Amounts are copied from the ledger at record time and never blended.
+CREATE TABLE IF NOT EXISTS legacy_link_remittances (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  period_start DATE NOT NULL,
+  period_end DATE NOT NULL,
+  nipost_amount_ngn NUMERIC(12,2) NOT NULL DEFAULT 0,
+  hotbox_amount_ngn NUMERIC(12,2) NOT NULL DEFAULT 0,
+  total_amount_ngn NUMERIC(12,2) NOT NULL DEFAULT 0,
+  line_item_count INTEGER NOT NULL DEFAULT 0,
+  fee_reference VARCHAR(100),
+  status VARCHAR(20) NOT NULL DEFAULT 'RECORDED'
+    CHECK (status IN ('RECORDED', 'SUBMITTED', 'PAID')),
+  notes TEXT,
+  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  UNIQUE (period_start, period_end)
+);
+
+CREATE INDEX IF NOT EXISTS idx_legacy_link_remittances_period
+  ON legacy_link_remittances (period_start, period_end);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_digital_boxes_approved_legacy_norm
   ON digital_boxes (legacy_box_number_norm)

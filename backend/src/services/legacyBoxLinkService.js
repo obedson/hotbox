@@ -6,6 +6,7 @@ const db = require('../config/db');
 const { canonicalLegacyKey } = require('../utils/legacyBoxNumber');
 const { parseDocumentDataUrl } = require('../utils/documentUpload');
 const settingsService = require('./settingsService');
+const nipostRegistryService = require('./nipostRegistryService');
 
 const REQUEST_TTL_DAYS = 30;
 const REMINDER_WINDOW_DAYS = 3;
@@ -205,7 +206,7 @@ async function getApprovalCharge() {
   };
 }
 
-async function approveRequest({ requestId, reviewerId, note = null, charge = null }) {
+async function approveRequest({ requestId, reviewerId, note = null, charge = null, source = null, sourceReference = null }) {
   const client = await db.getClient();
   try {
     await client.query('BEGIN');
@@ -286,14 +287,19 @@ async function approveRequest({ requestId, reviewerId, note = null, charge = nul
     const reviewed = await client.query(
       `UPDATE legacy_box_link_requests
           SET status = 'APPROVED', reviewed_by = $2, reviewed_at = NOW(),
-              review_note = $3, fee_ngn = $4, fee_reference = $5, updated_at = NOW()
+              review_note = $3, fee_ngn = $4, fee_reference = $5,
+              registry_source = $6, registry_ref = $7,
+              registry_verified_at = CASE WHEN $6 IS NOT NULL THEN NOW() ELSE NULL END,
+              updated_at = NOW()
         WHERE id = $1 RETURNING *`,
       [
         requestId,
         reviewerId,
         note,
         charge && charge.totalNgn > 0 ? charge.totalNgn : null,
-        chargeReference
+        chargeReference,
+        source || null,
+        sourceReference || null
       ]
     );
 
@@ -543,6 +549,192 @@ async function findLegacyLinkState(input) {
   return { state: 'NOT_APPROVED', box: null };
 }
 
+// --- NIPOST registry auto-verification -------------------------------------
+// Approval still creates the link and still charges on approval. The only
+// difference is that a digitized NIPOST source supplied the ownership decision;
+// a non-match is audited and left for a human reviewer.
+async function autoVerifyRequest({ requestId, reviewerId }) {
+  const request = await getRequestById(requestId);
+  if (!request) throw failure('Link request not found.', 404);
+  if (!OPEN_STATUSES.includes(request.status)) {
+    throw failure('Only a pending link request can be verified.', 409);
+  }
+
+  const userRes = await db.query('SELECT name, phone FROM users WHERE id = $1', [request.user_id]);
+  const user = userRes.rows[0] || {};
+  const verdict = await nipostRegistryService.verifyOwnership({
+    legacyBoxNumber: request.legacy_box_number_raw,
+    ownerName: user.name,
+    phone: request.registered_phone || user.phone
+  });
+
+  if (!verdict.configured) {
+    throw failure(verdict.reason || 'NIPOST registry is not configured.', 503);
+  }
+
+  if (!verdict.match) {
+    await db.query(
+      `INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details)
+       VALUES ($1, $2, 'legacy_box_link_request', $3, $4)`,
+      [reviewerId, 'LEGACY_LINK_REGISTRY_NO_MATCH', requestId, JSON.stringify({ reason: verdict.reason })]
+    );
+    const error = failure(verdict.reason || 'The NIPOST registry did not confirm this claim.', 409);
+    error.verdict = verdict;
+    throw error;
+  }
+
+  const charge = await getApprovalCharge();
+  const { request: approved, box } = await approveRequest({
+    requestId,
+    reviewerId,
+    note: `Auto-verified against the NIPOST registry. ${verdict.reason}`,
+    charge,
+    source: verdict.source,
+    sourceReference: verdict.reference
+  });
+
+  return { request: approved, box, verdict };
+}
+
+// --- Remittance reporting ---------------------------------------------------
+// Fees are collected into the Hotbox wallet, but the NIPOST verification fee
+// belongs to NIPOST. These helpers keep the two amounts separate so a
+// reconciliation statement can be produced and a period can be marked remitted.
+function periodDates({ from = null, to = null } = {}) {
+  const today = new Date();
+  const iso = (value) => value.toISOString().slice(0, 10);
+  const defaultFrom = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+  const start = from || iso(defaultFrom);
+  const end = to || iso(today);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) {
+    throw failure('Period dates must be YYYY-MM-DD.', 400);
+  }
+  if (start > end) throw failure('The period start must not be after the period end.', 400);
+  return { start, end };
+}
+
+function remittanceWhere({ from, to }) {
+  const clauses = ["t.transaction_type IN ('LEGACY_LINK_FEE', 'LEGACY_LINK_PLATFORM_FEE')"];
+  const params = [];
+  if (from) {
+    params.push(from);
+    clauses.push(`t.created_at >= $${params.length}`);
+  }
+  if (to) {
+    params.push(to);
+    clauses.push(`t.created_at < ($${params.length}::date + INTERVAL '1 day')`);
+  }
+  return { sql: `WHERE ${clauses.join(' AND ')}`, params };
+}
+
+async function summarizeRemittance(options = {}) {
+  const { start, end } = periodDates(options);
+  const { sql, params } = remittanceWhere({ from: start, to: end });
+  const res = await db.query(
+    `SELECT t.transaction_type, count(*)::int AS line_count,
+            COALESCE(sum(t.amount_ngn), 0)::float AS amount_ngn
+       FROM transactions t ${sql}
+      GROUP BY t.transaction_type`,
+    params
+  );
+
+  let nipost = 0;
+  let hotbox = 0;
+  let lineItemCount = 0;
+  for (const row of res.rows) {
+    const amount = Number(row.amount_ngn) || 0;
+    if (row.transaction_type === 'LEGACY_LINK_FEE') nipost += amount;
+    if (row.transaction_type === 'LEGACY_LINK_PLATFORM_FEE') hotbox += amount;
+    lineItemCount += Number(row.line_count) || 0;
+  }
+
+  return {
+    period: { from: start, to: end },
+    nipostAmountNgn: nipost,
+    hotboxAmountNgn: hotbox,
+    totalAmountNgn: nipost + hotbox,
+    lineItemCount
+  };
+}
+
+async function listRemittanceLineItems(options = {}) {
+  const { start, end } = periodDates(options);
+  const { sql, params } = remittanceWhere({ from: start, to: end });
+  params.push(Math.min(2000, Math.max(1, Number(options.limit) || 200)));
+  const limitParam = `$${params.length}`;
+
+  const res = await db.query(
+    `SELECT t.id, t.transaction_type, t.amount_ngn, t.reference, t.created_at,
+            t.metadata->>'request_id' AS request_id,
+            t.metadata->>'legacy_box_number' AS legacy_box_number,
+            b.box_number AS box_number,
+            u.name AS user_name, u.email AS user_email
+       FROM transactions t
+       JOIN wallets w ON w.id = t.wallet_id
+       JOIN users u ON u.id = w.user_id
+       LEFT JOIN legacy_box_link_requests lr ON lr.id = t.metadata->>'request_id'
+       LEFT JOIN digital_boxes b ON b.id = lr.box_id
+       ${sql}
+      ORDER BY t.created_at DESC
+      LIMIT ${limitParam}`,
+    params
+  );
+  return res.rows;
+}
+
+async function listRemittances() {
+  const res = await db.query(
+    'SELECT * FROM legacy_link_remittances ORDER BY period_end DESC, created_at DESC LIMIT 100'
+  );
+  return res.rows;
+}
+
+async function recordRemittance({ from = null, to = null, reviewerId = null, reference = null, notes = null } = {}) {
+  const { start, end } = periodDates({ from, to });
+  const summary = await summarizeRemittance({ from: start, to: end });
+
+  const insert = await db.query(
+    `INSERT INTO legacy_link_remittances
+       (period_start, period_end, nipost_amount_ngn, hotbox_amount_ngn, total_amount_ngn,
+        line_item_count, fee_reference, notes, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     ON CONFLICT (period_start, period_end) DO NOTHING
+     RETURNING *`,
+    [
+      start,
+      end,
+      summary.nipostAmountNgn,
+      summary.hotboxAmountNgn,
+      summary.totalAmountNgn,
+      summary.lineItemCount,
+      reference || null,
+      notes || null,
+      reviewerId
+    ]
+  );
+
+  const created = insert.rows.length > 0;
+  const remittance = created
+    ? insert.rows[0]
+    : (await db.query(
+        'SELECT * FROM legacy_link_remittances WHERE period_start = $1 AND period_end = $2',
+        [start, end]
+      )).rows[0];
+
+  await db.query(
+    `INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details)
+     VALUES ($1, $2, 'legacy_link_remittance', $3, $4)`,
+    [
+      reviewerId,
+      created ? 'LEGACY_LINK_REMITTANCE_RECORDED' : 'LEGACY_LINK_REMITTANCE_EXISTS',
+      remittance.id,
+      JSON.stringify({ period_start: start, period_end: end, created })
+    ]
+  );
+
+  return { remittance, created };
+}
+
 module.exports = {
   REQUEST_TTL_DAYS,
   REMINDER_WINDOW_DAYS,
@@ -560,5 +752,10 @@ module.exports = {
   expireOverdueRequests,
   remindExpiringRequests,
   runMaintenance,
-  findLegacyLinkState
+  findLegacyLinkState,
+  autoVerifyRequest,
+  summarizeRemittance,
+  listRemittanceLineItems,
+  listRemittances,
+  recordRemittance
 };

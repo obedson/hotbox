@@ -4,10 +4,12 @@ const assert = require('node:assert/strict');
 const db = require('../../src/config/db');
 const settingsService = require('../../src/services/settingsService');
 const legacyBoxLinkService = require('../../src/services/legacyBoxLinkService');
+const nipostRegistryService = require('../../src/services/nipostRegistryService');
 
 const originalQuery = db.query;
 const originalGetClient = db.getClient;
 const originalGetLegacyBoxLinkFees = settingsService.getLegacyBoxLinkFees;
+const originalVerifyOwnership = nipostRegistryService.verifyOwnership;
 
 let calls = [];
 let handler = async () => ({ rows: [] });
@@ -33,6 +35,7 @@ after(() => {
   db.query = originalQuery;
   db.getClient = originalGetClient;
   settingsService.getLegacyBoxLinkFees = originalGetLegacyBoxLinkFees;
+  nipostRegistryService.verifyOwnership = originalVerifyOwnership;
 });
 
 function reset() {
@@ -473,4 +476,123 @@ test('rejectRequest records the decision and audits it', async () => {
   assert.equal(rejected.status, 'REJECTED');
   const audit = calls.find((call) => call.sql.includes('INSERT INTO audit_logs'));
   assert.equal(audit.params[1], 'LEGACY_LINK_REJECTED');
+});
+
+test('autoVerifyRequest approves and records the registry source on a match', async () => {
+  reset();
+  nipostRegistryService.verifyOwnership = async () => ({
+    match: true, configured: true, source: 'NIPOST_REGISTRY', reference: 'NIPOST-REF-9',
+    reason: 'Owner name matched the NIPOST registry.'
+  });
+  settingsService.getLegacyBoxLinkFees = async () => ({
+    nipostVerificationFeeNgn: 0, hotboxPlatformFeeNgn: 0, totalNgn: 0
+  });
+
+  handler = async (sql) => {
+    if (sql.includes('SELECT name, phone FROM users')) return { rows: [{ name: 'Obed Uchenna', phone: '08108525262' }] };
+    if (sql.includes('SELECT * FROM legacy_box_link_requests WHERE id = $1')) return { rows: [baseRequest] };
+    return { rows: [] };
+  };
+  clientHandler = async (sql) => {
+    if (sql.includes('FOR UPDATE')) return { rows: [baseRequest] };
+    if (sql.includes("status = 'APPROVED', reviewed_by")) return { rows: [{ ...baseRequest, status: 'APPROVED', registry_source: 'NIPOST_REGISTRY' }] };
+    if (sql.includes('UPDATE digital_boxes')) return { rows: [{ id: 'box-1', box_number: 'HBX-0001', legacy_box_status: 'APPROVED' }] };
+    return { rows: [] };
+  };
+
+  const result = await legacyBoxLinkService.autoVerifyRequest({ requestId: 'req-1', reviewerId: 'nipost-1' });
+  assert.equal(result.request.status, 'APPROVED');
+  assert.equal(result.verdict.match, true);
+
+  const approved = calls.find((call) => call.sql.includes("status = 'APPROVED', reviewed_by"));
+  assert.equal(approved.params[5], 'NIPOST_REGISTRY');
+  assert.equal(approved.params[6], 'NIPOST-REF-9');
+});
+
+test('autoVerifyRequest leaves a non-matching claim for a human reviewer', async () => {
+  reset();
+  nipostRegistryService.verifyOwnership = async () => ({
+    match: false, configured: true, source: null, reference: null,
+    reason: 'No NIPOST registry record matched this claim.'
+  });
+  handler = async (sql) => {
+    if (sql.includes('SELECT name, phone FROM users')) return { rows: [{ name: 'Obed Uchenna' }] };
+    if (sql.includes('SELECT * FROM legacy_box_link_requests WHERE id = $1')) return { rows: [baseRequest] };
+    return { rows: [] };
+  };
+
+  await assert.rejects(
+    () => legacyBoxLinkService.autoVerifyRequest({ requestId: 'req-1', reviewerId: 'nipost-1' }),
+    (err) => err.status === 409 && err.verdict && err.verdict.match === false
+  );
+
+  const audit = calls.find((call) => call.sql.includes('INSERT INTO audit_logs'));
+  assert.equal(audit.params[1], 'LEGACY_LINK_REGISTRY_NO_MATCH');
+});
+
+test('autoVerifyRequest refuses when the registry is not configured', async () => {
+  reset();
+  nipostRegistryService.verifyOwnership = async () => ({
+    match: false, configured: false, reason: 'NIPOST registry is not configured.'
+  });
+  handler = async (sql) => {
+    if (sql.includes('SELECT name, phone FROM users')) return { rows: [{ name: 'Obed Uchenna' }] };
+    if (sql.includes('SELECT * FROM legacy_box_link_requests WHERE id = $1')) return { rows: [baseRequest] };
+    return { rows: [] };
+  };
+
+  await assert.rejects(
+    () => legacyBoxLinkService.autoVerifyRequest({ requestId: 'req-1', reviewerId: 'nipost-1' }),
+    (err) => err.status === 503
+  );
+});
+
+test('recordRemittance stores NIPOST and Hotbox amounts separately and is idempotent', async () => {
+  reset();
+  handler = async (sql) => {
+    if (sql.includes('GROUP BY t.transaction_type')) {
+      return { rows: [
+        { transaction_type: 'LEGACY_LINK_FEE', line_count: 1, amount_ngn: 2000 },
+        { transaction_type: 'LEGACY_LINK_PLATFORM_FEE', line_count: 1, amount_ngn: 500 }
+      ] };
+    }
+    if (sql.includes('INSERT INTO legacy_link_remittances')) return { rows: [{ id: 'rem-1', status: 'RECORDED' }] };
+    return { rows: [] };
+  };
+
+  const first = await legacyBoxLinkService.recordRemittance({
+    from: '2026-11-01', to: '2026-11-30', reviewerId: 'ops-1', reference: 'REM-1'
+  });
+  assert.equal(first.created, true);
+  assert.equal(first.remittance.id, 'rem-1');
+
+  const insert = calls.find((call) => call.sql.includes('INSERT INTO legacy_link_remittances'));
+  assert.equal(insert.params[2], 2000);
+  assert.equal(insert.params[3], 500);
+  assert.equal(insert.params[4], 2500);
+
+  reset();
+  handler = async (sql) => {
+    if (sql.includes('GROUP BY t.transaction_type')) {
+      return { rows: [{ transaction_type: 'LEGACY_LINK_FEE', line_count: 1, amount_ngn: 2000 }] };
+    }
+    if (sql.includes('INSERT INTO legacy_link_remittances')) return { rows: [] };
+    if (sql.includes('SELECT * FROM legacy_link_remittances WHERE period_start')) {
+      return { rows: [{ id: 'rem-1', status: 'RECORDED' }] };
+    }
+    return { rows: [] };
+  };
+
+  const second = await legacyBoxLinkService.recordRemittance({
+    from: '2026-11-01', to: '2026-11-30', reviewerId: 'ops-1'
+  });
+  assert.equal(second.created, false);
+});
+
+test('summarizeRemittance rejects an invalid period', async () => {
+  reset();
+  await assert.rejects(
+    () => legacyBoxLinkService.summarizeRemittance({ from: 'not-a-date', to: '2026-11-30' }),
+    (err) => err.status === 400
+  );
 });
