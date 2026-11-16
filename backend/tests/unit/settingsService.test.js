@@ -78,3 +78,32 @@ test('NIPOST review email falls back to the environment', async () => {
   handler = async () => ({ rows: [] });
   assert.equal(await settingsService.getNipostReviewEmail(), 'env@microcbt.com');
 });
+
+test('nipost registry defaults to disabled with a permissive match policy', async () => {
+  handler = async () => ({ rows: [] });
+  const registry = await settingsService.getNipostRegistry();
+  assert.equal(registry.enabled, false);
+  assert.equal(registry.matchPolicy, 'name_or_phone');
+});
+
+test('nipost registry reads the admin override', async () => {
+  calls = [];
+  handler = async () => ({ rows: [{ setting_value: { enabled: true, match_policy: 'phone_only' } }] });
+  const registry = await settingsService.getNipostRegistry();
+  assert.equal(registry.enabled, true);
+  assert.equal(registry.matchPolicy, 'phone_only');
+  assert.equal(calls[0].params[0], 'nipost_registry');
+});
+
+test('nipost registry falls back for an unknown match policy', async () => {
+  handler = async () => ({ rows: [{ setting_value: { enabled: true, match_policy: 'whatever' } }] });
+  const registry = await settingsService.getNipostRegistry();
+  assert.equal(registry.enabled, true);
+  assert.equal(registry.matchPolicy, 'name_or_phone');
+});
+
+test('nipost registry survives a settings read failure', async () => {
+  handler = async () => { throw new Error('db down'); };
+  const registry = await settingsService.getNipostRegistry();
+  assert.equal(registry.enabled, false);
+});

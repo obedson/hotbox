@@ -122,3 +122,33 @@ test('verifyOwnership ignores records that are not active', async () => {
   const result = await registry.verifyOwnership({ legacyBoxNumber: 'P.O. Box 1234', ownerName: 'Obed Uchenna' });
   assert.equal(result.match, false);
 });
+
+test('verifyOwnership name_only ignores a phone-only match', async () => {
+  process.env.NIPOST_REGISTRY_URL = 'https://registry.nipost.gov.ng/api/lookup';
+  registry.setFetchImpl(async () => stubResponse({ payload: { records: [
+    { owner_name: 'Somebody Else', phone: '08108525262', status: 'ACTIVE' }
+  ] } }));
+
+  const result = await registry.verifyOwnership({
+    legacyBoxNumber: 'P.O. Box 1234',
+    ownerName: 'Obed Uchenna',
+    phone: '08108525262',
+    matchPolicy: 'name_only'
+  });
+  assert.equal(result.match, false);
+});
+
+test('verifyOwnership phone_only ignores a name-only match', async () => {
+  process.env.NIPOST_REGISTRY_URL = 'https://registry.nipost.gov.ng/api/lookup';
+  registry.setFetchImpl(async () => stubResponse({ payload: { records: [
+    { owner_name: 'Obed Uchenna', phone: '09011112222', status: 'ACTIVE' }
+  ] } }));
+
+  const result = await registry.verifyOwnership({
+    legacyBoxNumber: 'P.O. Box 1234',
+    ownerName: 'Obed Uchenna',
+    phone: '08108525262',
+    matchPolicy: 'phone_only'
+  });
+  assert.equal(result.match, false);
+});

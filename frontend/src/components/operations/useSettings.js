@@ -60,7 +60,8 @@ export default function useSettings() {
       sla: 'sla_benchmarks',
       security: 'security_governance',
       digitalbox: 'digital_box_fees',
-      legacylink: 'legacy_box_link_fees'
+      legacylink: 'legacy_box_link_fees',
+      registry: 'nipost_registry'
     };
     const key = settingMap[tabKey];
     if (!key || !serverSettings[key] || !formSettings[key]) return false;
@@ -73,7 +74,8 @@ export default function useSettings() {
     storage: 'hub_storage_policy',
     sla: 'sla_benchmarks',
     digitalbox: 'digital_box_fees',
-    legacylink: 'legacy_box_link_fees'
+    legacylink: 'legacy_box_link_fees',
+    registry: 'nipost_registry'
   }[activeTab];
 
   // Nested field updater
@@ -148,6 +150,7 @@ export default function useSettings() {
   const secVal = formSettings.security_governance?.value || {};
   const digitalBoxVal = formSettings.digital_box_fees?.value || {};
   const legacyBoxLinkVal = formSettings.legacy_box_link_fees?.value || {};
+  const nipostRegistryVal = formSettings.nipost_registry?.value || {};
 
 
   return {
@@ -163,6 +166,7 @@ export default function useSettings() {
     formSettings,
     handleConfirmSave,
     legacyBoxLinkVal,
+    nipostRegistryVal,
     handleCopy,
     handleRevertTab,
     hasChangesInTab,

@@ -10,6 +10,7 @@ const originalQuery = db.query;
 const originalGetClient = db.getClient;
 const originalGetLegacyBoxLinkFees = settingsService.getLegacyBoxLinkFees;
 const originalVerifyOwnership = nipostRegistryService.verifyOwnership;
+const originalGetNipostRegistry = settingsService.getNipostRegistry;
 
 let calls = [];
 let handler = async () => ({ rows: [] });
@@ -36,6 +37,7 @@ after(() => {
   db.getClient = originalGetClient;
   settingsService.getLegacyBoxLinkFees = originalGetLegacyBoxLinkFees;
   nipostRegistryService.verifyOwnership = originalVerifyOwnership;
+  settingsService.getNipostRegistry = originalGetNipostRegistry;
 });
 
 function reset() {
@@ -480,6 +482,7 @@ test('rejectRequest records the decision and audits it', async () => {
 
 test('autoVerifyRequest approves and records the registry source on a match', async () => {
   reset();
+  settingsService.getNipostRegistry = async () => ({ enabled: true, matchPolicy: 'name_or_phone' });
   nipostRegistryService.verifyOwnership = async () => ({
     match: true, configured: true, source: 'NIPOST_REGISTRY', reference: 'NIPOST-REF-9',
     reason: 'Owner name matched the NIPOST registry.'
@@ -511,6 +514,7 @@ test('autoVerifyRequest approves and records the registry source on a match', as
 
 test('autoVerifyRequest leaves a non-matching claim for a human reviewer', async () => {
   reset();
+  settingsService.getNipostRegistry = async () => ({ enabled: true, matchPolicy: 'name_or_phone' });
   nipostRegistryService.verifyOwnership = async () => ({
     match: false, configured: true, source: null, reference: null,
     reason: 'No NIPOST registry record matched this claim.'
@@ -532,6 +536,7 @@ test('autoVerifyRequest leaves a non-matching claim for a human reviewer', async
 
 test('autoVerifyRequest refuses when the registry is not configured', async () => {
   reset();
+  settingsService.getNipostRegistry = async () => ({ enabled: true, matchPolicy: 'name_or_phone' });
   nipostRegistryService.verifyOwnership = async () => ({
     match: false, configured: false, reason: 'NIPOST registry is not configured.'
   });
@@ -595,4 +600,19 @@ test('summarizeRemittance rejects an invalid period', async () => {
     () => legacyBoxLinkService.summarizeRemittance({ from: 'not-a-date', to: '2026-11-30' }),
     (err) => err.status === 400
   );
+});
+
+test('autoVerifyRequest refuses when the registry toggle is disabled', async () => {
+  reset();
+  settingsService.getNipostRegistry = async () => ({ enabled: false, matchPolicy: 'name_or_phone' });
+  handler = async (sql) => {
+    if (sql.includes('SELECT * FROM legacy_box_link_requests WHERE id = $1')) return { rows: [baseRequest] };
+    return { rows: [] };
+  };
+
+  await assert.rejects(
+    () => legacyBoxLinkService.autoVerifyRequest({ requestId: 'req-1', reviewerId: 'nipost-1' }),
+    (err) => err.status === 503 && /disabled/i.test(err.message)
+  );
+  assert.ok(!calls.some((call) => call.sql.includes('INSERT INTO audit_logs')));
 });

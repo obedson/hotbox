@@ -57,17 +57,23 @@ function isLiveRecord(record) {
   return status === 'ACTIVE' || status === 'VALID' || status === 'APPROVED';
 }
 
-function matchRecord(record, { ownerName, phone }) {
+function matchRecord(record, { ownerName, phone, matchPolicy = 'name_or_phone' }) {
   const claimName = normalizeName(ownerName);
   const claimPhone = normalizePhone(phone);
   const recordName = normalizeName(record.owner_name || record.name || record.holder_name);
   const recordPhone = normalizePhone(record.phone || record.registered_phone || record.phone_number);
   const nameMatch = Boolean(claimName) && claimName === recordName;
   const phoneMatch = Boolean(claimPhone) && claimPhone.length >= 9 && claimPhone === recordPhone;
-  return { nameMatch, phoneMatch, matched: nameMatch || phoneMatch };
+
+  let matched = false;
+  if (matchPolicy === 'name_only') matched = nameMatch;
+  else if (matchPolicy === 'phone_only') matched = phoneMatch;
+  else matched = nameMatch || phoneMatch;
+
+  return { nameMatch, phoneMatch, matched };
 }
 
-async function verifyOwnership({ legacyBoxNumber, ownerName = null, phone = null } = {}) {
+async function verifyOwnership({ legacyBoxNumber, ownerName = null, phone = null, matchPolicy = 'name_or_phone' } = {}) {
   if (!isConfigured()) {
     return {
       match: false, configured: false, source: null, reference: null,
@@ -129,7 +135,7 @@ async function verifyOwnership({ legacyBoxNumber, ownerName = null, phone = null
 
   const records = recordsFromPayload(payload).filter(isLiveRecord);
   for (const record of records) {
-    const result = matchRecord(record, { ownerName, phone });
+    const result = matchRecord(record, { ownerName, phone, matchPolicy });
     if (result.matched) {
       return {
         match: true,
@@ -138,7 +144,9 @@ async function verifyOwnership({ legacyBoxNumber, ownerName = null, phone = null
         reference: record.reference || record.box_reference || null,
         reason: result.nameMatch
           ? 'Owner name matched the NIPOST registry.'
-          : 'Registered phone matched the NIPOST registry.'
+          : result.phoneMatch
+            ? 'Registered phone matched the NIPOST registry.'
+            : 'The NIPOST registry matched this claim.'
       };
     }
   }

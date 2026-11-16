@@ -560,12 +560,18 @@ async function autoVerifyRequest({ requestId, reviewerId }) {
     throw failure('Only a pending link request can be verified.', 409);
   }
 
+  const registry = await settingsService.getNipostRegistry();
+  if (!registry.enabled) {
+    throw failure('NIPOST registry auto-verification is disabled.', 503);
+  }
+
   const userRes = await db.query('SELECT name, phone FROM users WHERE id = $1', [request.user_id]);
   const user = userRes.rows[0] || {};
   const verdict = await nipostRegistryService.verifyOwnership({
     legacyBoxNumber: request.legacy_box_number_raw,
     ownerName: user.name,
-    phone: request.registered_phone || user.phone
+    phone: request.registered_phone || user.phone,
+    matchPolicy: registry.matchPolicy
   });
 
   if (!verdict.configured) {

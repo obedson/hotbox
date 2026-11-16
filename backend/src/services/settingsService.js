@@ -6,6 +6,9 @@ const db = require('../config/db');
 const DIGITAL_BOX_FEES_KEY = 'digital_box_fees';
 const LEGACY_BOX_LINK_FEES_KEY = 'legacy_box_link_fees';
 const NIPOST_REVIEW_EMAIL_KEY = 'nipost_review_email';
+const NIPOST_REGISTRY_KEY = 'nipost_registry';
+
+const MATCH_POLICIES = ['name_or_phone', 'name_only', 'phone_only'];
 
 const DEFAULT_DIGITAL_BOX_FEES = {
   doorway_inspection_fee_ngn: 2500,
@@ -18,6 +21,13 @@ const DEFAULT_DIGITAL_BOX_FEES = {
 const DEFAULT_LEGACY_BOX_LINK_FEES = {
   nipost_verification_fee_ngn: 0,
   hotbox_platform_fee_ngn: 0
+};
+
+// Registry auto-verification is off until an administrator turns it on, even
+// when the endpoint is configured. The endpoint and key stay in the environment.
+const DEFAULT_NIPOST_REGISTRY = {
+  enabled: false,
+  match_policy: 'name_or_phone'
 };
 
 async function getSettingValue(key, fallback = null) {
@@ -55,6 +65,18 @@ async function getLegacyBoxLinkFees() {
 // Where the email fallback approval links are sent. Configured through system
 // settings so it can change without a deploy; the environment variable is a
 // fallback for environments that cannot edit settings.
+async function getNipostRegistry() {
+  const stored = await getSettingValue(NIPOST_REGISTRY_KEY, null);
+  const config = stored && typeof stored === 'object' ? stored : {};
+  const matchPolicy = MATCH_POLICIES.includes(config.match_policy)
+    ? config.match_policy
+    : DEFAULT_NIPOST_REGISTRY.match_policy;
+  return {
+    enabled: Boolean(config.enabled),
+    matchPolicy
+  };
+}
+
 async function getNipostReviewEmail() {
   const stored = await getSettingValue(NIPOST_REVIEW_EMAIL_KEY, null);
   const configured = stored && typeof stored === 'string' ? stored.trim() : '';
@@ -65,10 +87,14 @@ module.exports = {
   DIGITAL_BOX_FEES_KEY,
   LEGACY_BOX_LINK_FEES_KEY,
   NIPOST_REVIEW_EMAIL_KEY,
+  NIPOST_REGISTRY_KEY,
+  MATCH_POLICIES,
   DEFAULT_DIGITAL_BOX_FEES,
   DEFAULT_LEGACY_BOX_LINK_FEES,
+  DEFAULT_NIPOST_REGISTRY,
   getSettingValue,
   getDigitalBoxFees,
   getLegacyBoxLinkFees,
+  getNipostRegistry,
   getNipostReviewEmail
 };

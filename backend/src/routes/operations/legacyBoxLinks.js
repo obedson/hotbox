@@ -4,6 +4,7 @@ const db = require('../../config/db');
 const { authenticate, requireRoles } = require('../../middleware/auth');
 const legacyBoxLinkService = require('../../services/legacyBoxLinkService');
 const nipostRegistryService = require('../../services/nipostRegistryService');
+const settingsService = require('../../services/settingsService');
 
 router.use(authenticate, requireRoles('nipost_verifier', 'compliance_officer', 'ops_admin', 'super_admin'));
 
@@ -89,7 +90,17 @@ function sendCsv(res, filename, headers, rows) {
 }
 
 router.get('/legacy-box-links/registry-status', async (req, res) => {
-  res.json({ configured: nipostRegistryService.isConfigured() });
+  try {
+    const registry = await settingsService.getNipostRegistry();
+    const configured = nipostRegistryService.isConfigured();
+    res.json({
+      configured,
+      enabled: Boolean(registry.enabled && configured),
+      matchPolicy: registry.matchPolicy
+    });
+  } catch (err) {
+    res.json({ configured: nipostRegistryService.isConfigured(), enabled: false, matchPolicy: 'name_or_phone' });
+  }
 });
 
 router.get('/legacy-box-links/export', async (req, res) => {
