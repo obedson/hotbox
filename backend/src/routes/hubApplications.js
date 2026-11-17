@@ -293,7 +293,8 @@ router.post('/:id/submit', authenticate, requireRoles('hub_owner'), async (req, 
           `UPDATE hubs
            SET business_name = $2, cac_number = $3, phone = $4, email = $5, postcode = $6,
                address_text = $7, neighbourhood = $8, lga = $9, state = $10, lat = $11,
-               lng = $12, capacity = $13, updated_at = NOW()
+               lng = $12, capacity = $13, status = 'pending', is_accepting_parcels = FALSE,
+               updated_at = NOW()
            WHERE id = $1`,
           [
             hubId,
