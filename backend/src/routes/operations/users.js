@@ -80,12 +80,28 @@ router.post('/users', validate(createStaffSchema), async (req, res) => {
       );
 
       if (role === 'hub_owner') {
+        // Staff-created hub owners also start from a draft application so no
+        // hub can bypass accreditation.
+        const hubName = businessName || `${name}'s Community Hub`;
+        const hubPostcode = postcode || 'FC-01-A03-FK-01';
+        const hubNeighbourhood = neighbourhood || 'Wuse 2';
+        const hubAddress = neighbourhood ? `${neighbourhood}, Abuja` : 'Wuse 2, Abuja';
+        const hubCapacity = capacity ? parseInt(capacity, 10) : 50;
+
         await client.query(
-          `INSERT INTO hubs (owner_id, business_name, cac_number, phone, email, postcode, address_text, neighbourhood, lga, state, lat, lng, capacity, status)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Abuja Municipal', 'Abuja (FCT)', 9.0772, 7.4990, $9, 'accredited')`,
-          [newUser.id, businessName || `${name}'s Community Hub`, cacNumber || null, normalizedPhone, normalizedEmail,
-           postcode || 'FC-01-A03-FK-01', neighbourhood ? `${neighbourhood}, Abuja` : 'Wuse 2, Abuja', neighbourhood || 'Wuse 2',
-           capacity ? parseInt(capacity, 10) : 50]
+          `INSERT INTO hub_applications (applicant_id, business_name, postcode, form_data)
+           VALUES ($1, $2, $3, $4)`,
+          [newUser.id, hubName, hubPostcode, JSON.stringify({
+            businessName: hubName,
+            cacNumber: cacNumber || undefined,
+            postcode: hubPostcode,
+            addressText: hubAddress,
+            neighbourhood: hubNeighbourhood,
+            capacity: hubCapacity,
+            managerName: name,
+            managerPhone: normalizedPhone,
+            managerEmail: normalizedEmail
+          })]
         );
       } else if (role === 'rider') {
         await client.query(

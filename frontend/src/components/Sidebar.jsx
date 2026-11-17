@@ -4,7 +4,7 @@ import {
   ShieldCheck, BarChart2, FileText, Settings, LogOut, Key, Webhook,
   Receipt, LifeBuoy, Building2, PlusCircle, Navigation, Wallet,
   HelpCircle, User, QrCode, KeyRound, Boxes, Clock, TrendingUp,
-  Compass, Bike, CheckCircle2, BookOpen, X, Search, Link2
+  Compass, Bike, CheckCircle2, BookOpen, X, Search, Link2, ClipboardList
 } from 'lucide-react';
 
 const PORTAL_CONFIG = {
@@ -23,6 +23,7 @@ const PORTAL_CONFIG = {
       { id: 'shipments', label: 'Shipments', icon: Package, tooltip: 'Verified nationwide parcel volume ledger' },
       { id: 'riders', label: 'Riders', icon: Users, tooltip: 'Accredited courier fleet & corridor assignments' },
       { id: 'hubs', label: 'Partner Hubs', icon: Store, tooltip: 'Community merchant collection & storage hubs' },
+      { id: 'hub_applications', label: 'Hub Applications', icon: ClipboardList, tooltip: 'Hub accreditation applications, inspections & decisions' },
       { id: 'postcodes', label: 'Service Areas', icon: MapPin, tooltip: 'Operational delivery zones, corridors & hub coverage' },
       { id: 'exceptions', label: 'Delivery Issues', icon: AlertTriangle, badge: '18', badgeType: 'danger', tooltip: 'Delayed parcels, overdue pickups & claims' },
       { id: 'verification', label: 'Verification', icon: ShieldCheck, badge: '9', badgeType: 'info', tooltip: 'Hub & rider accreditation KYC queue' },
@@ -87,6 +88,7 @@ const PORTAL_CONFIG = {
     iconActiveColor: 'text-teal-400',
     navItems: [
       { id: 'hub_overview', label: 'Hub Overview', icon: Store, tooltip: 'Daily parcel volume & bay capacity overview' },
+      { id: 'hub_application', label: 'Accreditation', icon: FileText, tooltip: 'Hub accreditation application, inspection & status' },
       { id: 'parcel_intake', label: 'Parcel Intake', icon: QrCode, badge: 'Scan', badgeType: 'info', tooltip: 'Scan incoming parcels from dispatch riders' },
       { id: 'collection', label: 'Customer Collection', icon: KeyRound, tooltip: 'Verify 6-digit Collection Codes & hand over parcels' },
       { id: 'storage_bays', label: 'Storage Bays', icon: Boxes, tooltip: 'View occupied and available storage compartments' },

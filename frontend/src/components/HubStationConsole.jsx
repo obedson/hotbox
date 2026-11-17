@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import CustodyScanner from './CustodyScanner';
+import HubApplicationForm from './HubApplicationForm';
 
 export default function HubStationConsole({ activeNav, setActiveNav, hubs, showToast }) {
   const [mine, setMine] = useState(null);
@@ -113,17 +114,37 @@ export default function HubStationConsole({ activeNav, setActiveNav, hubs, showT
     );
   }
 
+  if (!hub && activeNav === 'hub_application') {
+    return (
+      <HubApplicationForm
+        showToast={showToast}
+        onAccredited={() => {
+          loadMine();
+          setActiveNav('hub_overview');
+        }}
+      />
+    );
+  }
+
   if (!hub) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-10 text-center space-y-2">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-10 text-center space-y-3">
         <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center mx-auto">
           <Store className="w-6 h-6" />
         </div>
         <h2 className="text-lg font-black text-slate-900">No hub linked to this account</h2>
         <p className="text-xs text-slate-500 max-w-md mx-auto">
-          This screen shows live data for your own hub station. Register a hub or ask an administrator to link you as its owner.
+          Every hub is accredited before it goes live. Complete the accreditation application
+          and our operations team will schedule a site inspection.
         </p>
         {mineError && <p className="text-xs text-rose-600">{mineError}</p>}
+        <button
+          onClick={() => setActiveNav('hub_application')}
+          className="mt-2 inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+        >
+          <span>Open accreditation application</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
       </div>
     );
   }
@@ -162,6 +183,17 @@ export default function HubStationConsole({ activeNav, setActiveNav, hubs, showT
           </div>
         </div>
       </div>
+
+      {/* ACCREDITATION APPLICATION */}
+      {activeNav === 'hub_application' && (
+        <HubApplicationForm
+          showToast={showToast}
+          onAccredited={() => {
+            loadMine();
+            setActiveNav('hub_overview');
+          }}
+        />
+      )}
 
       {/* TAB 1: HUB OVERVIEW */}
       {activeNav === 'hub_overview' && (

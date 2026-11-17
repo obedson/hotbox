@@ -129,7 +129,9 @@ export default function TopHeader({
     claims: activePortal === 'enterprise' ? 'Claims & Support' : 'Claims & Help',
     profile: 'Profile & Postcode',
     // Hub Station
+    hub_applications: 'Hub Accreditation Applications',
     hub_overview: 'Hub Station Overview',
+    hub_application: 'Hub Accreditation Application',
     parcel_intake: 'Parcel Intake Scanner',
     collection: 'Customer Collection Desk',
     storage_bays: 'Storage Bay Matrix',

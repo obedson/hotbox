@@ -25,6 +25,7 @@ import ShipmentDossierModal from './components/ShipmentDossierModal';
 import ShipmentManagement from './components/ShipmentManagement';
 import RiderManagement from './components/RiderManagement';
 import HubManagement from './components/HubManagement';
+import HubApplicationsPanel from './components/operations/HubApplicationsPanel';
 import PostcodeManagement from './components/PostcodeManagement';
 import ExceptionManagement from './components/ExceptionManagement';
 import ReportsManagement from './components/ReportsManagement';
@@ -363,6 +364,10 @@ export default function App() {
                     <HubManagement
                       onSelectShipment={handleGlobalSearch}
                     />
+                  )}
+
+                  {activeNav === 'hub_applications' && (
+                    <HubApplicationsPanel />
                   )}
 
                   {activeNav === 'postcodes' && (

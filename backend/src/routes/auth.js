@@ -99,10 +99,29 @@ router.post('/register', validate(registerSchema), async (req, res) => {
         const hubAddress = addressText || `${hubNeighbourhood}, Abuja`;
         const hubCapacity = capacity ? parseInt(capacity) : 50;
 
+        // A hub is never created accredited at signup. The owner receives a
+        // draft accreditation application pre-filled from the signup details
+        // and must complete it before an inspection can be scheduled.
+        const formData = {
+          businessName: hubName,
+          cacNumber: cacNumber || undefined,
+          postcode: hubPostcode,
+          addressText: hubAddress,
+          neighbourhood: hubNeighbourhood,
+          capacity: hubCapacity,
+          managerName: name,
+          managerPhone: phone,
+          managerEmail: email || undefined
+        };
+
+        const cleanedFormData = Object.fromEntries(
+          Object.entries(formData).filter(([, value]) => value !== undefined)
+        );
+
         await client.query(
-          `INSERT INTO hubs (owner_id, business_name, cac_number, phone, email, postcode, address_text, neighbourhood, lga, state, lat, lng, capacity, status)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Abuja Municipal', 'Abuja (FCT)', 9.0772, 7.4990, $9, 'accredited')`,
-          [newUser.id, hubName, cacNumber || null, phone, email || null, hubPostcode, hubAddress, hubNeighbourhood, hubCapacity]
+          `INSERT INTO hub_applications (applicant_id, business_name, postcode, form_data)
+           VALUES ($1, $2, $3, $4)`,
+          [newUser.id, hubName, hubPostcode, JSON.stringify(cleanedFormData)]
         );
       } else if (role === 'rider') {
         const vType = vehicleType && ['bicycle', 'motorcycle', 'van', 'truck'].includes(vehicleType) ? vehicleType : 'motorcycle';

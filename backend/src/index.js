@@ -27,6 +27,7 @@ const customerRouter = require('./routes/customer');
 const notificationsRouter = require('./routes/notifications');
 const paymentsRouter = require('./routes/payments');
 const nipostReviewRouter = require('./routes/nipostReview');
+const hubApplicationsRouter = require('./routes/hubApplications');
 
 const app = express();
 
@@ -146,6 +147,7 @@ app.use('/api/v1/customer', customerRouter);
 app.use('/api/v1/notifications', notificationsRouter);
 app.use('/api/v1/payments', paymentsRouter);
 app.use('/api/v1/nipost-review', nipostReviewRouter);
+app.use('/api/v1/hub-applications', hubApplicationsRouter);
 
 // ----------------------------------------------------------------------------
 // BACKWARD COMPATIBILITY LAYER (Legacy v0 endpoints mapping to new schema)
