@@ -65,15 +65,15 @@ export default function useBookingModal({ isOpen, hubs, currentUser, prefilledSe
   const lastResolvedSenderRef = useRef('');
   const lastResolvedRecipientRef = useRef('');
 
-  // Sync hubs if passed down
+  // Sync hubs when the dashboard hub list changes
   useEffect(() => {
     if (hubs && hubs.length > 0) {
       setAvailableHubs(hubs);
       if (!destinationHubId) {
-        setDestinationHubId(prefilledRecipient?.hubId || hubs[0]?.id);
+        setDestinationHubId(hubs[0]?.id);
       }
     }
-  }, [hubs, prefilledRecipient]);
+  }, [hubs]);
 
   // Canonical Authoritative Sender Postcode & Location Resolver
   const resolveSenderCode = async (rawInput, force = false) => {

@@ -188,7 +188,7 @@ export default function BookingStep2({ booking }) {
                     <label className="font-bold text-xs text-slate-700 block mb-1 flex items-center justify-between">
                       <span className="flex items-center gap-1.5">
                         <Store className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Recipient Collection Hub (Ranked by Proximity)</span>
+                        <span>Recipient Collection Hub</span>
                       </span>
                       <span className="text-[10px] text-emerald-700 font-semibold">Closest Hub Auto-Selected</span>
                     </label>
@@ -198,6 +198,11 @@ export default function BookingStep2({ booking }) {
                       className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
                       required
                     >
+                      {availableHubs.length === 0 && (
+                        <option value="" disabled>
+                          No collection hubs available
+                        </option>
+                      )}
                       {availableHubs.map(h => {
                         const distStr = h.distanceKm !== undefined ? ` • ${h.distanceKm} km away` : '';
                         return (
