@@ -12,6 +12,10 @@ export default function HubStationConsole({ activeNav, setActiveNav, hubs, showT
   const [mineLoading, setMineLoading] = useState(true);
   const [mineError, setMineError] = useState('');
 
+  const [capacityDraft, setCapacityDraft] = useState('');
+  const [savingCapacity, setSavingCapacity] = useState(false);
+  const [capacityNotice, setCapacityNotice] = useState(null);
+
   const loadMine = useCallback(async () => {
     setMineLoading(true);
     setMineError('');
@@ -30,6 +34,37 @@ export default function HubStationConsole({ activeNav, setActiveNav, hubs, showT
   useEffect(() => {
     loadMine();
   }, [loadMine]);
+
+  useEffect(() => {
+    if (mine?.hub) setCapacityDraft(String(mine.hub.capacity ?? ''));
+  }, [mine?.hub?.id, mine?.hub?.capacity]);
+
+  const handleUpdateCapacity = async (e) => {
+    e.preventDefault();
+    setCapacityNotice(null);
+    const parsed = parseInt(capacityDraft, 10);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      setCapacityNotice({ type: 'error', text: 'Enter a valid capacity (minimum 1).' });
+      return;
+    }
+    setSavingCapacity(true);
+    try {
+      const res = await apiFetch('/api/v1/hubs/mine', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ capacity: parsed })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Unable to update capacity.');
+      setMine(prev => ({ ...prev, hub: data.hub }));
+      setCapacityNotice({ type: 'success', text: 'Capacity updated.' });
+      if (showToast) showToast('Hub capacity updated.');
+    } catch (err) {
+      setCapacityNotice({ type: 'error', text: err.message });
+    } finally {
+      setSavingCapacity(false);
+    }
+  };
 
   const hub = mine?.hub || null;
   const stats = mine?.stats || {};
@@ -496,6 +531,34 @@ export default function HubStationConsole({ activeNav, setActiveNav, hubs, showT
             </div>
 
             <div className="space-y-4">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Storage Capacity (parcels)</label>
+                <form onSubmit={handleUpdateCapacity} className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    value={capacityDraft}
+                    onChange={e => setCapacityDraft(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-semibold"
+                  />
+                  <button
+                    type="submit"
+                    disabled={savingCapacity}
+                    className="px-3 py-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white rounded-xl text-[11px] font-bold shrink-0 cursor-pointer"
+                  >
+                    {savingCapacity ? 'Saving…' : 'Update'}
+                  </button>
+                </form>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Current load: {hub.current_load || 0} parcels. Capacity cannot be set below the current load.
+                </p>
+                {capacityNotice && (
+                  <p className={`text-[11px] font-bold mt-1 ${capacityNotice.type === 'error' ? 'text-rose-600' : 'text-emerald-700'}`}>
+                    {capacityNotice.text}
+                  </p>
+                )}
+              </div>
+
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Operating Hours</label>
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 font-semibold">

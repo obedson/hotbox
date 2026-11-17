@@ -127,6 +127,43 @@ router.get('/mine', authenticate, async (req, res) => {
   }
 });
 
+// PATCH /api/v1/hubs/mine - hub owner updates their own hub capacity
+router.patch('/mine', authenticate, async (req, res) => {
+  const { capacity } = req.body || {};
+
+  if (capacity === undefined || capacity === null || capacity === '') {
+    return res.status(400).json({ error: 'Capacity is required.' });
+  }
+
+  try {
+    const existing = await db.query(
+      'SELECT * FROM hubs WHERE owner_id = $1 ORDER BY created_at DESC LIMIT 1',
+      [req.user.id]
+    );
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'No hub linked to this account.' });
+    }
+
+    const hub = existing.rows[0];
+    const parsed = parseInt(capacity, 10);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      return res.status(400).json({ error: 'Capacity must be a positive whole number.' });
+    }
+    if (parsed < parseInt(hub.current_load, 10)) {
+      return res.status(400).json({ error: 'Capacity cannot be lower than the current load of ' + hub.current_load + '.' });
+    }
+
+    const updated = await db.query(
+      'UPDATE hubs SET capacity = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+      [parsed, hub.id]
+    );
+
+    res.json({ hub: updated.rows[0], message: 'Hub capacity updated successfully.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/v1/hubs/:id
 router.get('/:id', async (req, res) => {
   try {
