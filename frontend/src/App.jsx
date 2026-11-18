@@ -20,12 +20,13 @@ import ShipmentTracker from './components/ShipmentTracker';
 import BookingModal from './components/BookingModal';
 import AuthScreen from './components/AuthScreen';
 import RbacGuard from './components/RbacGuard';
-import { isRoleAuthorizedForPortal } from './lib/portals';
+import { isRoleAuthorizedForPortal, allowedOperationsNavForRole } from './lib/portals';
 import ShipmentDossierModal from './components/ShipmentDossierModal';
 import ShipmentManagement from './components/ShipmentManagement';
 import RiderManagement from './components/RiderManagement';
 import HubManagement from './components/HubManagement';
 import HubApplicationsPanel from './components/operations/HubApplicationsPanel';
+import TeamPanel from './components/operations/TeamPanel';
 import PostcodeManagement from './components/PostcodeManagement';
 import ExceptionManagement from './components/ExceptionManagement';
 import ReportsManagement from './components/ReportsManagement';
@@ -167,14 +168,13 @@ export default function App() {
     if (activePortal === 'rider') fetchRiderData();
   }, [coords, activePortal]);
 
-  // A NIPOST verifier has exactly one job: decide legacy P.O. Box claims.
+  // Restricted operations roles land on the first screen they are allowed to
+  // see, on both fresh sign-in and stored-session restore.
   useEffect(() => {
-    if (
-      currentUser?.role === 'nipost_verifier' &&
-      activePortal === 'operations' &&
-      activeNav !== 'legacy_links'
-    ) {
-      setActiveNav('legacy_links');
+    const allowedNav = allowedOperationsNavForRole(currentUser?.role);
+    if (!allowedNav || activePortal !== 'operations') return;
+    if (!allowedNav.includes(activeNav)) {
+      setActiveNav(allowedNav[0]);
     }
   }, [currentUser, activePortal, activeNav]);
 
@@ -368,6 +368,9 @@ export default function App() {
 
                   {activeNav === 'hub_applications' && (
                     <HubApplicationsPanel />
+                  )}
+                  {activeNav === 'team' && (
+                    <TeamPanel currentUser={currentUser} showToast={showToast} />
                   )}
 
                   {activeNav === 'postcodes' && (

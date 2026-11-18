@@ -34,6 +34,19 @@ const STAFF_ROLES = [
   ROLES.SUPER_ADMIN
 ];
 
+// Roles an administrator may provision from the Team screen. Self-service roles
+// are excluded on purpose: customers, riders and enterprise shippers register
+// themselves. `hub_staff` is excluded because a staff seat is only meaningful
+// once it is linked to an accredited hub.
+const PROVISIONABLE_ROLES = [
+  ROLES.OPS_ADMIN,
+  ROLES.COMPLIANCE_OFFICER,
+  ROLES.FINANCE_OFFICER,
+  ROLES.SUPPORT_AGENT,
+  ROLES.HUB_OWNER,
+  ROLES.SUPER_ADMIN
+];
+
 // Which product surface a role lands on immediately after signing in.
 const PORTAL_BY_ROLE = {
   [ROLES.CUSTOMER]: 'customer',
@@ -59,6 +72,7 @@ module.exports = {
   ROLES,
   SELF_SIGNUP_ROLES,
   STAFF_ROLES,
+  PROVISIONABLE_ROLES,
   PORTAL_BY_ROLE,
   DEFAULT_PORTAL,
   portalForRole,

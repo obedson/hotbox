@@ -4,8 +4,10 @@ import {
   ShieldCheck, BarChart2, FileText, Settings, LogOut, Key, Webhook,
   Receipt, LifeBuoy, Building2, PlusCircle, Navigation, Wallet,
   HelpCircle, User, QrCode, KeyRound, Boxes, Clock, TrendingUp,
-  Compass, Bike, CheckCircle2, BookOpen, X, Search, Link2, ClipboardList
+  Compass, Bike, CheckCircle2, BookOpen, X, Search, Link2, ClipboardList, UserCog
 } from 'lucide-react';
+
+import { allowedOperationsNavForRole } from '../lib/portals';
 
 const PORTAL_CONFIG = {
   operations: {
@@ -31,6 +33,7 @@ const PORTAL_CONFIG = {
       { id: 'reports', label: 'Reports', icon: BarChart2, tooltip: 'Network intelligence & financial settlements' },
       { id: 'audit', label: 'Audit Log', icon: FileText, tooltip: 'Immutable custody transfers & administrative logs' },
       { id: 'settings', label: 'Settings', icon: Settings, tooltip: 'Delivery rates, commission splits & SLA rules' },
+      { id: 'team', label: 'Team & Access', icon: UserCog, tooltip: 'Provision staff accounts, roles and temporary passwords' },
     ]
   },
   enterprise: {
@@ -129,8 +132,9 @@ export default function Sidebar({
   onCloseMobile
 }) {
   const currentPortalMeta = PORTAL_CONFIG[activePortal] || PORTAL_CONFIG.operations;
-  const navItems = currentUser?.role === 'nipost_verifier'
-    ? currentPortalMeta.navItems.filter((item) => item.id === 'legacy_links')
+  const allowedNav = allowedOperationsNavForRole(currentUser?.role);
+  const navItems = allowedNav && activePortal === 'operations'
+    ? currentPortalMeta.navItems.filter((item) => allowedNav.includes(item.id))
     : currentPortalMeta.navItems;
   const BrandIcon = currentPortalMeta.brandIcon;
 

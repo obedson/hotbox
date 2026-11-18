@@ -1,5 +1,5 @@
 const { z } = require('zod');
-const { SELF_SIGNUP_ROLES, STAFF_ROLES } = require('../config/roles');
+const { SELF_SIGNUP_ROLES, PROVISIONABLE_ROLES } = require('../config/roles');
 
 // Schema for User Registration
 // Identity is self-service only: visitors may create a customer, hub partner,
@@ -43,7 +43,7 @@ const createStaffSchema = z.object({
   email: z.string().trim().email('Enter a valid email address').max(120),
   phone: z.string().trim().min(11, 'Enter a valid Nigerian phone number').max(25),
   password: z.string().min(8, 'Password must be at least 8 characters').max(72),
-  role: z.enum([...STAFF_ROLES, ...SELF_SIGNUP_ROLES]),
+  role: z.enum(PROVISIONABLE_ROLES),
   businessName: z.string().trim().max(120).optional(),
   cacNumber: z.string().trim().max(40).optional(),
   postcode: z.string().trim().max(20).optional(),

@@ -112,6 +112,8 @@ export default function TopHeader({
     reports: 'Reports & Analytics',
     audit: 'Immutable Custody Audit Log',
     settings: 'Platform Settings',
+    team: 'Team & Access',
+    legacy_links: 'Legacy Box Links',
     // Enterprise
     dashboard: 'Fulfillment Dashboard',
     kyc_verify: 'KYC Address Verification API',

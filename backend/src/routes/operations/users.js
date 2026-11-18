@@ -116,8 +116,16 @@ router.post('/users', validate(createStaffSchema), async (req, res) => {
         );
       }
 
+      await client.query(
+        `INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details)
+         VALUES ($1, 'STAFF_ACCOUNT_CREATED', 'user', $2, $3)`,
+        [req.user.id, newUser.id, JSON.stringify({ role: newUser.role, name: newUser.name })]
+      );
+
       await client.query('COMMIT');
-      res.status(201).json({ user: toSafeUser(newUser) });
+      // Returned once so the administrator can hand it to the new team member.
+      // It is never stored or sent again.
+      res.status(201).json({ user: toSafeUser(newUser), temporaryPassword: password });
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
@@ -153,6 +161,39 @@ router.patch('/users/:id/status', async (req, res) => {
   } catch (err) {
     logger.error('failed to update user status', { error: err.message, actorId: req.user?.id });
     res.status(500).json({ error: 'Could not update the account.' });
+  }
+});
+
+// POST /api/v1/operations/users/:id/password
+// Issues a fresh temporary password for a team member who lost theirs.
+router.post('/users/:id/password', async (req, res) => {
+  const { password } = req.body || {};
+  if (!password || String(password).length < 8 || String(password).length > 72) {
+    return res.status(400).json({ error: 'Password must be between 8 and 72 characters.' });
+  }
+
+  try {
+    const target = await db.query('SELECT id, name, role FROM users WHERE id = $1', [req.params.id]);
+    if (target.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    const passwordHash = await bcrypt.hash(String(password), 10);
+    await db.query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [
+      passwordHash,
+      req.params.id
+    ]);
+
+    await db.query(
+      `INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details)
+       VALUES ($1, 'STAFF_PASSWORD_RESET', 'user', $2, $3)`,
+      [req.user.id, req.params.id, JSON.stringify({ role: target.rows[0].role })]
+    );
+
+    res.json({ message: 'Password updated.', temporaryPassword: String(password) });
+  } catch (err) {
+    logger.error('failed to reset staff password', { error: err.message, actorId: req.user?.id });
+    res.status(500).json({ error: 'Could not update the password.' });
   }
 });
 

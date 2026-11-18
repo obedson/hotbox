@@ -36,6 +36,28 @@ export function isRoleAuthorizedForPortal(role, portal) {
   }
 }
 
+// Roles an administrator may provision. Mirrors PROVISIONABLE_ROLES in the
+// backend so the Team screen and the API can never drift apart.
+export const PROVISIONABLE_ROLES = [
+  'ops_admin',
+  'compliance_officer',
+  'finance_officer',
+  'support_agent',
+  'hub_owner',
+  'super_admin'
+];
+
+// The operations navigation each staff role may use. A role absent from this
+// map sees the full operations navigation.
+export const OPERATIONS_NAV_BY_ROLE = {
+  nipost_verifier: ['legacy_links'],
+  compliance_officer: ['verification', 'legacy_links', 'hub_applications']
+};
+
+export function allowedOperationsNavForRole(role) {
+  return OPERATIONS_NAV_BY_ROLE[role] || null;
+}
+
 export function authorizedPortalsForRole(role) {
   return PORTALS.filter((portal) => isRoleAuthorizedForPortal(role, portal.id));
 }
