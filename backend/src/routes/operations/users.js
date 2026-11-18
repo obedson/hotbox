@@ -5,6 +5,7 @@ const db = require('../../config/db');
 const { validate, createStaffSchema } = require('../../middleware/validate');
 const logger = require('../../lib/logger');
 const { normalizePhone } = require('../../lib/phone');
+const { sendStaffOnboardingEmail } = require('../../services/staffOnboardingMailer');
 
 // Admin-only user administration. Staff roles can only be granted here, never
 // through public self-service registration.
@@ -123,9 +124,42 @@ router.post('/users', validate(createStaffSchema), async (req, res) => {
       );
 
       await client.query('COMMIT');
+
+      // Email the new teammate a single-use link so they can replace the
+      // temporary password with one of their own. A mail failure must never
+      // fail the account creation, so it is reported back instead of thrown.
+      let emailOutcome = { sent: false, delivered: false, reason: 'not_attempted' };
+      try {
+        emailOutcome = await sendStaffOnboardingEmail({
+          userId: newUser.id,
+          name: newUser.name,
+          email: newUser.email,
+          role: newUser.role
+        });
+      } catch (err) {
+        logger.error('failed to send staff onboarding email', { error: err.message, userId: newUser.id });
+        emailOutcome = { sent: false, delivered: false, reason: 'send_failed' };
+      }
+
+      if (!emailOutcome.sent) {
+        try {
+          await db.query(
+            `INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details)
+             VALUES ($1, 'STAFF_ONBOARDING_EMAIL_FAILED', 'user', $2, $3)`,
+            [req.user.id, newUser.id, JSON.stringify({ reason: emailOutcome.reason || 'unknown' })]
+          );
+        } catch (auditErr) {
+          logger.error('failed to audit onboarding email failure', { error: auditErr.message });
+        }
+      }
+
       // Returned once so the administrator can hand it to the new team member.
       // It is never stored or sent again.
-      res.status(201).json({ user: toSafeUser(newUser), temporaryPassword: password });
+      res.status(201).json({
+        user: toSafeUser(newUser),
+        temporaryPassword: password,
+        emailSent: Boolean(emailOutcome.sent)
+      });
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
@@ -194,6 +228,42 @@ router.post('/users/:id/password', async (req, res) => {
   } catch (err) {
     logger.error('failed to reset staff password', { error: err.message, actorId: req.user?.id });
     res.status(500).json({ error: 'Could not update the password.' });
+  }
+});
+
+// POST /api/v1/operations/users/:id/onboarding-email
+// Re-sends the set-your-password link, for when the first email bounced or the
+// link expired before the new team member used it.
+router.post('/users/:id/onboarding-email', async (req, res) => {
+  try {
+    const target = await db.query(
+      'SELECT id, name, email, role FROM users WHERE id = $1',
+      [req.params.id]
+    );
+    const user = target.rows[0];
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    const outcome = await sendStaffOnboardingEmail({
+      userId: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role
+    });
+
+    if (outcome.sent) {
+      await db.query(
+        `INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details)
+         VALUES ($1, 'STAFF_ONBOARDING_EMAIL_RESENT', 'user', $2, $3)`,
+        [req.user.id, user.id, JSON.stringify({ role: user.role })]
+      );
+    }
+
+    res.json({ emailSent: Boolean(outcome.sent), reason: outcome.reason });
+  } catch (err) {
+    logger.error('failed to resend staff onboarding email', { error: err.message, actorId: req.user?.id });
+    res.status(500).json({ error: 'Could not resend the onboarding email.' });
   }
 });
 

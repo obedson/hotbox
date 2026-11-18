@@ -37,7 +37,7 @@ function generatePassword(length = 16) {
 
 const inputClass = 'w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500';
 
-function PasswordReveal({ password, onDone, label = 'Temporary password' }) {
+function PasswordReveal({ password, onDone, label = 'Temporary password', emailSent, emailAddress, onResend, resending }) {
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
@@ -72,6 +72,28 @@ function PasswordReveal({ password, onDone, label = 'Temporary password' }) {
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
+      {typeof emailSent === 'boolean' && (
+        <div className={`flex items-start gap-2 text-[11px] font-semibold ${emailSent ? 'text-emerald-800' : 'text-amber-900'}`}>
+          {emailSent
+            ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+            : <AlertTriangle className="w-3.5 h-3.5 shrink-0" />}
+          <span>
+            {emailSent
+              ? `Set-your-password instructions emailed to ${emailAddress}. The link expires in 30 minutes.`
+              : `Could not email ${emailAddress}. Share the password above, or resend the link.`}
+          </span>
+        </div>
+      )}
+      {emailSent === false && onResend && (
+        <button
+          type="button"
+          onClick={onResend}
+          disabled={resending}
+          className="text-[11px] font-bold text-amber-800 underline cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {resending ? 'Sending…' : 'Resend instructions'}
+        </button>
+      )}
       <button
         type="button"
         onClick={onDone}
@@ -95,6 +117,9 @@ export default function TeamPanel({ currentUser, showToast }) {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [revealedPassword, setRevealedPassword] = useState('');
+  const [createdUser, setCreatedUser] = useState(null);
+  const [emailSent, setEmailSent] = useState(null);
+  const [resending, setResending] = useState(false);
 
   const emptyForm = {
     name: '', email: '', phone: '', role: 'compliance_officer', password: '',
@@ -134,6 +159,9 @@ export default function TeamPanel({ currentUser, showToast }) {
     setForm({ ...emptyForm, password: generatePassword() });
     setFormErrors({});
     setRevealedPassword('');
+    setCreatedUser(null);
+    setEmailSent(null);
+    setResending(false);
     setIsCreateOpen(true);
   };
 
@@ -184,12 +212,35 @@ export default function TeamPanel({ currentUser, showToast }) {
 
       setIsCreateOpen(false);
       setRevealedPassword(data.temporaryPassword || form.password);
+      setCreatedUser(data.user || null);
+      setEmailSent(typeof data.emailSent === 'boolean' ? data.emailSent : null);
       await fetchUsers(true);
       if (showToast) showToast(`${ROLE_LABELS[data.user.role] || data.user.role} account created.`);
     } catch (err) {
       setNotice(err.message);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const resendOnboarding = async () => {
+    if (!createdUser?.id) return;
+    setResending(true);
+    setNotice('');
+    try {
+      const res = await apiFetch(`/api/v1/operations/users/${createdUser.id}/onboarding-email`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Unable to resend the instructions.');
+      setEmailSent(data.emailSent === true);
+      if (showToast) {
+        showToast(data.emailSent ? 'Onboarding instructions resent.' : 'Email could not be sent.');
+      }
+    } catch (err) {
+      setNotice(err.message);
+    } finally {
+      setResending(false);
     }
   };
 
@@ -304,7 +355,14 @@ export default function TeamPanel({ currentUser, showToast }) {
       </div>
 
       {revealedPassword && (
-        <PasswordReveal password={revealedPassword} onDone={() => setRevealedPassword('')} />
+        <PasswordReveal
+          password={revealedPassword}
+          onDone={() => setRevealedPassword('')}
+          emailSent={emailSent}
+          emailAddress={createdUser?.email}
+          onResend={resendOnboarding}
+          resending={resending}
+        />
       )}
 
       {error && (

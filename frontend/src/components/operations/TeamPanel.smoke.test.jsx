@@ -43,3 +43,75 @@ describe('TeamPanel', () => {
     expect(screen.queryByText('Customer')).not.toBeInTheDocument();
   });
 });
+
+function mockCreateFetch({ emailSent }) {
+  window.fetch = vi.fn(async (url, options) => {
+    const urlStr = String(url);
+    if (urlStr === '/api/v1/operations/users' && options?.method === 'POST') {
+      return {
+        ok: true,
+        json: async () => ({
+          user: {
+            id: 'u3',
+            name: 'Amina Bello',
+            role: 'compliance_officer',
+            email: 'amina@hotbox.ng',
+            status: 'active'
+          },
+          temporaryPassword: 'TempPass123!',
+          emailSent
+        })
+      };
+    }
+    if (urlStr === '/api/v1/operations/users/u3/onboarding-email') {
+      return { ok: true, json: async () => ({ emailSent: true }) };
+    }
+    if (urlStr.includes('/operations/users')) {
+      return { ok: true, json: async () => ({ users: [], count: 0 }) };
+    }
+    return { ok: true, json: async () => ({}) };
+  });
+}
+
+function fillCreateForm() {
+  fireEvent.change(screen.getByPlaceholderText('Amina Bello'), { target: { value: 'Amina Bello' } });
+  fireEvent.change(screen.getByPlaceholderText('amina@hotbox.ng'), { target: { value: 'amina@hotbox.ng' } });
+  fireEvent.change(screen.getByPlaceholderText('+234 803 000 0000'), { target: { value: '+2348030000000' } });
+  fireEvent.click(screen.getByText('Create account'));
+}
+
+describe('TeamPanel onboarding email', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('confirms the set-password instructions were emailed', async () => {
+    mockCreateFetch({ emailSent: true });
+    render(<TeamPanel currentUser={{ id: 'u1', name: 'Obedson Uchenna', role: 'super_admin' }} showToast={() => {}} />);
+    await waitFor(() => expect(screen.getByText('Add team member')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Add team member'));
+
+    fillCreateForm();
+
+    expect(await screen.findByText(/instructions emailed to amina@hotbox\.ng/)).toBeInTheDocument();
+    expect(screen.queryByText('Resend instructions')).not.toBeInTheDocument();
+  });
+
+  it('warns and can resend when the onboarding email fails', async () => {
+    mockCreateFetch({ emailSent: false });
+    render(<TeamPanel currentUser={{ id: 'u1', name: 'Obedson Uchenna', role: 'super_admin' }} showToast={() => {}} />);
+    await waitFor(() => expect(screen.getByText('Add team member')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Add team member'));
+
+    fillCreateForm();
+
+    expect(await screen.findByText(/Could not email amina@hotbox\.ng/)).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Resend instructions'));
+
+    await waitFor(() => expect(window.fetch).toHaveBeenCalledWith(
+      '/api/v1/operations/users/u3/onboarding-email',
+      expect.objectContaining({ method: 'POST' })
+    ));
+    expect(await screen.findByText(/instructions emailed to amina@hotbox\.ng/)).toBeInTheDocument();
+  });
+});
