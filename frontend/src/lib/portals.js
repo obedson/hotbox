@@ -41,6 +41,7 @@ export function isRoleAuthorizedForPortal(role, portal) {
 export const PROVISIONABLE_ROLES = [
   'ops_admin',
   'compliance_officer',
+  'nipost_verifier',
   'finance_officer',
   'support_agent',
   'hub_owner',
@@ -50,12 +51,20 @@ export const PROVISIONABLE_ROLES = [
 // The operations navigation each staff role may use. A role absent from this
 // map sees the full operations navigation.
 export const OPERATIONS_NAV_BY_ROLE = {
-  nipost_verifier: ['legacy_links'],
+  nipost_verifier: ['legacy_links', 'ground_truth'],
   compliance_officer: ['verification', 'legacy_links', 'hub_applications']
 };
 
 export function allowedOperationsNavForRole(role) {
   return OPERATIONS_NAV_BY_ROLE[role] || null;
+}
+
+// Roles that may settle, export or reconfigure operations data. A NIPOST field
+// verifier works the queue but never touches money, exports or settings.
+export const OPERATIONS_DESK_ROLES = ['ops_admin', 'compliance_officer', 'super_admin'];
+
+export function isOperationsDeskRole(role) {
+  return OPERATIONS_DESK_ROLES.includes(role);
 }
 
 export function authorizedPortalsForRole(role) {

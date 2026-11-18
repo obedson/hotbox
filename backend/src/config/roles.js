@@ -12,6 +12,7 @@ const ROLES = {
   COMPLIANCE_OFFICER: 'compliance_officer',
   FINANCE_OFFICER: 'finance_officer',
   SUPPORT_AGENT: 'support_agent',
+  NIPOST_VERIFIER: 'nipost_verifier',
   SUPER_ADMIN: 'super_admin'
 };
 
@@ -27,6 +28,7 @@ const SELF_SIGNUP_ROLES = [
 const STAFF_ROLES = [
   ROLES.OPS_ADMIN,
   ROLES.COMPLIANCE_OFFICER,
+  ROLES.NIPOST_VERIFIER,
   ROLES.FINANCE_OFFICER,
   ROLES.SUPPORT_AGENT,
   ROLES.HUB_STAFF,
@@ -41,6 +43,7 @@ const STAFF_ROLES = [
 const PROVISIONABLE_ROLES = [
   ROLES.OPS_ADMIN,
   ROLES.COMPLIANCE_OFFICER,
+  ROLES.NIPOST_VERIFIER,
   ROLES.FINANCE_OFFICER,
   ROLES.SUPPORT_AGENT,
   ROLES.HUB_OWNER,
@@ -57,6 +60,7 @@ const PORTAL_BY_ROLE = {
   [ROLES.RIDER]: 'rider',
   [ROLES.OPS_ADMIN]: 'operations',
   [ROLES.COMPLIANCE_OFFICER]: 'operations',
+  [ROLES.NIPOST_VERIFIER]: 'operations',
   [ROLES.FINANCE_OFFICER]: 'operations',
   [ROLES.SUPPORT_AGENT]: 'operations',
   [ROLES.SUPER_ADMIN]: 'operations'

@@ -8,6 +8,11 @@ const settingsService = require('../../services/settingsService');
 
 router.use(authenticate, requireRoles('nipost_verifier', 'compliance_officer', 'ops_admin', 'super_admin'));
 
+// Money movement, data export and registry diagnostics stay with the internal
+// desk. A NIPOST field verifier may work the link queue but never settles,
+// exports or reconfigures it.
+const requireLinkDesk = requireRoles('ops_admin', 'compliance_officer', 'super_admin');
+
 function serialize(row) {
   return {
     id: row.id,
@@ -68,7 +73,7 @@ router.get('/legacy-box-links', async (req, res) => {
   }
 });
 
-router.post('/legacy-box-links/maintenance', async (req, res) => {
+router.post('/legacy-box-links/maintenance', requireLinkDesk, async (req, res) => {
   try {
     const result = await legacyBoxLinkService.runMaintenance();
     res.json({ message: 'Link request maintenance complete.', ...result });
@@ -103,7 +108,7 @@ router.get('/legacy-box-links/registry-status', async (req, res) => {
   }
 });
 
-router.get('/legacy-box-links/export', async (req, res) => {
+router.get('/legacy-box-links/export', requireLinkDesk, async (req, res) => {
   try {
     const status = req.query.status && req.query.status !== 'ALL' ? req.query.status : null;
     const search = req.query.search || null;
@@ -139,7 +144,7 @@ router.get('/legacy-box-links/export', async (req, res) => {
   }
 });
 
-router.get('/legacy-box-links/remittance', async (req, res) => {
+router.get('/legacy-box-links/remittance', requireLinkDesk, async (req, res) => {
   try {
     const from = req.query.from || null;
     const to = req.query.to || null;
@@ -154,7 +159,7 @@ router.get('/legacy-box-links/remittance', async (req, res) => {
   }
 });
 
-router.get('/legacy-box-links/remittance/export', async (req, res) => {
+router.get('/legacy-box-links/remittance/export', requireLinkDesk, async (req, res) => {
   try {
     const from = req.query.from || null;
     const to = req.query.to || null;
@@ -183,7 +188,7 @@ router.get('/legacy-box-links/remittance/export', async (req, res) => {
   }
 });
 
-router.post('/legacy-box-links/remittance', async (req, res) => {
+router.post('/legacy-box-links/remittance', requireLinkDesk, async (req, res) => {
   try {
     const { from = null, to = null, reference = null, notes = null } = req.body || {};
     const result = await legacyBoxLinkService.recordRemittance({

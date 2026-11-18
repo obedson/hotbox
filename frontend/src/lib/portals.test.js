@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { authorizedPortalsForRole, isRoleAuthorizedForPortal } from './portals';
+import { authorizedPortalsForRole, isRoleAuthorizedForPortal, allowedOperationsNavForRole, PROVISIONABLE_ROLES } from './portals';
 
 describe('portal authorization', () => {
   it('offers a rider only the surfaces a rider may open', () => {
@@ -28,5 +28,15 @@ describe('portal authorization', () => {
   it('denies anonymous visitors', () => {
     expect(isRoleAuthorizedForPortal(null, 'customer')).toBe(false);
     expect(authorizedPortalsForRole(undefined)).toEqual([]);
+  });
+  it('gives a NIPOST field verifier only the link queue and ground-truth queue', () => {
+    expect(allowedOperationsNavForRole('nipost_verifier')).toEqual(['legacy_links', 'ground_truth']);
+    expect(PROVISIONABLE_ROLES).toContain('nipost_verifier');
+  });
+
+  it('gives a compliance officer the verification desk, link queue and hub applications', () => {
+    expect(allowedOperationsNavForRole('compliance_officer')).toEqual([
+      'verification', 'legacy_links', 'hub_applications'
+    ]);
   });
 });

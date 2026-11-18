@@ -1,4 +1,5 @@
 import { apiFetch } from '../../lib/api';
+import { isOperationsDeskRole } from '../../lib/portals';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Download, ExternalLink, Inbox,
@@ -41,7 +42,8 @@ function StatusPill({ status }) {
   );
 }
 
-export default function LegacyBoxLinkRequests() {
+export default function LegacyBoxLinkRequests({ currentUser }) {
+  const isDesk = isOperationsDeskRole(currentUser?.role);
   const [requests, setRequests] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -245,14 +247,16 @@ export default function LegacyBoxLinkRequests() {
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={handleExport}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
-        >
-          <Download className="w-3.5 h-3.5" />
-          Export CSV
-        </button>
+        {isDesk && (
+          <button
+            type="button"
+            onClick={handleExport}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export CSV
+          </button>
+        )}
         <button
           type="button"
           onClick={() => fetchRequests(true)}

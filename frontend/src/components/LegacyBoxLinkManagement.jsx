@@ -1,19 +1,22 @@
 import React, { useState } from 'react';
 import LegacyBoxLinkRequests from './operations/LegacyBoxLinkRequests';
 import LegacyLinkRemittance from './operations/LegacyLinkRemittance';
+import { isOperationsDeskRole } from '../lib/portals';
 
 const VIEWS = [
   { id: 'queue', label: 'Review queue' },
   { id: 'remittance', label: 'Remittance' }
 ];
 
-export default function LegacyBoxLinkManagement() {
+export default function LegacyBoxLinkManagement({ currentUser }) {
+  const isDesk = isOperationsDeskRole(currentUser?.role);
+  const views = isDesk ? VIEWS : VIEWS.filter((item) => item.id !== 'remittance');
   const [view, setView] = useState('queue');
 
   return (
     <div className="space-y-4">
       <div className="flex gap-1.5">
-        {VIEWS.map((item) => (
+        {views.map((item) => (
           <button
             key={item.id}
             type="button"
@@ -28,7 +31,7 @@ export default function LegacyBoxLinkManagement() {
           </button>
         ))}
       </div>
-      {view === 'queue' ? <LegacyBoxLinkRequests /> : <LegacyLinkRemittance />}
+      {view === 'queue' ? <LegacyBoxLinkRequests currentUser={currentUser} /> : <LegacyLinkRemittance />}
     </div>
   );
 }

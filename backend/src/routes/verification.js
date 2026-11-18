@@ -84,6 +84,176 @@ router.get('/certificate/:serial', async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Field verifier work. A NIPOST field verifier works the postcode ground-truth
+// queue: they attend the doorway, capture the evidence and submit the
+// inspection report. They can never approve a certificate, so nobody approves
+// their own fieldwork.
+// ---------------------------------------------------------------------------
+const requireFieldWork = requireRoles('nipost_verifier', 'compliance_officer', 'super_admin');
+
+function serializeFieldRecord(row) {
+  return {
+    id: row.id,
+    track: row.track,
+    documentType: row.document_type,
+    documentNumber: row.document_number,
+    documentUrl: row.document_url,
+    status: row.status,
+    applicantName: row.applicant_name,
+    applicantPhone: row.applicant_phone,
+    applicantEmail: row.applicant_email,
+    postcode: row.applicant_postcode,
+    postcodeDescription: row.postcode_description,
+    lat: row.lat != null ? Number(row.lat) : null,
+    lng: row.lng != null ? Number(row.lng) : null,
+    accuracyM: row.accuracy_m != null ? Number(row.accuracy_m) : null,
+    capturedAt: row.captured_at ? new Date(row.captured_at).toISOString() : null,
+    photoUrl: row.photo_url || null,
+    fieldReportNotes: row.field_report_notes || null,
+    fieldReportedAt: row.field_reported_at ? new Date(row.field_reported_at).toISOString() : null,
+    fieldReportedBy: row.field_reported_by_name || null,
+    submittedAt: row.submitted_at ? new Date(row.submitted_at).toISOString() : null,
+    reviewedAt: row.reviewed_at ? new Date(row.reviewed_at).toISOString() : null
+  };
+}
+
+const FIELD_QUEUE_SELECT = `
+  SELECT v.id, v.track, v.document_type, v.document_number, v.document_url, v.status,
+         v.lat, v.lng, v.accuracy_m, v.captured_at, v.photo_url,
+         v.field_report_notes, v.field_reported_at, v.submitted_at, v.reviewed_at,
+         u.name AS applicant_name, u.phone AS applicant_phone, u.email AS applicant_email,
+         u.postcode AS applicant_postcode,
+         (SELECT description FROM postcode_cache
+           WHERE postcode = u.postcode OR ndaps_code = u.postcode OR legacy_code = u.postcode
+           LIMIT 1) AS postcode_description,
+         fv.name AS field_reported_by_name
+  FROM verification_records v
+  JOIN users u ON u.id = v.entity_id
+  LEFT JOIN users fv ON fv.id = v.field_reported_by
+  WHERE v.track = 'TRACK_A_ADDRESS' AND v.entity_type = 'user'
+`;
+
+// GET /api/v1/verification/field-queue
+router.get('/field-queue', authenticate, requireFieldWork, async (req, res) => {
+  const status = req.query.status && req.query.status !== 'ALL' ? String(req.query.status) : null;
+  const search = String(req.query.search || '').trim();
+
+  try {
+    const params = [];
+    const clauses = [];
+    if (status) {
+      params.push(status);
+      clauses.push(`v.status = $${params.length}`);
+    }
+    if (search) {
+      params.push(`%${search}%`);
+      const idx = params.length;
+      clauses.push(`(u.name ILIKE $${idx} OR u.email ILIKE $${idx} OR u.postcode ILIKE $${idx})`);
+    }
+
+    const whereSql = clauses.length ? ` AND ${clauses.join(' AND ')}` : '';
+    const rows = await db.query(
+      `${FIELD_QUEUE_SELECT}${whereSql}
+       ORDER BY (v.field_reported_at IS NOT NULL), v.submitted_at DESC
+       LIMIT 200`,
+      params
+    );
+
+    const counts = await db.query(`
+      SELECT
+        count(*) FILTER (WHERE field_reported_at IS NULL) AS awaiting_fieldwork,
+        count(*) FILTER (WHERE field_reported_at IS NOT NULL AND status = 'PENDING') AS reported,
+        count(*) FILTER (WHERE status = 'APPROVED') AS approved
+      FROM verification_records
+      WHERE track = 'TRACK_A_ADDRESS' AND entity_type = 'user'
+    `);
+
+    res.json({
+      records: rows.rows.map(serializeFieldRecord),
+      counts: counts.rows[0]
+    });
+  } catch (err) {
+    console.error('Field queue error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/v1/verification/field-report/:id
+router.post('/field-report/:id', authenticate, requireFieldWork, async (req, res) => {
+  const body = req.body || {};
+  const notes = String(body.notes || '').trim();
+  const photoUrl = String(body.photoUrl || '').trim();
+  const inspectionReference = String(body.inspectionReference || '').trim();
+  const capturedAt = body.capturedAt ? String(body.capturedAt) : '';
+  const toNumber = (value) => (value === undefined || value === null || value === '' ? null : Number(value));
+  const lat = toNumber(body.lat);
+  const lng = toNumber(body.lng);
+  const accuracyM = toNumber(body.accuracyM);
+
+  const problems = [];
+  if (!notes && !photoUrl) problems.push('Enter the inspection report or attach the doorway photo.');
+  if (notes.length > 2000) problems.push('Inspection report must be 2,000 characters or fewer.');
+  if (photoUrl.length > 500) problems.push('Photo link must be 500 characters or fewer.');
+  if (inspectionReference.length > 80) problems.push('Inspection reference must be 80 characters or fewer.');
+  if (lat !== null && (!Number.isFinite(lat) || lat < -90 || lat > 90)) problems.push('Latitude must be between -90 and 90.');
+  if (lng !== null && (!Number.isFinite(lng) || lng < -180 || lng > 180)) problems.push('Longitude must be between -180 and 180.');
+  if ((lat === null) !== (lng === null)) problems.push('Capture latitude and longitude together, or leave both empty.');
+  if (accuracyM !== null && (!Number.isFinite(accuracyM) || accuracyM < 0)) problems.push('Accuracy must be a positive number of metres.');
+  if (capturedAt && Number.isNaN(Date.parse(capturedAt))) problems.push('Captured time is not a valid date.');
+  if (problems.length) return res.status(400).json({ error: problems.join(' ') });
+
+  try {
+    const existing = await db.query(
+      'SELECT track, entity_type, status FROM verification_records WHERE id = $1',
+      [req.params.id]
+    );
+    const record = existing.rows[0];
+    if (!record) return res.status(404).json({ error: 'Ground-truth record not found.' });
+    if (record.track !== 'TRACK_A_ADDRESS' || record.entity_type !== 'user') {
+      return res.status(409).json({ error: 'Field reports only apply to postcode ground-truth inspections.' });
+    }
+    if (record.status !== 'PENDING') {
+      return res.status(409).json({ error: 'The compliance desk has already decided this inspection.' });
+    }
+
+    await db.query(
+      `UPDATE verification_records
+         SET photo_url = COALESCE($1, photo_url),
+             document_number = COALESCE($2, document_number),
+             lat = COALESCE($3, lat),
+             lng = COALESCE($4, lng),
+             accuracy_m = COALESCE($5, accuracy_m),
+             captured_at = COALESCE($6, captured_at),
+             field_report_notes = $7,
+             field_reported_by = $8,
+             field_reported_at = NOW()
+       WHERE id = $9`,
+      [
+        photoUrl || null,
+        inspectionReference || null,
+        lat,
+        lng,
+        accuracyM,
+        capturedAt ? new Date(capturedAt) : null,
+        notes || null,
+        req.user.id,
+        req.params.id
+      ]
+    );
+
+    await db.query(
+      `INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details)
+       VALUES ($1, 'FIELD_REPORT_SUBMITTED', 'verification_record', $2, $3)`,
+      [req.user.id, req.params.id, JSON.stringify({ lat, lng, hasPhoto: Boolean(photoUrl) })]
+    );
+
+    res.json({ message: 'Field inspection report submitted for compliance review.' });
+  } catch (err) {
+    console.error('Field report error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 // Compliance review endpoints are restricted to compliance officers and admins.
 router.use(authenticate, requireRoles('compliance_officer', 'super_admin'));
 

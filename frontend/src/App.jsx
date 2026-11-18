@@ -27,6 +27,7 @@ import RiderManagement from './components/RiderManagement';
 import HubManagement from './components/HubManagement';
 import HubApplicationsPanel from './components/operations/HubApplicationsPanel';
 import TeamPanel from './components/operations/TeamPanel';
+import GroundTruthQueue from './components/operations/GroundTruthQueue';
 import PostcodeManagement from './components/PostcodeManagement';
 import ExceptionManagement from './components/ExceptionManagement';
 import ReportsManagement from './components/ReportsManagement';
@@ -351,7 +352,7 @@ export default function App() {
                   )}
 
                   {activeNav === 'legacy_links' && (
-                    <LegacyBoxLinkManagement />
+                    <LegacyBoxLinkManagement currentUser={currentUser} />
                   )}
 
                   {activeNav === 'riders' && (
@@ -371,6 +372,9 @@ export default function App() {
                   )}
                   {activeNav === 'team' && (
                     <TeamPanel currentUser={currentUser} showToast={showToast} />
+                  )}
+                  {activeNav === 'ground_truth' && (
+                    <GroundTruthQueue currentUser={currentUser} showToast={showToast} />
                   )}
 
                   {activeNav === 'postcodes' && (

@@ -4,7 +4,7 @@ import {
   ShieldCheck, ShieldAlert, Shield, Check, X, FileText, AlertCircle, Clock,
   MapPin, Store, Truck, Search, Filter, RefreshCw, Download, ExternalLink,
   Eye, CheckCircle2, AlertTriangle, RotateCcw, ChevronLeft, ChevronRight,
-  FileCheck, Camera, Layers, BadgeCheck, Phone, Mail, Building, UserCheck
+  FileCheck, Camera, Layers, BadgeCheck, Phone, Mail, Building, UserCheck, Crosshair
 } from 'lucide-react';
 
 const CATEGORY_TABS = [
@@ -765,7 +765,35 @@ export default function VerificationQueue({ onSelectShipment }) {
                 <div className="p-3 bg-white rounded-xl text-slate-700 leading-relaxed border border-slate-200 shadow-2xs font-medium">
                   {selectedRecord.reviewer_notes || 'Partner document submitted for verification and onboarding into active network.'}
                 </div>
-              </div>
+              </div>              {selectedRecord.field_reported_at && (
+                <div className="bg-sky-50 border border-sky-200 p-4 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <Crosshair className="w-4 h-4 text-sky-600" />
+                      <span>Field Inspection Report</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-sky-700">
+                      {new Date(selectedRecord.field_reported_at).toLocaleString()}
+                    </span>
+                  </div>
+                  {selectedRecord.photo_url && (
+                    <img
+                      src={selectedRecord.photo_url}
+                      alt="Doorway evidence"
+                      className="max-h-56 w-auto object-contain rounded-lg border border-sky-200"
+                    />
+                  )}
+                  <p className="text-slate-700 leading-relaxed font-medium">
+                    {selectedRecord.field_report_notes || 'No narrative submitted.'}
+                  </p>
+                  {selectedRecord.lat != null && selectedRecord.lng != null && (
+                    <p className="text-[11px] text-slate-500 font-mono">
+                      GPS {Number(selectedRecord.lat).toFixed(5)}, {Number(selectedRecord.lng).toFixed(5)}
+                      {selectedRecord.accuracy_m != null ? ` · ±${Number(selectedRecord.accuracy_m).toFixed(0)}m` : ''}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Visual Evidence / Document Preview */}
               <div className="bg-slate-50 border border-slate-200/80 p-4 rounded-2xl space-y-3">
@@ -774,9 +802,9 @@ export default function VerificationQueue({ onSelectShipment }) {
                     <Camera className="w-4 h-4 text-sky-600" />
                     <span>Uploaded Document Preview</span>
                   </div>
-                  {selectedRecord.document_url && (
+                  {(selectedRecord.photo_url || selectedRecord.document_url) && (
                     <a
-                      href={selectedRecord.document_url}
+                      href={selectedRecord.photo_url || selectedRecord.document_url}
                       target="_blank"
                       rel="noreferrer"
                       className="text-xs text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1"
@@ -788,9 +816,9 @@ export default function VerificationQueue({ onSelectShipment }) {
                 </div>
 
                 <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center p-2 min-h-[220px]">
-                  {selectedRecord.document_url ? (
+                  {(selectedRecord.photo_url || selectedRecord.document_url) ? (
                     <img
-                      src={selectedRecord.document_url}
+                      src={selectedRecord.photo_url || selectedRecord.document_url}
                       alt={selectedRecord.document_type}
                       className="max-h-72 w-auto object-contain rounded-lg shadow-sm"
                     />

@@ -987,6 +987,11 @@ ALTER TABLE verification_records ADD COLUMN IF NOT EXISTS accuracy_m NUMERIC;
 ALTER TABLE verification_records ADD COLUMN IF NOT EXISTS captured_at TIMESTAMP WITH TIME ZONE;
 ALTER TABLE verification_records ADD COLUMN IF NOT EXISTS inspector_name VARCHAR(120);
 ALTER TABLE verification_records ADD COLUMN IF NOT EXISTS photo_url TEXT;
+-- Field verifier report: who submitted the doorway inspection evidence and
+-- what they found. Approval remains with the compliance desk.
+ALTER TABLE verification_records ADD COLUMN IF NOT EXISTS field_reported_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE verification_records ADD COLUMN IF NOT EXISTS field_reported_by UUID REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE verification_records ADD COLUMN IF NOT EXISTS field_report_notes TEXT;
 
 -- ----------------------------------------------------------------------------
 -- 12. HUB ACCREDITATION APPLICATIONS & INSPECTIONS

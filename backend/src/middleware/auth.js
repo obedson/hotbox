@@ -49,7 +49,7 @@ async function authenticate(req, res, next) {
 }
 
 function requireRoles(...allowedRoles) {
-  return (req, res, next) => {
+  const middleware = (req, res, next) => {
     if (!req.user) {
       logger.warn('authorization failed: no authenticated user', { ip: req.ip, path: req.originalUrl });
       return res.status(401).json({ error: 'Authentication required.' });
@@ -71,6 +71,11 @@ function requireRoles(...allowedRoles) {
     }
     next();
   };
+
+  // Exposed so tests and audit tooling can assert exactly which roles a gate
+  // admits without guessing from the handler name.
+  middleware.allowedRoles = allowedRoles;
+  return middleware;
 }
 
 module.exports = {

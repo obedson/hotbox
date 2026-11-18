@@ -114,6 +114,7 @@ export default function TopHeader({
     settings: 'Platform Settings',
     team: 'Team & Access',
     legacy_links: 'Legacy Box Links',
+    ground_truth: 'Ground-Truth Queue',
     // Enterprise
     dashboard: 'Fulfillment Dashboard',
     kyc_verify: 'KYC Address Verification API',

@@ -4,7 +4,7 @@ import {
   ShieldCheck, BarChart2, FileText, Settings, LogOut, Key, Webhook,
   Receipt, LifeBuoy, Building2, PlusCircle, Navigation, Wallet,
   HelpCircle, User, QrCode, KeyRound, Boxes, Clock, TrendingUp,
-  Compass, Bike, CheckCircle2, BookOpen, X, Search, Link2, ClipboardList, UserCog
+  Compass, Bike, CheckCircle2, BookOpen, X, Search, Link2, ClipboardList, UserCog, Crosshair
 } from 'lucide-react';
 
 import { allowedOperationsNavForRole } from '../lib/portals';
@@ -30,6 +30,7 @@ const PORTAL_CONFIG = {
       { id: 'exceptions', label: 'Delivery Issues', icon: AlertTriangle, badge: '18', badgeType: 'danger', tooltip: 'Delayed parcels, overdue pickups & claims' },
       { id: 'verification', label: 'Verification', icon: ShieldCheck, badge: '9', badgeType: 'info', tooltip: 'Hub & rider accreditation KYC queue' },
       { id: 'legacy_links', label: 'Legacy Box Links', icon: Link2, badge: 'NIPOST', badgeType: 'info', tooltip: 'Verify old P.O. Box numbers against NIPOST archives' },
+      { id: 'ground_truth', label: 'Ground-Truth Queue', icon: Crosshair, tooltip: 'Postcode ground-truth doorway inspections and field reports' },
       { id: 'reports', label: 'Reports', icon: BarChart2, tooltip: 'Network intelligence & financial settlements' },
       { id: 'audit', label: 'Audit Log', icon: FileText, tooltip: 'Immutable custody transfers & administrative logs' },
       { id: 'settings', label: 'Settings', icon: Settings, tooltip: 'Delivery rates, commission splits & SLA rules' },
