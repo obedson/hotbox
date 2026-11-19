@@ -6,6 +6,7 @@ const { validate, createStaffSchema } = require('../../middleware/validate');
 const logger = require('../../lib/logger');
 const { normalizePhone } = require('../../lib/phone');
 const { sendStaffOnboardingEmail } = require('../../services/staffOnboardingMailer');
+const { canGrantRole } = require('../../config/roles');
 
 // Admin-only user administration. Staff roles can only be granted here, never
 // through public self-service registration.
@@ -61,6 +62,14 @@ router.post('/users', validate(createStaffSchema), async (req, res) => {
 
   const normalizedPhone = normalizePhone(phone);
   const normalizedEmail = String(email).trim().toLowerCase();
+
+  // Role granting is enforced server-side, not just hidden in the UI: an
+  // `ops_admin` must never be able to mint a `super_admin` (or any role outside
+  // the provisionable set) by calling the API directly.
+  if (!canGrantRole(req.user.role, role)) {
+    logger.warn('refused to grant role', { actorId: req.user.id, actorRole: req.user.role, targetRole: role });
+    return res.status(403).json({ error: `You are not allowed to grant the '${role}' role.` });
+  }
 
   try {
     const passwordHash = await bcrypt.hash(password, 10);

@@ -44,7 +44,19 @@ export const PROVISIONABLE_ROLES = [
   'nipost_verifier',
   'finance_officer',
   'support_agent',
-  'hub_owner',
+  'hub_owner'
+];
+
+// Every role Hotbox employs rather than a visitor registers for itself. Mirrors
+// STAFF_ROLES in the backend and drives staff reporting on the Team screen.
+export const STAFF_ROLES = [
+  'ops_admin',
+  'compliance_officer',
+  'nipost_verifier',
+  'finance_officer',
+  'support_agent',
+  'hub_staff',
+  'courier_company',
   'super_admin'
 ];
 

@@ -46,9 +46,17 @@ const PROVISIONABLE_ROLES = [
   ROLES.NIPOST_VERIFIER,
   ROLES.FINANCE_OFFICER,
   ROLES.SUPPORT_AGENT,
-  ROLES.HUB_OWNER,
-  ROLES.SUPER_ADMIN
+  ROLES.HUB_OWNER
 ];
+
+// `super_admin` is deliberately absent from PROVISIONABLE_ROLES. It is
+// grantable only by an account that already holds it, so an administrator can
+// never escalate themselves. Bootstrap and break-glass recovery stay in the
+// schema seed.
+function canGrantRole(actorRole, targetRole) {
+  if (targetRole === ROLES.SUPER_ADMIN) return actorRole === ROLES.SUPER_ADMIN;
+  return PROVISIONABLE_ROLES.includes(targetRole);
+}
 
 // Which product surface a role lands on immediately after signing in.
 const PORTAL_BY_ROLE = {
@@ -80,5 +88,6 @@ module.exports = {
   PORTAL_BY_ROLE,
   DEFAULT_PORTAL,
   portalForRole,
-  isStaffRole
+  isStaffRole,
+  canGrantRole
 };

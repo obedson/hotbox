@@ -41,6 +41,13 @@ describe('TeamPanel', () => {
     fireEvent.click(screen.getByText('Add team member'));
     expect(await screen.findByText('Staff roles are provisioned here and can never be self-assigned.')).toBeInTheDocument();
     expect(screen.queryByText('Customer')).not.toBeInTheDocument();
+
+    // Scoped to the create-form role select: the team filter legitimately still
+    // offers "Super admin" so an existing super admin can be filtered to.
+    const roleSelect = screen.getByDisplayValue('Compliance officer');
+    const roleLabels = Array.from(roleSelect.querySelectorAll('option')).map((option) => option.textContent);
+    expect(roleLabels).not.toContain('Super admin');
+    expect(roleLabels).toContain('Operations admin');
   });
 });
 

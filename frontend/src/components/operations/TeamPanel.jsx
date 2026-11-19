@@ -4,7 +4,7 @@ import {
   CheckCircle2, Copy, Check, ShieldCheck, ShieldOff, KeyRound, UserPlus, Store
 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
-import { PROVISIONABLE_ROLES } from '../../lib/portals';
+import { PROVISIONABLE_ROLES, STAFF_ROLES } from '../../lib/portals';
 
 const ROLE_LABELS = {
   super_admin: 'Super admin',
@@ -301,8 +301,15 @@ export default function TeamPanel({ currentUser, showToast }) {
     });
   }, [users, search, roleFilter]);
 
+  const rolesInTeam = useMemo(() => {
+    const present = Array.from(new Set(users.map((user) => user.role)));
+    // Keep every role already seated - including super_admin, which can no
+    // longer be granted - so the filter never hides a row it is showing.
+    return Array.from(new Set([...PROVISIONABLE_ROLES, ...STAFF_ROLES, ...present]));
+  }, [users]);
+
   const kpis = useMemo(() => {
-    const staff = users.filter((user) => PROVISIONABLE_ROLES.includes(user.role)).length;
+    const staff = users.filter((user) => STAFF_ROLES.includes(user.role)).length;
     const active = users.filter((user) => user.status === 'active').length;
     const suspended = users.filter((user) => user.status !== 'active').length;
     return [
@@ -311,12 +318,7 @@ export default function TeamPanel({ currentUser, showToast }) {
       { label: 'Active', value: active, icon: ShieldCheck, color: 'text-teal-600' },
       { label: 'Suspended', value: suspended, icon: ShieldOff, color: 'text-rose-600' }
     ];
-  }, [users]);
-
-  const rolesInTeam = useMemo(() => {
-    const present = Array.from(new Set(users.map((user) => user.role)));
-    return PROVISIONABLE_ROLES.filter((role) => present.includes(role));
-  }, [users]);
+  }, [users, rolesInTeam]);
 
   return (
     <div className="space-y-6">

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { authorizedPortalsForRole, isRoleAuthorizedForPortal, allowedOperationsNavForRole, PROVISIONABLE_ROLES } from './portals';
+import { authorizedPortalsForRole, isRoleAuthorizedForPortal, allowedOperationsNavForRole, PROVISIONABLE_ROLES, STAFF_ROLES } from './portals';
 
 describe('portal authorization', () => {
   it('offers a rider only the surfaces a rider may open', () => {
@@ -32,6 +32,12 @@ describe('portal authorization', () => {
   it('gives a NIPOST field verifier only the link queue and ground-truth queue', () => {
     expect(allowedOperationsNavForRole('nipost_verifier')).toEqual(['legacy_links', 'ground_truth']);
     expect(PROVISIONABLE_ROLES).toContain('nipost_verifier');
+  });
+
+  it('never offers super admin as a grantable role, but still counts it as staff', () => {
+    expect(PROVISIONABLE_ROLES).not.toContain('super_admin');
+    expect(STAFF_ROLES).toContain('super_admin');
+    expect(PROVISIONABLE_ROLES).toContain('ops_admin');
   });
 
   it('gives a compliance officer the verification desk, link queue and hub applications', () => {

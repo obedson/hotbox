@@ -2,11 +2,12 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
-  ROLES, SELF_SIGNUP_ROLES, STAFF_ROLES, PROVISIONABLE_ROLES, portalForRole
+  ROLES, SELF_SIGNUP_ROLES, STAFF_ROLES, PROVISIONABLE_ROLES, portalForRole, canGrantRole
 } = require('../../src/config/roles');
 const { registerSchema, createStaffSchema } = require('../../src/middleware/validate');
 const verificationRouter = require('../../src/routes/verification');
 const legacyBoxLinksRouter = require('../../src/routes/operations/legacyBoxLinks');
+const usersRouter = require('../../src/routes/operations/users');
 
 // --- router inspection helpers -------------------------------------------------
 
@@ -198,4 +199,31 @@ test('link settlement and export are desk-only', () => {
     assertDenied(gate, 'nipost_verifier');
     assertAllowed(gate, 'compliance_officer');
   }
+});
+
+// --- role granting ------------------------------------------------------------
+
+test('only an existing super admin may grant the super admin role', () => {
+  assert.equal(PROVISIONABLE_ROLES.includes('super_admin'), false);
+  assert.ok(STAFF_ROLES.includes('super_admin'), 'super admin is still a staff role');
+
+  assert.equal(canGrantRole('super_admin', 'super_admin'), true);
+  assert.equal(canGrantRole('ops_admin', 'super_admin'), false);
+  assert.equal(canGrantRole('compliance_officer', 'super_admin'), false);
+
+  assert.equal(canGrantRole('ops_admin', 'ops_admin'), true);
+  assert.equal(canGrantRole('ops_admin', 'compliance_officer'), true);
+  assert.equal(canGrantRole('super_admin', 'compliance_officer'), true);
+  assert.equal(canGrantRole('ops_admin', 'rider'), false);
+  assert.equal(canGrantRole('ops_admin', 'customer'), false);
+});
+
+test('the create-team-member handler enforces the grant check', () => {
+  const layer = usersRouter.stack.find(
+    (entry) => entry.route && entry.route.path === '/users' && entry.route.methods.post
+  );
+  assert.ok(layer, 'POST /users should exist');
+  const handles = layer.route.stack.map((entry) => entry.handle);
+  const source = handles.map((fn) => fn.toString()).join('\n');
+  assert.match(source, /canGrantRole/, 'handler must call canGrantRole');
 });
