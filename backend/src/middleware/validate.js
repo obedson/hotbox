@@ -17,7 +17,9 @@ const registerSchema = z.object({
   capacity: z.number().int().positive().max(5000).optional(),
   vehicleType: z.enum(['bicycle', 'motorcycle', 'van', 'truck']).optional(),
   plateNumber: z.string().trim().max(20).optional(),
-  cacNumber: z.string().trim().max(40).optional()
+  cacNumber: z.string().trim().max(40).optional(),
+  nin: z.string().trim().max(20).optional(),
+  driversLicenseNo: z.string().trim().max(50).optional()
 });
 
 // Schema for Sign In

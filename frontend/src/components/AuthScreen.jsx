@@ -27,7 +27,7 @@ const ACCOUNT_TYPES = [
     title: 'Dispatch Rider',
     subtitle: 'Deliver parcels in your city',
     icon: Bike,
-    fields: ['vehicleType', 'plateNumber']
+    fields: ['vehicleType', 'plateNumber', 'nin', 'driversLicenseNo']
   },
   {
     id: 'enterprise_shipper',
@@ -101,6 +101,8 @@ export default function AuthScreen({ initialView = 'signin', resetToken = '', on
   const [capacity, setCapacity] = useState('50');
   const [vehicleType, setVehicleType] = useState('motorcycle');
   const [plateNumber, setPlateNumber] = useState('');
+  const [nin, setNin] = useState('');
+  const [driversLicenseNo, setDriversLicenseNo] = useState('');
 
   // recovery
   const [recoveryEmail, setRecoveryEmail] = useState('');
@@ -169,6 +171,9 @@ export default function AuthScreen({ initialView = 'signin', resetToken = '', on
     if (accountType === 'rider' && plateNumber.trim().length < 3) {
       nextErrors.plateNumber = 'Enter your vehicle plate number.';
     }
+    if (accountType === 'rider' && nin.trim() && !/^\d{11}$/.test(nin.trim())) {
+      nextErrors.nin = 'Enter your 11-digit NIN.';
+    }
     if (!agree) nextErrors.agree = 'Please accept the terms to continue.';
 
     if (Object.keys(nextErrors).length) {
@@ -192,6 +197,8 @@ export default function AuthScreen({ initialView = 'signin', resetToken = '', on
       if (capacity) payload.capacity = parseInt(capacity, 10);
       if (vehicleType) payload.vehicleType = vehicleType;
       if (plateNumber.trim()) payload.plateNumber = plateNumber.trim();
+      if (nin.trim()) payload.nin = nin.trim();
+      if (driversLicenseNo.trim()) payload.driversLicenseNo = driversLicenseNo.trim();
 
       const res = await apiFetch('/api/v1/auth/register', {
         method: 'POST',
@@ -553,6 +560,31 @@ export default function AuthScreen({ initialView = 'signin', resetToken = '', on
                         value={plateNumber}
                         onChange={(e) => setPlateNumber(e.target.value)}
                         placeholder="ABJ-452-XY"
+                        className={inputClass}
+                      />
+                    </Field>
+                  </div>
+                )}
+
+                {selectedType.fields.includes('nin') && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Field label="NIN" icon={User} error={formErrors.nin} optional>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={11}
+                        value={nin}
+                        onChange={(e) => setNin(e.target.value)}
+                        placeholder="11-digit NIN"
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label="Driver's licence no." icon={ShieldCheck} optional>
+                      <input
+                        type="text"
+                        value={driversLicenseNo}
+                        onChange={(e) => setDriversLicenseNo(e.target.value)}
+                        placeholder="e.g. ABJ123456789"
                         className={inputClass}
                       />
                     </Field>

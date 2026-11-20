@@ -45,7 +45,9 @@ router.post('/register', validate(registerSchema), async (req, res) => {
     capacity,
     vehicleType,
     plateNumber,
-    cacNumber
+    cacNumber,
+    nin,
+    driversLicenseNo
   } = req.validatedBody;
 
   // Defence in depth: the schema already restricts the enum, this guard keeps
@@ -125,10 +127,13 @@ router.post('/register', validate(registerSchema), async (req, res) => {
         );
       } else if (role === 'rider') {
         const vType = vehicleType && ['bicycle', 'motorcycle', 'van', 'truck'].includes(vehicleType) ? vehicleType : 'motorcycle';
+        const licenceNo = driversLicenseNo && driversLicenseNo.trim()
+          ? driversLicenseNo.trim()
+          : 'DL-PENDING';
         await client.query(
-          `INSERT INTO riders (user_id, vehicle_type, plate_number, drivers_license_no, operational_postcodes, is_active, is_available)
-           VALUES ($1, $2, $3, $4, ARRAY['FC-01-A03-FK-01', 'FC-01-A02-FK-02'], TRUE, TRUE)`,
-          [newUser.id, vType, plateNumber || 'ABJ-000-XX', 'DL-PENDING']
+          `INSERT INTO riders (user_id, vehicle_type, plate_number, drivers_license_no, nin, operational_postcodes, is_active, is_available)
+           VALUES ($1, $2, $3, $4, $5, ARRAY['FC-01-A03-FK-01', 'FC-01-A02-FK-02'], TRUE, TRUE)`,
+          [newUser.id, vType, plateNumber || 'ABJ-000-XX', licenceNo, nin && nin.trim() ? nin.trim() : null]
         );
       } else if (role === 'enterprise_shipper') {
         const company = businessName || `${name} Logistics`;

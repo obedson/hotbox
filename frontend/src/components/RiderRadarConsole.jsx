@@ -15,6 +15,37 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [claimingId, setClaimingId] = useState(null);
+  const [kyc, setKyc] = useState(null);
+  const [kycForm, setKycForm] = useState({
+    nin: '',
+    driversLicenseNo: '',
+    vehicleType: 'motorcycle',
+    plateNumber: '',
+    postcode: '',
+    operationalPostcodes: ''
+  });
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(null);
+  const [kycMessage, setKycMessage] = useState(null);
+
+  const loadVerification = useCallback(async () => {
+    try {
+      const res = await apiFetch('/api/v1/riders/verification');
+      if (!res.ok) return;
+      const data = await res.json();
+      setKyc(data);
+      setKycForm({
+        nin: data.profile?.nin || '',
+        driversLicenseNo: data.profile?.driversLicenseNo === 'DL-PENDING' ? '' : (data.profile?.driversLicenseNo || ''),
+        vehicleType: data.profile?.vehicleType || 'motorcycle',
+        plateNumber: data.profile?.plateNumber || '',
+        postcode: data.profile?.postcode || '',
+        operationalPostcodes: (data.profile?.operationalPostcodes || []).join(', ')
+      });
+    } catch (err) {
+      // A Track B load failure must never blank the whole console.
+    }
+  }, []);
 
   const loadConsole = useCallback(async () => {
     setLoading(true);
@@ -31,6 +62,10 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
         if (meRes.status !== 404) throw new Error(meData.error || 'Unable to load rider profile');
         setMe(null);
       }
+
+      // Track B details load on every visit, including while the rider is still
+      // pending, so the KYC form can be completed before clearance is granted.
+      await loadVerification();
 
       // Dispatch data is blocked at the API for an unverified rider, so only ask
       // for it once the account is cleared. That keeps this console on its
@@ -55,7 +90,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadVerification]);
 
   useEffect(() => {
     loadConsole();
@@ -82,6 +117,13 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
   };
 
   const serviceLabel = (type) => serviceLabels[type] || type || 'Delivery';
+
+  const TRACK_B_DOCUMENTS = [
+    { type: 'NIN', label: 'NIN Slip', hint: '11-digit national identity number' },
+    { type: 'DRIVERS_LICENSE', label: "Driver's Licence", hint: 'FRSC licence card' },
+    { type: 'COURIER_LICENCE', label: 'Courier Licence', hint: 'State dispatch permit' },
+    { type: 'PROOF_OF_ADDRESS', label: 'Proof of Address', hint: 'Utility bill or bank statement' }
+  ];
 
   const availableJobs = radarJobs
     .filter(job => job.status === 'BOOKED')
@@ -161,6 +203,69 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
       if (showToast) showToast(err.message);
     } finally {
       setClaimingId(null);
+    }
+  };
+
+  const saveProfile = async (e) => {
+    e?.preventDefault();
+    setSavingProfile(true);
+    setKycMessage(null);
+    try {
+      const res = await apiFetch('/api/v1/riders/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nin: kycForm.nin,
+          driversLicenseNo: kycForm.driversLicenseNo,
+          vehicleType: kycForm.vehicleType,
+          plateNumber: kycForm.plateNumber,
+          postcode: kycForm.postcode,
+          operationalPostcodes: kycForm.operationalPostcodes
+            .split(',')
+            .map((value) => value.trim())
+            .filter(Boolean)
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not save your details.');
+      setKycMessage({ type: 'success', text: 'Your regulatory details have been saved.' });
+      if (showToast) showToast('Rider details saved.');
+      await loadVerification();
+    } catch (err) {
+      setKycMessage({ type: 'error', text: err.message });
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const submitDocument = async (documentType, file) => {
+    setUploadingDoc(documentType);
+    setKycMessage(null);
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Could not read that file.'));
+        reader.readAsDataURL(file);
+      });
+      const documentNumber = documentType === 'NIN'
+        ? kycForm.nin.trim()
+        : documentType === 'DRIVERS_LICENSE'
+          ? kycForm.driversLicenseNo.trim()
+          : undefined;
+      const res = await apiFetch('/api/v1/riders/verification/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documentType, documentNumber, documentUrl: dataUrl })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not submit that document.');
+      if (showToast) showToast(`${documentType.replace(/_/g, ' ')} submitted for review.`);
+      await loadVerification();
+    } catch (err) {
+      setKycMessage({ type: 'error', text: err.message });
+    } finally {
+      setUploadingDoc(null);
     }
   };
 
@@ -535,62 +640,186 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
-            <div className="space-y-4">
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Full Legal Name</label>
-                <input
-                  type="text"
-                  disabled
-                  defaultValue={rider?.name || '—'}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 font-semibold"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Vehicle License Plate</label>
-                <input
-                  type="text"
-                  disabled
-                  defaultValue={rider?.plate_number ? `${rider.plate_number}${rider.vehicle_type ? ` (${rider.vehicle_type})` : ''}` : '—'}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 font-mono font-bold text-blue-800"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Registered Phone Number</label>
-                <input
-                  type="text"
-                  disabled
-                  defaultValue={rider?.phone || '—'}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50"
-                />
-              </div>
+          {kycMessage && (
+            <div className={`text-xs rounded-xl px-3 py-2 border ${kycMessage.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+              {kycMessage.text}
             </div>
+          )}
 
-            <div className="space-y-4">
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Accreditation Checklist</label>
-                <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl p-2 bg-slate-50 space-y-1">
-                  <div className="py-1.5 flex justify-between items-center">
-                    <span>Driver's License (FRSC)</span>
-                    {checkBadge(Boolean(rider?.drivers_license_no), 'Verified', 'Pending')}
-                  </div>
-                  <div className="py-1.5 flex justify-between items-center">
-                    <span>Vehicle Roadworthiness</span>
-                    {checkBadge(Boolean(rider?.vehicle_type), 'Passed', 'Pending')}
-                  </div>
-                  <div className="py-1.5 flex justify-between items-center">
-                    <span>Track B Courier Licensing</span>
-                    {checkBadge(isVerified, 'Accredited', 'Pending')}
-                  </div>
-                  <div className="py-1.5 flex justify-between items-center">
-                    <span>NIN Identity Check</span>
-                    {checkBadge(Boolean(rider?.nin), 'Verified', 'Pending')}
-                  </div>
+          <form onSubmit={saveProfile} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+              <div className="space-y-4">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Full Legal Name</label>
+                  <input
+                    type="text"
+                    disabled
+                    defaultValue={rider?.name || '\u2014'}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Registered Phone Number</label>
+                  <input
+                    type="text"
+                    disabled
+                    defaultValue={rider?.phone || '\u2014'}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">NIN</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={11}
+                    value={kycForm.nin}
+                    onChange={(e) => setKycForm((prev) => ({ ...prev, nin: e.target.value }))}
+                    placeholder="11-digit national identity number"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Driver's Licence Number</label>
+                  <input
+                    type="text"
+                    value={kycForm.driversLicenseNo}
+                    onChange={(e) => setKycForm((prev) => ({ ...prev, driversLicenseNo: e.target.value }))}
+                    placeholder="FRSC licence number"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Vehicle Type</label>
+                  <select
+                    value={kycForm.vehicleType}
+                    onChange={(e) => setKycForm((prev) => ({ ...prev, vehicleType: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="motorcycle">Motorcycle</option>
+                    <option value="van">Van</option>
+                    <option value="bicycle">Cargo bicycle</option>
+                    <option value="truck">Truck</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Vehicle License Plate</label>
+                  <input
+                    type="text"
+                    value={kycForm.plateNumber}
+                    onChange={(e) => setKycForm((prev) => ({ ...prev, plateNumber: e.target.value }))}
+                    placeholder="ABJ-452-XY"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-mono font-bold text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Home Postcode</label>
+                  <input
+                    type="text"
+                    value={kycForm.postcode}
+                    onChange={(e) => setKycForm((prev) => ({ ...prev, postcode: e.target.value }))}
+                    placeholder="FC-01-A03-FK-01"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-mono font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Operational Postcodes</label>
+                  <input
+                    type="text"
+                    value={kycForm.operationalPostcodes}
+                    onChange={(e) => setKycForm((prev) => ({ ...prev, operationalPostcodes: e.target.value }))}
+                    placeholder="FC-01-A03-FK-01, FC-01-A02-FK-02"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">Separate each corridor postcode with a comma.</span>
                 </div>
               </div>
             </div>
+
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <p className="text-[11px] text-slate-500">Saved to your Track B regulatory record and reviewed by Operations.</p>
+              <button
+                type="submit"
+                disabled={savingProfile}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5"
+              >
+                {savingProfile ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                {savingProfile ? 'Saving...' : 'Save Details'}
+              </button>
+            </div>
+          </form>
+
+          <div className="pt-4 border-t border-slate-100 space-y-3">
+            <h4 className="text-xs font-bold text-slate-900">Accreditation Checklist</h4>
+            <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl p-2 bg-slate-50 space-y-1 text-xs">
+              <div className="py-1.5 flex justify-between items-center">
+                <span>Driver's License (FRSC)</span>
+                {checkBadge(Boolean(rider?.drivers_license_no) && rider.drivers_license_no !== 'DL-PENDING', 'Verified', 'Pending')}
+              </div>
+              <div className="py-1.5 flex justify-between items-center">
+                <span>Vehicle Roadworthiness</span>
+                {checkBadge(Boolean(rider?.vehicle_type), 'Passed', 'Pending')}
+              </div>
+              <div className="py-1.5 flex justify-between items-center">
+                <span>Track B Courier Licensing</span>
+                {checkBadge(isVerified, 'Accredited', 'Pending')}
+              </div>
+              <div className="py-1.5 flex justify-between items-center">
+                <span>NIN Identity Check</span>
+                {checkBadge(Boolean(rider?.nin), 'Verified', 'Pending')}
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-100 space-y-3">
+            <div>
+              <h4 className="text-xs font-bold text-slate-900">Identity Documents</h4>
+              <p className="text-[11px] text-slate-500">Upload a clear JPEG, PNG, WebP or PDF (maximum 2 MB). Operations reviews each document before clearance.</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {TRACK_B_DOCUMENTS.map((doc) => (
+                <label
+                  key={doc.type}
+                  className="flex items-center justify-between gap-3 border border-dashed border-slate-300 rounded-xl px-3 py-2.5 hover:border-blue-400 hover:bg-blue-50/40 transition cursor-pointer"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-xs font-bold text-slate-800 truncate">{doc.label}</span>
+                    <span className="block text-[10px] text-slate-400 truncate">{doc.hint}</span>
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    className="hidden"
+                    disabled={uploadingDoc === doc.type}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) submitDocument(doc.type, file);
+                      e.target.value = '';
+                    }}
+                  />
+                  <span className="shrink-0 text-[10px] font-bold text-blue-700">
+                    {uploadingDoc === doc.type ? 'Uploading...' : 'Upload'}
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            {kyc?.records?.length > 0 && (
+              <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
+                {kyc.records.map((record) => (
+                  <div key={record.id} className="flex items-center justify-between gap-3 px-3 py-2 text-xs bg-white">
+                    <span className="font-semibold text-slate-700">{record.document_type?.replace(/_/g, ' ')}</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${record.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : record.status === 'REJECTED' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-800'}`}>
+                      {record.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

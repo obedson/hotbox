@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 
 const { apiFetchMock } = vi.hoisted(() => ({ apiFetchMock: vi.fn() }));
 
@@ -21,7 +21,7 @@ const riderPayload = {
     name: 'Emeka Nnamdi',
     phone: '+234 806 112 2336',
     plate_number: 'ABJ-432-QA',
-    vehicle_type: 'Bajaj Boxer 150cc',
+    vehicle_type: 'motorcycle',
     rating: 4.95,
     total_deliveries: 7,
     status: 'verified',
@@ -32,6 +32,22 @@ const riderPayload = {
     nin: '12345678901'
   },
   walletBalance: 32500
+};
+
+const kycPayload = {
+  profile: {
+    nin: '12345678901',
+    driversLicenseNo: 'DL-12345',
+    vehicleType: 'motorcycle',
+    plateNumber: 'ABJ-432-QA',
+    operationalPostcodes: ['FC-01-A03-FK-01', 'FC-01-A02-FK-02'],
+    postcode: 'FC-01-A03-FK-01',
+    status: 'verified'
+  },
+  records: [
+    { id: 'rec-1', document_type: 'NIN', status: 'APPROVED' },
+    { id: 'rec-2', document_type: 'DRIVERS_LICENSE', status: 'PENDING' }
+  ]
 };
 
 const bookedJob = {
@@ -50,7 +66,7 @@ const bookedJob = {
   potential_earning_ngn: 1500
 };
 
-function mockConsole({ rider = true, jobs = [], myJobs = [] } = {}) {
+function mockConsole({ rider = true, jobs = [], myJobs = [], kyc = kycPayload } = {}) {
   apiFetchMock.mockImplementation((path) => {
     if (path === '/api/v1/riders/me') {
       return Promise.resolve(
@@ -58,6 +74,15 @@ function mockConsole({ rider = true, jobs = [], myJobs = [] } = {}) {
           ? { ok: true, status: 200, json: async () => riderPayload }
           : { ok: false, status: 404, json: async () => ({ error: 'Rider profile not found for this user.' }) }
       );
+    }
+    if (path === '/api/v1/riders/verification') {
+      return Promise.resolve({ ok: true, status: 200, json: async () => kyc });
+    }
+    if (path === '/api/v1/riders/profile') {
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({ rider: riderPayload.rider }) });
+    }
+    if (path === '/api/v1/riders/verification/documents') {
+      return Promise.resolve({ ok: true, status: 201, json: async () => ({ record: { id: 'rec-3', status: 'PENDING' } }) });
     }
     if (path === '/api/v1/riders/radar/jobs') {
       return Promise.resolve({ ok: true, status: 200, json: async () => ({ jobs, total: jobs.length }) });
@@ -102,6 +127,9 @@ describe('RiderRadarConsole', () => {
       if (path === '/api/v1/riders/me') {
         return Promise.resolve({ ok: true, status: 200, json: async () => pendingPayload });
       }
+      if (path === '/api/v1/riders/verification') {
+        return Promise.resolve({ ok: true, status: 200, json: async () => kycPayload });
+      }
       return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
     });
 
@@ -134,5 +162,103 @@ describe('RiderRadarConsole', () => {
       expect.objectContaining({ method: 'POST' })
     );
     expect(await screen.findByText(/No unclaimed jobs right now/)).toBeInTheDocument();
+  });
+
+  it('loads Track B details and lets a rider save regulatory details', async () => {
+    mockConsole({});
+    render(<RiderRadarConsole activeNav="profile" setActiveNav={() => {}} hubs={[]} showToast={() => {}} />);
+
+    expect(await screen.findByText('Rider Credentials & Track B Accreditation')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('12345678901')).toBeInTheDocument();
+    expect(screen.getByText('NIN Identity Check')).toBeInTheDocument();
+    expect(screen.getByText("Driver's Licence Number")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByDisplayValue('12345678901'), { target: { value: '99998888777' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Details' }));
+
+    expect(apiFetchMock).toHaveBeenCalledWith(
+      '/api/v1/riders/profile',
+      expect.objectContaining({ method: 'PATCH' })
+    );
+    expect(await screen.findByText(/regulatory details have been saved/)).toBeInTheDocument();
+  });
+
+  it('shows the KYC form to a rider still pending verification', async () => {
+    const pendingKyc = {
+      profile: {
+        ...kycPayload.profile,
+        status: 'pending',
+        nin: null,
+        driversLicenseNo: null,
+        plateNumber: 'ABJ-000-XX'
+      },
+      records: []
+    };
+    mockConsole({ kyc: pendingKyc });
+    apiFetchMock.mockImplementation((path) => {
+      if (path === '/api/v1/riders/me') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ ...riderPayload, rider: { ...riderPayload.rider, status: 'pending' } })
+        });
+      }
+      if (path === '/api/v1/riders/verification') {
+        return Promise.resolve({ ok: true, status: 200, json: async () => pendingKyc });
+      }
+      return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
+    });
+
+    render(<RiderRadarConsole activeNav="profile" setActiveNav={() => {}} hubs={[]} showToast={() => {}} />);
+
+    expect(await screen.findByText('Rider Credentials & Track B Accreditation')).toBeInTheDocument();
+    expect(screen.getByText('Clearance Pending')).toBeInTheDocument();
+    expect(screen.getByText('NIN Slip')).toBeInTheDocument();
+    expect(screen.getByText("Driver's Licence")).toBeInTheDocument();
+    expect(screen.getByText('Courier Licence')).toBeInTheDocument();
+    expect(screen.getByText('Proof of Address')).toBeInTheDocument();
+  });
+
+  it('submits an identity document for operations review', async () => {
+    mockConsole({});
+    const { container } = render(
+      <RiderRadarConsole activeNav="profile" setActiveNav={() => {}} hubs={[]} showToast={() => {}} />
+    );
+
+    await screen.findByText('Identity Documents');
+
+    const uploadInputs = container.querySelectorAll('input[type="file"]');
+    expect(uploadInputs).toHaveLength(4);
+
+    await act(async () => {
+      fireEvent.change(uploadInputs[0], {
+        target: { files: [new File(['nin-bytes'], 'nin.png', { type: 'image/png' })] }
+      });
+    });
+
+    await vi.waitFor(() => {
+      expect(apiFetchMock).toHaveBeenCalledWith(
+        '/api/v1/riders/verification/documents',
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+
+    await vi.waitFor(() => {
+      const verificationCalls = apiFetchMock.mock.calls.filter(
+        (call) => call[0] === '/api/v1/riders/verification'
+      );
+      expect(verificationCalls.length).toBeGreaterThan(1);
+    });
+
+    const [, options] = apiFetchMock.mock.calls.find(
+      (call) => call[0] === '/api/v1/riders/verification/documents'
+    );
+    const body = JSON.parse(options.body);
+    expect(body.documentType).toBe('NIN');
+    expect(body.documentUrl).toMatch(/^data:image\/png;base64,/);
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
   });
 });

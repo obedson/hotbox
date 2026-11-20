@@ -5,6 +5,7 @@ const { authenticate, requireRoles } = require('../middleware/auth');
 const { parseBoxNumber } = require('../utils/boxNumber');
 const digitalBoxService = require('../services/digitalBoxService');
 const legacyBoxLinkService = require('../services/legacyBoxLinkService');
+const { parseDocumentDataUrl } = require('../utils/documentUpload');
 
 // Rider endpoints are restricted to riders and operations staff.
 router.use(authenticate, requireRoles('rider', 'ops_admin'));
@@ -297,6 +298,196 @@ router.get('/me/jobs', requireVerifiedRider, async (req, res) => {
     res.json({ jobs: result.rows, total: result.rows.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Rider KYC (Track B regulatory) -----------------------------------------
+// A pending rider must be able to submit these, so they sit behind the router's
+// role gate rather than `requireVerifiedRider`.
+
+const TRACK_B_DOCUMENT_TYPES = ['NIN', 'DRIVERS_LICENSE', 'COURIER_LICENCE', 'PROOF_OF_ADDRESS'];
+const PLACEHOLDER_LICENCE = 'DL-PENDING';
+const VEHICLE_TYPES = ['bicycle', 'motorcycle', 'van', 'truck'];
+
+const getRiderRecord = async (userId) => {
+  const result = await db.query('SELECT * FROM riders WHERE user_id = $1', [userId]);
+  return result.rows[0] || null;
+};
+
+// GET /api/v1/riders/verification
+// The rider's own Track B profile fields and submitted documents.
+router.get('/verification', async (req, res) => {
+  try {
+    const rider = await getRiderRecord(req.user.id);
+    if (!rider) {
+      return res.status(404).json({ error: 'Rider profile not found for this user.' });
+    }
+
+    const recordsRes = await db.query(
+      `SELECT id, track, document_type, document_number, status, submitted_at, reviewed_at, reviewer_notes
+       FROM verification_records
+       WHERE entity_type = 'rider' AND entity_id = $1
+       ORDER BY submitted_at DESC`,
+      [rider.id]
+    );
+    const userRes = await db.query('SELECT postcode FROM users WHERE id = $1', [req.user.id]);
+
+    res.json({
+      profile: {
+        nin: rider.nin,
+        driversLicenseNo: rider.drivers_license_no,
+        vehicleType: rider.vehicle_type,
+        plateNumber: rider.plate_number,
+        operationalPostcodes: rider.operational_postcodes,
+        postcode: userRes.rows[0]?.postcode || null,
+        status: rider.status
+      },
+      records: recordsRes.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not load your verification details.' });
+  }
+});
+
+// PATCH /api/v1/riders/profile
+// The rider's own identity, vehicle and corridor details.
+router.patch('/profile', async (req, res) => {
+  const body = req.body || {};
+
+  const nin = typeof body.nin === 'string' ? body.nin.trim() : '';
+  const licence = typeof body.driversLicenseNo === 'string' ? body.driversLicenseNo.trim() : '';
+  const vehicleType = typeof body.vehicleType === 'string' ? body.vehicleType.trim() : '';
+  const plate = typeof body.plateNumber === 'string' ? body.plateNumber.trim() : '';
+  const homePostcode = typeof body.postcode === 'string' ? body.postcode.trim() : '';
+  const corridors = Array.isArray(body.operationalPostcodes)
+    ? body.operationalPostcodes.map((value) => String(value).trim()).filter(Boolean)
+    : null;
+
+  if (body.nin !== undefined && nin && !/^\d{11}$/.test(nin)) {
+    return res.status(400).json({ error: 'Enter your 11-digit NIN.' });
+  }
+  if (licence.length > 50) {
+    return res.status(400).json({ error: "Driver's licence number is too long." });
+  }
+  if (body.vehicleType !== undefined && vehicleType && !VEHICLE_TYPES.includes(vehicleType)) {
+    return res.status(400).json({ error: 'Select a valid vehicle type.' });
+  }
+  if (plate.length > 30) {
+    return res.status(400).json({ error: 'Plate number is too long.' });
+  }
+  if (homePostcode.length > 20) {
+    return res.status(400).json({ error: 'Postcode is too long.' });
+  }
+  if (corridors && corridors.length > 20) {
+    return res.status(400).json({ error: 'Too many operational postcodes.' });
+  }
+
+  try {
+    const rider = await getRiderRecord(req.user.id);
+    if (!rider) {
+      return res.status(404).json({ error: 'Rider profile not found for this user.' });
+    }
+
+    const sets = [];
+    const params = [];
+    let idx = 1;
+    const add = (column, value) => {
+      params.push(value);
+      sets.push(`${column} = $${idx}`);
+      idx += 1;
+    };
+
+    if (body.nin !== undefined) add('nin', nin || null);
+    if (body.driversLicenseNo !== undefined) add('drivers_license_no', licence || PLACEHOLDER_LICENCE);
+    if (body.vehicleType !== undefined) add('vehicle_type', vehicleType || 'motorcycle');
+    if (body.plateNumber !== undefined) add('plate_number', plate || 'ABJ-000-XX');
+    if (corridors) add('operational_postcodes', corridors);
+
+    if (sets.length) {
+      await db.query(
+        `UPDATE riders SET ${sets.join(', ')}, updated_at = NOW() WHERE id = $${idx}`,
+        [...params, rider.id]
+      );
+    }
+    if (body.postcode !== undefined) {
+      await db.query(
+        'UPDATE users SET postcode = $1, updated_at = NOW() WHERE id = $2',
+        [homePostcode || null, req.user.id]
+      );
+    }
+
+    await db.query(
+      `INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details)
+       VALUES ($1, 'RIDER_KYC_UPDATED', 'rider', $2, $3)`,
+      [req.user.id, rider.id, JSON.stringify({ fields: Object.keys(body) })]
+    );
+
+    res.json({ rider: await getRiderRecord(req.user.id) });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not save your rider details.' });
+  }
+});
+
+// POST /api/v1/riders/verification/documents
+// Submits one identity document as a Track B record for operations to review.
+router.post('/verification/documents', async (req, res) => {
+  const { documentType, documentNumber, documentUrl } = req.body || {};
+
+  if (!TRACK_B_DOCUMENT_TYPES.includes(documentType)) {
+    return res.status(400).json({ error: 'Select a document type that belongs to rider verification.' });
+  }
+
+  const number = typeof documentNumber === 'string' ? documentNumber.trim() : '';
+  if (documentType === 'NIN' && number && !/^\d{11}$/.test(number)) {
+    return res.status(400).json({ error: 'Enter the 11-digit NIN exactly as shown on your slip.' });
+  }
+  if (number.length > 80) {
+    return res.status(400).json({ error: 'Document number is too long.' });
+  }
+
+  let parsed;
+  try {
+    parsed = parseDocumentDataUrl(documentUrl);
+  } catch (err) {
+    return res.status(err.status || 400).json({ error: err.message });
+  }
+
+  try {
+    const rider = await getRiderRecord(req.user.id);
+    if (!rider) {
+      return res.status(404).json({ error: 'Rider profile not found for this user.' });
+    }
+
+    const inserted = await db.query(
+      `INSERT INTO verification_records
+         (entity_type, entity_id, track, document_type, document_number, document_url, status)
+       VALUES ('rider', $1, 'TRACK_B_REGULATORY', $2, $3, $4, 'PENDING')
+       RETURNING id, track, document_type, document_number, status, submitted_at`,
+      [rider.id, documentType, number || null, parsed.dataUrl]
+    );
+
+    // Keep the profile fields in step with the first submitted identity document
+    // so the console reflects what has actually been evidenced.
+    if (documentType === 'NIN' && !rider.nin) {
+      await db.query('UPDATE riders SET nin = $1, updated_at = NOW() WHERE id = $2', [number || null, rider.id]);
+    }
+    if (documentType === 'DRIVERS_LICENSE'
+        && (!rider.drivers_license_no || rider.drivers_license_no === PLACEHOLDER_LICENCE)) {
+      await db.query(
+        'UPDATE riders SET drivers_license_no = $1, updated_at = NOW() WHERE id = $2',
+        [number || null, rider.id]
+      );
+    }
+
+    await db.query(
+      `INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details)
+       VALUES ($1, 'RIDER_KYC_DOCUMENT_SUBMITTED', 'rider', $2, $3)`,
+      [req.user.id, rider.id, JSON.stringify({ documentType, hash: parsed.hash })]
+    );
+
+    res.status(201).json({ record: inserted.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not submit that document.' });
   }
 });
 
