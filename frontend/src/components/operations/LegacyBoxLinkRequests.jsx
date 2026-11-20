@@ -42,7 +42,7 @@ function StatusPill({ status }) {
   );
 }
 
-export default function LegacyBoxLinkRequests({ currentUser }) {
+export default function LegacyBoxLinkRequests({ currentUser, onPendingCount }) {
   const isDesk = isOperationsDeskRole(currentUser?.role);
   const [requests, setRequests] = useState([]);
   const [total, setTotal] = useState(0);
@@ -89,6 +89,20 @@ export default function LegacyBoxLinkRequests({ currentUser }) {
 
   useEffect(() => { fetchRequests(); }, [fetchRequests]);
 
+  // The Review queue tab shows the live pending total so a rejection or
+  // approval is immediately visible without opening the queue.
+  const fetchPendingCount = useCallback(async () => {
+    try {
+      const res = await apiFetch('/api/v1/operations/legacy-box-links?status=PENDING&page=1&pageSize=1', { headers: {} });
+      const data = await res.json();
+      if (res.ok && onPendingCount) onPendingCount(Number(data.total) || 0);
+    } catch (err) {
+      // A count lookup must never block the queue itself.
+    }
+  }, [onPendingCount]);
+
+  useEffect(() => { fetchPendingCount(); }, [fetchPendingCount]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -121,6 +135,7 @@ export default function LegacyBoxLinkRequests({ currentUser }) {
       if (res.ok) {
         setNotice({ type: 'success', message: `Approved ${request.legacyBoxNumber} for ${request.boxNumber}.` });
         await fetchRequests();
+        await fetchPendingCount();
       } else {
         setNotice({ type: 'error', message: data.error || 'Could not approve that request.' });
       }
@@ -149,6 +164,7 @@ export default function LegacyBoxLinkRequests({ currentUser }) {
         setRejectTarget(null);
         setRejectReason('');
         await fetchRequests();
+        await fetchPendingCount();
       } else {
         setNotice({ type: 'error', message: data.error || 'Could not reject that request.' });
       }
@@ -195,6 +211,7 @@ export default function LegacyBoxLinkRequests({ currentUser }) {
       if (res.ok) {
         setNotice({ type: 'success', message: `NIPOST registry confirmed ${request.legacyBoxNumber}.` });
         await fetchRequests();
+        await fetchPendingCount();
       } else {
         setNotice({ type: 'error', message: data.error || 'The NIPOST registry did not confirm this claim.' });
       }
@@ -223,6 +240,7 @@ export default function LegacyBoxLinkRequests({ currentUser }) {
         setRevokeTarget(null);
         setRevokeReason('');
         await fetchRequests();
+        await fetchPendingCount();
       } else {
         setNotice({ type: 'error', message: data.error || 'Could not revoke that link.' });
       }

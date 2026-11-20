@@ -42,6 +42,7 @@ const kycPayload = {
     plateNumber: 'ABJ-432-QA',
     operationalPostcodes: ['FC-01-A03-FK-01', 'FC-01-A02-FK-02'],
     postcode: 'FC-01-A03-FK-01',
+    phone: '+2348061122336',
     registrationFeeNgn: 0,
     registrationFeePaid: false,
     status: 'verified'

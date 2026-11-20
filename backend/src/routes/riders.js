@@ -7,8 +7,10 @@ const { parseBoxNumber } = require('../utils/boxNumber');
 const digitalBoxService = require('../services/digitalBoxService');
 const legacyBoxLinkService = require('../services/legacyBoxLinkService');
 const { parseDocumentDataUrl } = require('../utils/documentUpload');
+const documentStorage = require('../services/documentStorage');
 const settingsService = require('../services/settingsService');
 const { PLACEHOLDER_LICENCE } = require('../utils/riderClearance');
+const { normalizePhone, digitsOf } = require('../lib/phone');
 
 // Rider endpoints are restricted to riders and operations staff.
 router.use(authenticate, requireRoles('rider', 'ops_admin'));
@@ -332,7 +334,7 @@ router.get('/verification', async (req, res) => {
        ORDER BY submitted_at DESC`,
       [rider.id]
     );
-    const userRes = await db.query('SELECT postcode FROM users WHERE id = $1', [req.user.id]);
+    const userRes = await db.query('SELECT postcode, phone FROM users WHERE id = $1', [req.user.id]);
     const fees = await settingsService.getRiderRegistrationFees();
 
     res.json({
@@ -343,6 +345,7 @@ router.get('/verification', async (req, res) => {
         plateNumber: rider.plate_number,
         operationalPostcodes: rider.operational_postcodes,
         postcode: userRes.rows[0]?.postcode || null,
+        phone: userRes.rows[0]?.phone || null,
         registrationFeeNgn: fees.registrationFeeNgn,
         registrationFeePaid: Boolean(rider.registration_fee_paid_at),
         status: rider.status
@@ -364,6 +367,7 @@ router.patch('/profile', async (req, res) => {
   const vehicleType = typeof body.vehicleType === 'string' ? body.vehicleType.trim() : '';
   const plate = typeof body.plateNumber === 'string' ? body.plateNumber.trim() : '';
   const homePostcode = typeof body.postcode === 'string' ? body.postcode.trim() : '';
+  const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
   const corridors = Array.isArray(body.operationalPostcodes)
     ? body.operationalPostcodes.map((value) => String(value).trim()).filter(Boolean)
     : null;
@@ -376,6 +380,12 @@ router.patch('/profile', async (req, res) => {
   }
   if (body.postcode !== undefined && !homePostcode) {
     return res.status(400).json({ error: 'Enter the postcode where you operate.' });
+  }
+  if (body.phone !== undefined) {
+    const normalizedPhone = phone.startsWith('+') ? phone : normalizePhone(phone);
+    if (digitsOf(normalizedPhone).length < 10) {
+      return res.status(400).json({ error: 'Enter a valid phone number.' });
+    }
   }
   if (licence.length > 50) {
     return res.status(400).json({ error: "Driver's licence number is too long." });
@@ -426,6 +436,20 @@ router.patch('/profile', async (req, res) => {
         [homePostcode || null, req.user.id]
       );
     }
+    if (body.phone !== undefined) {
+      const normalizedPhone = phone.startsWith('+') ? phone : normalizePhone(phone);
+      const duplicate = await db.query(
+        'SELECT id FROM users WHERE phone = $1 AND id <> $2 LIMIT 1',
+        [normalizedPhone, req.user.id]
+      );
+      if (duplicate.rows.length) {
+        return res.status(409).json({ error: 'That phone number is already registered to another account.' });
+      }
+      await db.query(
+        'UPDATE users SET phone = $1, updated_at = NOW() WHERE id = $2',
+        [normalizedPhone, req.user.id]
+      );
+    }
 
     await db.query(
       `INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details)
@@ -463,6 +487,21 @@ router.post('/verification/documents', async (req, res) => {
     return res.status(err.status || 400).json({ error: err.message });
   }
 
+  // Evidence bytes go to private object storage; the database keeps the object
+  // key. Without storage configuration the validated data URL is retained.
+  let stored;
+  try {
+    stored = await documentStorage.storeDocument({
+      userId: req.user.id,
+      kind: 'rider-kyc',
+      mimeType: parsed.mimeType,
+      bytes: parsed.bytes,
+      hash: parsed.hash
+    });
+  } catch (err) {
+    return res.status(502).json({ error: err.message });
+  }
+
   try {
     const rider = await getRiderRecord(req.user.id);
     if (!rider) {
@@ -474,7 +513,7 @@ router.post('/verification/documents', async (req, res) => {
          (entity_type, entity_id, track, document_type, document_number, document_url, status)
        VALUES ('rider', $1, 'TRACK_B_REGULATORY', $2, $3, $4, 'PENDING')
        RETURNING id, track, document_type, document_number, status, submitted_at`,
-      [rider.id, documentType, number || null, parsed.dataUrl]
+      [rider.id, documentType, number || null, stored ? stored.key : parsed.dataUrl]
     );
 
     // Keep the profile fields in step with the first submitted identity document

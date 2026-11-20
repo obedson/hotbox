@@ -10,6 +10,7 @@ test('accepts an allowed image data URL and content-hashes it', () => {
   assert.match(result.hash, /^[a-f0-9]{64}$/);
   assert.equal(result.byteLength, Buffer.from('hotbox-evidence').length);
   assert.equal(result.dataUrl, tinyPng);
+  assert.deepEqual(result.bytes, Buffer.from('hotbox-evidence'));
 });
 
 test('accepts every allowlisted mime type', () => {

@@ -45,6 +45,19 @@ export async function apiFetch(path, options = {}) {
   return window.fetch(resolveApiUrl(path), options);
 }
 
+// A string body is always JSON in this app. Without a Content-Type header the
+// API's JSON body parser skips the request, so the server sees an empty body
+// and rejects a valid payload (for example a box-link rejection reason).
+const withJsonContentType = (options) => {
+  if (!options || typeof options.body !== 'string') return options;
+  const headers = { ...(options.headers || {}) };
+  const hasContentType = Object.keys(headers).some(
+    (key) => key.toLowerCase() === 'content-type'
+  );
+  if (hasContentType) return options;
+  return { ...options, headers: { ...headers, 'Content-Type': 'application/json' } };
+};
+
 // Backward-compatible global wrapper: resolves the API base and attaches the
 // bearer token to relative and absolute API requests.
 const originalFetch = window.fetch;
@@ -52,15 +65,21 @@ const originalFetch = window.fetch;
 window.fetch = async (url, options = {}) => {
   const resolvedUrl = resolveApiUrl(url);
   const token = localStorage.getItem('hotbox_token');
+  let finalOptions = options;
 
   if (token && isApiRequest(resolvedUrl)) {
-    options.headers = {
-      ...(options.headers || {}),
+    finalOptions = {
+      ...finalOptions,
+      headers: {
+        ...(finalOptions.headers || {}),
       Authorization: `Bearer ${token}`
+      }
     };
   }
 
-  const response = await originalFetch(resolvedUrl, options);
+  if (isApiRequest(resolvedUrl)) finalOptions = withJsonContentType(finalOptions);
+
+  const response = await originalFetch(resolvedUrl, finalOptions);
   notifyIfUnauthorized(response, resolvedUrl);
   return response;
 };

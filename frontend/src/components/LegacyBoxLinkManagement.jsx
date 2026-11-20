@@ -12,6 +12,7 @@ export default function LegacyBoxLinkManagement({ currentUser }) {
   const isDesk = isOperationsDeskRole(currentUser?.role);
   const views = isDesk ? VIEWS : VIEWS.filter((item) => item.id !== 'remittance');
   const [view, setView] = useState('queue');
+  const [pendingCount, setPendingCount] = useState(0);
 
   return (
     <div className="space-y-4">
@@ -28,10 +29,17 @@ export default function LegacyBoxLinkManagement({ currentUser }) {
             }`}
           >
             {item.label}
+            {item.id === 'queue' && pendingCount > 0 && (
+              <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white">
+                {pendingCount}
+              </span>
+            )}
           </button>
         ))}
       </div>
-      {view === 'queue' ? <LegacyBoxLinkRequests currentUser={currentUser} /> : <LegacyLinkRemittance />}
+      {view === 'queue'
+        ? <LegacyBoxLinkRequests currentUser={currentUser} onPendingCount={setPendingCount} />
+        : <LegacyLinkRemittance />}
     </div>
   );
 }

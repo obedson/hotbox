@@ -5,6 +5,8 @@ const { authenticate, requireRoles } = require('../middleware/auth');
 const digitalBoxService = require('../services/digitalBoxService');
 const settingsService = require('../services/settingsService');
 const { missingRiderClearance } = require('../utils/riderClearance');
+const { parseDocumentDataUrl } = require('../utils/documentUpload');
+const documentStorage = require('../services/documentStorage');
 
 // POST /api/v1/verification/submit
 router.post('/submit', authenticate, async (req, res) => {
@@ -21,13 +23,42 @@ router.post('/submit', authenticate, async (req, res) => {
     return res.status(400).json({ error: 'entityType, entityId, track, and documentType are required.' });
   }
 
+  const rawDocumentUrl = typeof documentUrl === 'string' ? documentUrl.trim() : '';
+  if (rawDocumentUrl.length > 2000) {
+    return res.status(400).json({ error: 'Document link must be 2,000 characters or fewer.' });
+  }
+
+  let storedDocumentUrl = rawDocumentUrl || null;
+  if (rawDocumentUrl.startsWith('data:')) {
+    let parsed;
+    try {
+      parsed = parseDocumentDataUrl(rawDocumentUrl);
+    } catch (err) {
+      return res.status(err.status || 400).json({ error: err.message });
+    }
+    try {
+      const stored = await documentStorage.storeDocument({
+        userId: req.user.id,
+        kind: 'verification',
+        mimeType: parsed.mimeType,
+        bytes: parsed.bytes,
+        hash: parsed.hash
+      });
+      storedDocumentUrl = stored ? stored.key : parsed.dataUrl;
+    } catch (err) {
+      return res.status(502).json({ error: err.message });
+    }
+  } else if (rawDocumentUrl && !/^https?:\/\//i.test(rawDocumentUrl)) {
+    return res.status(400).json({ error: 'Attach an uploaded document or provide a secure http(s) link.' });
+  }
+
   try {
     const result = await db.query(
       `INSERT INTO verification_records (
          entity_type, entity_id, track, document_type, document_number, document_url, status
        ) VALUES ($1, $2, $3, $4, $5, $6, 'PENDING')
        RETURNING *`,
-      [entityType, entityId, track, documentType, documentNumber || null, documentUrl || null]
+      [entityType, entityId, track, documentType, documentNumber || null, storedDocumentUrl]
     );
 
     res.status(201).json({
@@ -171,10 +202,13 @@ router.get('/field-queue', authenticate, requireFieldWork, async (req, res) => {
       WHERE track = 'TRACK_A_ADDRESS' AND entity_type = 'user'
     `);
 
-    res.json({
-      records: rows.rows.map(serializeFieldRecord),
-      counts: counts.rows[0]
-    });
+    const records = await Promise.all(rows.rows.map(async (row) => ({
+      ...serializeFieldRecord(row),
+      documentUrl: await documentStorage.resolveDocumentUrl(row.document_url),
+      photoUrl: await documentStorage.resolveDocumentUrl(row.photo_url)
+    })));
+
+    res.json({ records, counts: counts.rows[0] });
   } catch (err) {
     console.error('Field queue error:', err);
     res.status(500).json({ error: err.message });
@@ -519,9 +553,15 @@ router.get('/queue', async (req, res) => {
       FROM verification_records
     `);
 
+    const serializedRecords = await Promise.all(records.map(async (row) => ({
+      ...row,
+      document_url: await documentStorage.resolveDocumentUrl(row.document_url),
+      photo_url: await documentStorage.resolveDocumentUrl(row.photo_url)
+    })));
+
     res.json({
-      records,
-      total: records.length,
+      records: serializedRecords,
+      total: serializedRecords.length,
       counts: statsRes.rows[0]
     });
   } catch (err) {
@@ -573,7 +613,7 @@ router.post('/review/:id', async (req, res) => {
           // administrator-set registration fee. Approving one document must not
           // open the dispatch console while another requirement is still missing.
           const riderRes = await client.query(
-            'SELECT r.*, u.postcode AS user_postcode FROM riders r JOIN users u ON u.id = r.user_id WHERE r.id = $1',
+            'SELECT r.*, u.postcode AS user_postcode, u.phone AS user_phone FROM riders r JOIN users u ON u.id = r.user_id WHERE r.id = $1',
             [record.entity_id]
           );
           const rider = riderRes.rows[0];
@@ -581,6 +621,7 @@ router.post('/review/:id', async (req, res) => {
           const missing = missingRiderClearance({
             rider,
             postcode: rider ? rider.user_postcode : null,
+            phone: rider ? rider.user_phone : null,
             registrationFeeNgn,
             registrationFeePaid: rider ? Boolean(rider.registration_fee_paid_at) : false
           });

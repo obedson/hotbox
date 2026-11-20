@@ -1,8 +1,9 @@
-// Evidence document intake for legacy P.O. Box link requests.
-// Documents are stored as data URLs on the request row (object storage is the
-// eventual target). Only a small allowlist of image/PDF types is accepted and
-// every upload is content-hashed so the approver sees the exact bytes that were
-// declared and stored.
+// Evidence document intake.
+// Documents are uploaded to private Supabase Storage and referenced by object
+// key (see services/documentStorage.js). Only a small allowlist of image/PDF
+// types is accepted and every upload is content-hashed so the approver sees the
+// exact bytes that were declared and stored. The decoded bytes are returned so
+// the storage layer can persist them without re-parsing the data URL.
 const crypto = require('crypto');
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
@@ -44,6 +45,7 @@ function parseDocumentDataUrl(dataUrl) {
 
   return {
     dataUrl: `data:${mimeType};base64,${payload}`,
+    bytes,
     hash: crypto.createHash('sha256').update(bytes).digest('hex'),
     mimeType,
     byteLength: bytes.length

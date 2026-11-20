@@ -1,6 +1,7 @@
 import {
   BadgeCheck, Check, Copy, Crosshair, ExternalLink, FileText, RefreshCw, ShieldCheck
 } from 'lucide-react';
+import { InfoTooltip } from '../ui';
 
 function Fact({ label, value, tone = 'slate' }) {
   const tones = {
@@ -9,9 +10,9 @@ function Fact({ label, value, tone = 'slate' }) {
     amber: 'text-amber-700'
   };
   return (
-    <div className="flex items-center justify-between text-xs">
-      <span className="text-slate-500">{label}</span>
-      <span className={`font-bold ${tones[tone] || tones.slate}`}>{value}</span>
+    <div className="flex items-center justify-between gap-3 text-xs">
+      <span className="text-slate-500 shrink-0">{label}</span>
+      <span className={`font-bold text-right leading-snug ${tones[tone] || tones.slate}`}>{value}</span>
     </div>
   );
 }
@@ -90,11 +91,13 @@ export default function ProofOfAddress({
           <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
             <ShieldCheck className="w-5 h-5" />
           </div>
-          <div className="min-w-0">
-            <h3 className="text-sm font-black text-slate-900">Proof of Address Certificate</h3>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-0.5 flex-wrap">
+              <h3 className="text-sm font-black text-slate-900">Proof of Address Certificate</h3>
+              <InfoTooltip text="A doorway inspection by an accredited Hotbox officer, recorded with GPS coordinates and issued as a certificate with a public verification link you can present to banks and service providers." />
+            </div>
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              A doorway inspection by an accredited Hotbox officer, recorded with GPS coordinates and issued as a
-              certificate with a public verification link you can present to banks and service providers.
+              Issued once an accredited officer verifies your doorway. Present it to banks and service providers.
             </p>
           </div>
         </div>

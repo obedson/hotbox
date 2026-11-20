@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const db = require('../config/db');
 const { canonicalLegacyKey } = require('../utils/legacyBoxNumber');
 const { parseDocumentDataUrl } = require('../utils/documentUpload');
+const documentStorage = require('./documentStorage');
 const settingsService = require('./settingsService');
 const nipostRegistryService = require('./nipostRegistryService');
 
@@ -38,8 +39,18 @@ async function createRequest({
   if (!declaration) throw failure('Please confirm the ownership declaration before submitting.');
 
   // Approval requires evidence. The document is validated and content-hashed
-  // before anything is written so a claim can never be stored without it.
+  // before anything is written so a claim can never be stored without it. The
+  // bytes go to object storage and only the object key is persisted; when
+  // storage is not configured the validated data URL is kept instead.
   const document = parseDocumentDataUrl(documentDataUrl);
+  const stored = await documentStorage.storeDocument({
+    userId,
+    kind: 'legacy-box-link',
+    mimeType: document.mimeType,
+    bytes: document.bytes,
+    hash: document.hash
+  });
+  const documentUrl = stored ? stored.key : document.dataUrl;
 
   const key = canonicalLegacyKey(raw);
   if (!key) throw failure('That does not look like a valid P.O. Box number.');
@@ -95,7 +106,7 @@ async function createRequest({
         registered_phone, declaration, document_url, document_hash, expires_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      RETURNING *`,
-    [userId, boxId, raw, key, status, registeredPhone || null, Boolean(declaration), document.dataUrl, document.hash, expiryDate()]
+    [userId, boxId, raw, key, status, registeredPhone || null, Boolean(declaration), documentUrl, document.hash, expiryDate()]
   );
 
   try {

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { apiFetch } from '../../../lib/api';
 import {
-  ArrowRight, ArrowUpDown, BadgeCheck, Calendar, CheckCircle2, Clock, Copy,
+  ArrowRight, ArrowUpDown, BadgeCheck, Calendar, CheckCircle2, ChevronDown, Clock, Copy,
   ExternalLink, Link2, MapPin, Navigation, Pencil, Phone, RefreshCw, Search, User, X
 } from 'lucide-react';
 
@@ -245,12 +245,16 @@ function LinkLegacyBoxCard({ digitalBox, getAuthHeaders, fetchCustomerData, show
       setMessage({ type: 'error', text: 'Enter your old P.O. Box number first.' });
       return;
     }
+    if (!registeredPhone.trim()) {
+      setMessage({ type: 'error', text: 'Enter the phone number registered on the old box.' });
+      return;
+    }
     if (!declaration) {
       setMessage({ type: 'error', text: 'Please confirm the ownership declaration before submitting.' });
       return;
     }
     if (!documentDataUrl) {
-      setMessage({ type: 'error', text: 'Attach a proof document (NIPOST certificate, renewal receipt or box key photo).' });
+      setMessage({ type: 'error', text: 'Attach the required proof documents: NIPOST-verified proof of address, current postcode and P.O. Box renewal receipt.' });
       return;
     }
     setIsSubmitting(true);
@@ -390,12 +394,12 @@ function LinkLegacyBoxCard({ digitalBox, getAuthHeaders, fetchCustomerData, show
             type="tel"
             value={registeredPhone}
             onChange={(e) => setRegisteredPhone(e.target.value)}
-            placeholder="Phone number registered on the old box (optional)"
+            placeholder="Phone number registered on the old box"
             className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs focus:border-emerald-600 focus:outline-none bg-slate-50"
           />
           <div className="space-y-1.5">
             <label className="block text-[11px] font-bold text-slate-700">
-              Proof document <span className="text-slate-400 font-medium">(NIPOST certificate, renewal receipt or box key photo)</span>
+              Proof documents <span className="text-rose-500 font-black">(required)</span>
             </label>
             <input
               ref={fileInputRef}
@@ -404,6 +408,10 @@ function LinkLegacyBoxCard({ digitalBox, getAuthHeaders, fetchCustomerData, show
               onChange={handleFileChange}
               className="w-full text-[11px] text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-slate-300 file:text-[11px] file:font-bold file:text-slate-700 file:bg-white hover:file:bg-slate-50"
             />
+            <p className="text-[10px] text-slate-500 leading-snug">
+              Required: a NIPOST-verified proof of address, your current postcode, and your last or current
+              P.O. Box renewal receipt.
+            </p>
             {documentName && <p className="text-[10px] text-emerald-700 font-bold">{documentName} attached</p>}
             {documentError && <p className="text-[10px] text-rose-600 font-bold">{documentError}</p>}
           </div>
@@ -503,6 +511,7 @@ function RelocationLedger({ relocations }) {
 }
 
 function CourierResolver({ boxNumber }) {
+  const [isOpen, setIsOpen] = useState(false);
   const steps = [
     {
       icon: Search,
@@ -522,26 +531,38 @@ function CourierResolver({ boxNumber }) {
   ];
 
   return (
-    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-      <div>
-        <h3 className="text-sm font-black text-slate-900">How a Courier Resolves Your Address</h3>
-        <p className="text-[11px] text-slate-500 mt-0.5">
-          One lookup works for a digital box number, a linked old P.O. Box number, or your postcode.
-        </p>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {steps.map((step) => (
-          <div key={step.title} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-            <step.icon className="w-4 h-4 text-emerald-700" />
-            <p className="text-xs font-black text-slate-900">{step.title}</p>
-            <p className="text-[11px] text-slate-500 leading-relaxed">{step.body}</p>
+    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+      <button
+        type="button"
+        onClick={() => setIsOpen((value) => !value)}
+        aria-expanded={isOpen}
+        className="w-full flex items-start justify-between gap-3 text-left cursor-pointer"
+      >
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-black text-slate-900">How a Courier Resolves Your Address</h3>
+          <p className="text-[11px] text-slate-500 mt-0.5">
+            One lookup works for a digital box number, a linked old P.O. Box number, or your postcode.
+          </p>
+        </div>
+        <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 mt-1 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {isOpen && (
+        <div className="mt-4 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {steps.map((step) => (
+              <div key={step.title} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                <step.icon className="w-4 h-4 text-emerald-700" />
+                <p className="text-xs font-black text-slate-900">{step.title}</p>
+                <p className="text-[11px] text-slate-500 leading-relaxed">{step.body}</p>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      {boxNumber && (
-        <p className="text-[11px] text-slate-400 font-mono break-all">
-          Try it in the Rider Radar console: {boxNumber}
-        </p>
+          {boxNumber && (
+            <p className="text-[11px] text-slate-400 font-mono break-all">
+              Try it in the Rider Radar console: {boxNumber}
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

@@ -5,6 +5,7 @@ const { authenticate, requireRoles } = require('../../middleware/auth');
 const legacyBoxLinkService = require('../../services/legacyBoxLinkService');
 const nipostRegistryService = require('../../services/nipostRegistryService');
 const settingsService = require('../../services/settingsService');
+const documentStorage = require('../../services/documentStorage');
 
 router.use(authenticate, requireRoles('nipost_verifier', 'compliance_officer', 'ops_admin', 'super_admin'));
 
@@ -13,7 +14,7 @@ router.use(authenticate, requireRoles('nipost_verifier', 'compliance_officer', '
 // exports or reconfigures it.
 const requireLinkDesk = requireRoles('ops_admin', 'compliance_officer', 'super_admin');
 
-function serialize(row) {
+async function serialize(row) {
   return {
     id: row.id,
     userId: row.user_id,
@@ -27,7 +28,7 @@ function serialize(row) {
     status: row.status,
     registeredPhone: row.registered_phone,
     declaration: Boolean(row.declaration),
-    documentUrl: row.document_url,
+    documentUrl: await documentStorage.resolveDocumentUrl(row.document_url),
     documentHash: row.document_hash || null,
     hasDocument: Boolean(row.document_url),
     openClaims: Number(row.open_claims) || 0,
@@ -67,7 +68,7 @@ router.get('/legacy-box-links', async (req, res) => {
       status, search, limit: pageSize, offset: (page - 1) * pageSize
     });
 
-    res.json({ requests: rows.map(serialize), total, page, pageSize });
+    res.json({ requests: await Promise.all(rows.map(serialize)), total, page, pageSize });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -220,7 +221,7 @@ router.post('/legacy-box-links/:id/auto-verify', async (req, res) => {
 
     res.json({
       message: 'NIPOST registry confirmed the claim and the old P.O. Box is now active.',
-      request: serialize(request),
+      request: await serialize(request),
       verdict
     });
   } catch (err) {
@@ -251,7 +252,7 @@ router.post('/legacy-box-links/:id/approve', async (req, res) => {
 
     res.json({
       message: 'Link request approved and the old P.O. Box is now active.',
-      request: serialize(request),
+      request: await serialize(request),
       fee: { totalNgn: charge.totalNgn, reference: request.fee_reference || null }
     });
   } catch (err) {
@@ -279,7 +280,7 @@ router.post('/legacy-box-links/:id/reject', async (req, res) => {
       `Your request to link old P.O. Box ${request.legacy_box_number_raw} was not approved. Reason: ${reason.trim()}. You may submit a new request with additional evidence.`
     );
 
-    res.json({ message: 'Link request rejected.', request: serialize(request) });
+    res.json({ message: 'Link request rejected.', request: await serialize(request) });
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });
   }
@@ -304,7 +305,7 @@ router.post('/legacy-box-links/:id/revoke', async (req, res) => {
 
     res.json({
       message: 'Legacy link revoked. Mail addressed to the old number will no longer be forwarded.',
-      request: serialize(request)
+      request: await serialize(request)
     });
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });

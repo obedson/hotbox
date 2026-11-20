@@ -38,12 +38,12 @@ async function call(handler, { user = { id: 'user-1', role: 'rider' }, body = {}
   return outcome;
 }
 
-function fakeDb({ riderRow = rider, userRow = { postcode: 'FC-01-A03-FK-01' }, inserted = null, settingsRow = null } = {}) {
+function fakeDb({ riderRow = rider, userRow = { postcode: 'FC-01-A03-FK-01', phone: '+2348108525262' }, inserted = null, settingsRow = null } = {}) {
   const calls = [];
   db.query = async (sql, params) => {
     calls.push({ sql, params });
     if (/FROM riders WHERE user_id = \$1/.test(sql)) return { rows: riderRow ? [riderRow] : [] };
-    if (/SELECT postcode FROM users/.test(sql)) return { rows: userRow ? [userRow] : [] };
+    if (/SELECT postcode, phone FROM users/.test(sql)) return { rows: userRow ? [userRow] : [] };
     if (/FROM system_settings/.test(sql)) return { rows: settingsRow ? [settingsRow] : [] };
     if (/FROM verification_records/.test(sql)) return { rows: [{ id: 'rec-1', status: 'PENDING' }] };
     if (/INSERT INTO verification_records/.test(sql)) return { rows: inserted ? [inserted] : [] };
@@ -79,6 +79,7 @@ test('GET /verification returns the rider profile and their Track B records', as
   assert.equal(outcome.body.profile.vehicleType, 'motorcycle');
   assert.equal(outcome.body.profile.status, 'pending');
   assert.deepEqual(outcome.body.profile.operationalPostcodes, ['FC-01-A03-FK-01']);
+  assert.equal(outcome.body.profile.phone, '+2348108525262');
   assert.equal(outcome.body.records.length, 1);
   assert.match(calls.find((c) => /FROM verification_records/.test(c.sql)).sql, /entity_type = 'rider'/) ;
   assert.deepEqual(calls.find((c) => /FROM verification_records/.test(c.sql)).params, ['rider-1']);
@@ -147,6 +148,34 @@ test('PATCH /profile stores the home postcode on the user', async () => {
   const userUpdate = calls.find((c) => /UPDATE users SET postcode/.test(c.sql));
   assert.ok(userUpdate, 'users.postcode should be updated');
   assert.deepEqual(userUpdate.params, ['FC-01-A02-FK-02', 'user-1']);
+});
+
+test('PATCH /profile rejects an invalid phone number', async () => {
+  const calls = fakeDb();
+  const outcome = await call(handlerFor('patch', '/profile'), { body: { phone: '12345' } });
+  assert.equal(outcome.statusCode, 400);
+  assert.match(outcome.body.error, /valid phone number/);
+  assert.equal(calls.length, 0);
+});
+
+test('PATCH /profile stores a normalised phone number on the user', async () => {
+  const calls = fakeDb();
+  const outcome = await call(handlerFor('patch', '/profile'), { body: { phone: '08108525262' } });
+  assert.equal(outcome.statusCode, null);
+  const userUpdate = calls.find((c) => /UPDATE users SET phone/.test(c.sql));
+  assert.ok(userUpdate, 'users.phone should be updated');
+  assert.deepEqual(userUpdate.params, ['+2348108525262', 'user-1']);
+});
+
+test('PATCH /profile refuses a phone number already registered to another account', async () => {
+  db.query = async (sql) => {
+    if (/FROM riders WHERE user_id = \$1/.test(sql)) return { rows: [rider] };
+    if (/SELECT id FROM users WHERE phone = \$1 AND id <> \$2/.test(sql)) return { rows: [{ id: 'user-2' }] };
+    return { rows: [] };
+  };
+  const outcome = await call(handlerFor('patch', '/profile'), { body: { phone: '+2348108525262' } });
+  assert.equal(outcome.statusCode, 409);
+  assert.match(outcome.body.error, /already registered/);
 });
 
 test('document submission rejects a type outside rider verification', async () => {

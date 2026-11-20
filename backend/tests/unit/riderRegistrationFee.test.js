@@ -66,6 +66,7 @@ test('missingRiderClearance is empty for a fully evidenced, paid rider', () => {
     missingRiderClearance({
       rider: baseRider,
       postcode: 'FC-01-A03-FK-01',
+      phone: '+2348108525262',
       registrationFeeNgn: 2500,
       registrationFeePaid: true
     }),
@@ -78,10 +79,11 @@ test('missingRiderClearance reports every outstanding requirement', () => {
     missingRiderClearance({
       rider: { ...baseRider, nin: null, drivers_license_no: PLACEHOLDER_LICENCE },
       postcode: null,
+      phone: null,
       registrationFeeNgn: 2500,
       registrationFeePaid: false
     }),
-    ['NIN', "driver's licence number", 'home postcode', 'registration fee payment']
+    ['NIN', "driver's licence number", 'home postcode', 'phone number', 'registration fee payment']
   );
 });
 
@@ -90,10 +92,24 @@ test('missingRiderClearance ignores the fee while it is set to zero', () => {
     missingRiderClearance({
       rider: baseRider,
       postcode: 'FC-01-A03-FK-01',
+      phone: '+2348108525262',
       registrationFeeNgn: 0,
       registrationFeePaid: false
     }),
     []
+  );
+});
+
+test('missingRiderClearance requires a contact phone number', () => {
+  assert.deepEqual(
+    missingRiderClearance({
+      rider: baseRider,
+      postcode: 'FC-01-A03-FK-01',
+      phone: null,
+      registrationFeeNgn: 0,
+      registrationFeePaid: false
+    }),
+    ['phone number']
   );
 });
 

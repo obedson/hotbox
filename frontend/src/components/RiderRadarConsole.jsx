@@ -8,6 +8,7 @@ import CustodyScanner from './CustodyScanner';
 import RiderLookup from './RiderLookup';
 import { apiFetch } from '../lib/api';
 import { ensureWalletFunds } from '../lib/walletFunding';
+import PhoneInput from './PhoneInput';
 
 export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showToast }) {
   const [me, setMe] = useState(null);
@@ -23,6 +24,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
     vehicleType: 'motorcycle',
     plateNumber: '',
     postcode: '',
+    phone: '',
     operationalPostcodes: ''
   });
   const [savingProfile, setSavingProfile] = useState(false);
@@ -43,6 +45,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
         vehicleType: data.profile?.vehicleType || 'motorcycle',
         plateNumber: data.profile?.plateNumber || '',
         postcode: data.profile?.postcode || '',
+        phone: data.profile?.phone || '',
         operationalPostcodes: (data.profile?.operationalPostcodes || []).join(', ')
       });
       setRegistrationFee({
@@ -221,6 +224,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
       if (!/^\d{11}$/.test(kycForm.nin.trim())) throw new Error('Enter your 11-digit NIN.');
       if (!kycForm.driversLicenseNo.trim()) throw new Error("Enter your driver's licence number.");
       if (!kycForm.postcode.trim()) throw new Error('Enter your home postcode.');
+      if (!kycForm.phone.trim()) throw new Error('Enter your phone number.');
 
       const res = await apiFetch('/api/v1/riders/profile', {
         method: 'PATCH',
@@ -231,6 +235,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
           vehicleType: kycForm.vehicleType,
           plateNumber: kycForm.plateNumber,
           postcode: kycForm.postcode,
+          phone: kycForm.phone,
           operationalPostcodes: kycForm.operationalPostcodes
             .split(',')
             .map((value) => value.trim())
@@ -719,12 +724,12 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Registered Phone Number</label>
-                  <input
-                    type="text"
-                    disabled
-                    defaultValue={rider?.phone || '\u2014'}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50"
+                  <label className="font-bold text-slate-700 block mb-1">Phone Number <span className="text-rose-500">*</span></label>
+                  <PhoneInput
+                    value={kycForm.phone}
+                    onChange={(value) => setKycForm((prev) => ({ ...prev, phone: value }))}
+                    placeholder="08108525262"
+                    required
                   />
                 </div>
                 <div>
@@ -834,6 +839,10 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
               <div className="py-1.5 flex justify-between items-center">
                 <span>Home Postcode</span>
                 {checkBadge(Boolean(kyc?.profile?.postcode), 'Provided', 'Pending')}
+              </div>
+              <div className="py-1.5 flex justify-between items-center">
+                <span>Phone Number</span>
+                {checkBadge(Boolean(kyc?.profile?.phone), 'Provided', 'Pending')}
               </div>
               {registrationFee.amountNgn > 0 && (
                 <div className="py-1.5 flex justify-between items-center">

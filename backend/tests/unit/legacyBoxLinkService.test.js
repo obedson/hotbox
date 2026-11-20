@@ -5,12 +5,14 @@ const db = require('../../src/config/db');
 const settingsService = require('../../src/services/settingsService');
 const legacyBoxLinkService = require('../../src/services/legacyBoxLinkService');
 const nipostRegistryService = require('../../src/services/nipostRegistryService');
+const documentStorage = require('../../src/services/documentStorage');
 
 const originalQuery = db.query;
 const originalGetClient = db.getClient;
 const originalGetLegacyBoxLinkFees = settingsService.getLegacyBoxLinkFees;
 const originalVerifyOwnership = nipostRegistryService.verifyOwnership;
 const originalGetNipostRegistry = settingsService.getNipostRegistry;
+const originalStoreDocument = documentStorage.storeDocument;
 
 let calls = [];
 let handler = async () => ({ rows: [] });
@@ -38,6 +40,7 @@ after(() => {
   settingsService.getLegacyBoxLinkFees = originalGetLegacyBoxLinkFees;
   nipostRegistryService.verifyOwnership = originalVerifyOwnership;
   settingsService.getNipostRegistry = originalGetNipostRegistry;
+  documentStorage.storeDocument = originalStoreDocument;
 });
 
 function reset() {
@@ -174,6 +177,37 @@ test('createRequest contests an existing pending claim', async () => {
   assert.ok(calls.some((call) => call.sql.includes("status = 'CONTESTED', contested_at = NOW()")));
   const notice = calls.find((call) => call.sql.includes('INSERT INTO notifications'));
   assert.match(notice.params[1], /contested/i);
+});
+
+test('createRequest stores the object key when storage is configured', async () => {
+  reset();
+  documentStorage.storeDocument = async ({ userId, kind, mimeType }) => ({
+    key: `documents/${kind}/${userId}/evidence.png`,
+    hash: 'h'.repeat(64),
+    mimeType,
+    byteLength: 18
+  });
+  handler = async (sql) => {
+    if (sql.startsWith('INSERT INTO legacy_box_link_requests')) {
+      return { rows: [{ ...baseRequest, status: 'PENDING' }] };
+    }
+    if (sql.includes("UPPER(legacy_box_number_norm) = $1 AND status = 'PENDING'")) return { rows: [] };
+    if (sql.includes('FROM legacy_box_link_requests')) return { rows: [] };
+    if (sql.includes('FROM digital_boxes')) return { rows: [] };
+    return { rows: [] };
+  };
+
+  try {
+    await legacyBoxLinkService.createRequest({
+      userId: 'user-1', boxId: 'box-1', legacyBoxNumberRaw: '1234', declaration: true, documentDataUrl: DOCUMENT
+    });
+
+    const insert = calls.find((call) => call.sql.startsWith('INSERT INTO legacy_box_link_requests'));
+    assert.equal(insert.params[7], 'documents/legacy-box-link/user-1/evidence.png');
+    assert.match(insert.params[8], /^[a-f0-9]{64}$/);
+  } finally {
+    documentStorage.storeDocument = originalStoreDocument;
+  }
 });
 
 test('approveRequest links the box and retires competing open claims', async () => {

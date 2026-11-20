@@ -83,6 +83,40 @@ describe('window.fetch auth wrapper', () => {
     expect(options.headers || {}).not.toHaveProperty('Authorization');
   });
 
+  it('marks a JSON string body as application/json so the API parses it', async () => {
+    const mockFetch = vi.fn(async () => ({}));
+    window.fetch = mockFetch;
+
+    await import('./api');
+    await window.fetch('/api/operations/legacy-box-links/req-1/reject', {
+      method: 'POST',
+      headers: {},
+      body: JSON.stringify({ reason: 'Reupload original documents' })
+    });
+
+    const [, options] = mockFetch.mock.calls[0];
+    expect(options.headers).toMatchObject({ 'Content-Type': 'application/json' });
+    expect(options.body).toBe(JSON.stringify({ reason: 'Reupload original documents' }));
+  });
+
+  it('keeps an explicit content type and leaves non-string bodies alone', async () => {
+    const mockFetch = vi.fn(async () => ({}));
+    window.fetch = mockFetch;
+
+    await import('./api');
+    await window.fetch('/api/parcels', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/csv' },
+      body: 'a,b'
+    });
+    await window.fetch('/api/uploads', { method: 'POST', body: new FormData() });
+
+    const [, textOptions] = mockFetch.mock.calls[0];
+    expect(textOptions.headers).toEqual({ 'Content-Type': 'text/csv' });
+    const [, formOptions] = mockFetch.mock.calls[1];
+    expect(formOptions.headers || {}).not.toHaveProperty('Content-Type');
+  });
+
   it('emits a global event when a protected request is rejected as unauthenticated', async () => {
     const mockFetch = vi.fn(async () => ({ status: 401, ok: false }));
     window.fetch = mockFetch;

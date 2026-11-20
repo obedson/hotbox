@@ -466,6 +466,9 @@ router.post('/link-legacy-box', authenticate, async (req, res) => {
   if (!cleanInput) {
     return res.status(400).json({ error: 'Please enter your old P.O. Box number.' });
   }
+  if (!String(registeredPhone || '').trim()) {
+    return res.status(400).json({ error: 'Enter the phone number registered on the old box.' });
+  }
   if (parseBoxNumber(cleanInput)) {
     return res.status(400).json({
       error: 'That is a Hotbox digital box number. Enter the old P.O. Box number issued to you by NIPOST.'
