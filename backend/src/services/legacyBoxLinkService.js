@@ -299,8 +299,8 @@ async function approveRequest({ requestId, reviewerId, note = null, charge = nul
       `UPDATE legacy_box_link_requests
           SET status = 'APPROVED', reviewed_by = $2, reviewed_at = NOW(),
               review_note = $3, fee_ngn = $4, fee_reference = $5,
-              registry_source = $6, registry_ref = $7,
-              registry_verified_at = CASE WHEN $6 IS NOT NULL THEN NOW() ELSE NULL END,
+              registry_source = $6::text, registry_ref = $7::text,
+              registry_verified_at = CASE WHEN $6::text IS NOT NULL THEN NOW() ELSE NULL END,
               updated_at = NOW()
         WHERE id = $1 RETURNING *`,
       [

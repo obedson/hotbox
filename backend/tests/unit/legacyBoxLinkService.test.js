@@ -225,6 +225,8 @@ test('approveRequest links the box and retires competing open claims', async () 
   assert.ok(calls.some((call) => call.sql.includes('INSERT INTO audit_logs')));
   const competing = calls.find((call) => call.sql.includes('Another claim for this P.O. Box number was approved.'));
   assert.ok(competing, 'competing claim should be retired');
+  const approved = calls.find((call) => call.sql.includes("status = 'APPROVED', reviewed_by"));
+  assert.match(approved.sql, /CASE WHEN \$6::text IS NOT NULL/);
 });
 
 test('approveRequest charges the configured fee and records both line items', async () => {
