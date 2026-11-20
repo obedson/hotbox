@@ -38,12 +38,13 @@ async function call(handler, { user = { id: 'user-1', role: 'rider' }, body = {}
   return outcome;
 }
 
-function fakeDb({ riderRow = rider, userRow = { postcode: 'FC-01-A03-FK-01' }, inserted = null } = {}) {
+function fakeDb({ riderRow = rider, userRow = { postcode: 'FC-01-A03-FK-01' }, inserted = null, settingsRow = null } = {}) {
   const calls = [];
   db.query = async (sql, params) => {
     calls.push({ sql, params });
     if (/FROM riders WHERE user_id = \$1/.test(sql)) return { rows: riderRow ? [riderRow] : [] };
     if (/SELECT postcode FROM users/.test(sql)) return { rows: userRow ? [userRow] : [] };
+    if (/FROM system_settings/.test(sql)) return { rows: settingsRow ? [settingsRow] : [] };
     if (/FROM verification_records/.test(sql)) return { rows: [{ id: 'rec-1', status: 'PENDING' }] };
     if (/INSERT INTO verification_records/.test(sql)) return { rows: inserted ? [inserted] : [] };
     return { rows: [] };
@@ -87,6 +88,23 @@ test('GET /verification reports a missing rider profile', async () => {
   fakeDb({ riderRow: null });
   const outcome = await call(handlerFor('get', '/verification'));
   assert.equal(outcome.statusCode, 404);
+});
+
+test('GET /verification surfaces the administrator-set registration fee', async () => {
+  fakeDb({ settingsRow: { setting_value: { registration_fee_ngn: 2500 } } });
+  const outcome = await call(handlerFor('get', '/verification'));
+  assert.equal(outcome.body.profile.registrationFeeNgn, 2500);
+  assert.equal(outcome.body.profile.registrationFeePaid, false);
+});
+
+test('GET /verification reports a settled registration fee', async () => {
+  fakeDb({
+    settingsRow: { setting_value: { registration_fee_ngn: 2500 } },
+    riderRow: { ...rider, registration_fee_paid_at: '2026-01-01T00:00:00.000Z' }
+  });
+  const outcome = await call(handlerFor('get', '/verification'));
+  assert.equal(outcome.body.profile.registrationFeeNgn, 2500);
+  assert.equal(outcome.body.profile.registrationFeePaid, true);
 });
 
 test('PATCH /profile rejects a malformed NIN', async () => {

@@ -27,7 +27,7 @@ const ACCOUNT_TYPES = [
     title: 'Dispatch Rider',
     subtitle: 'Deliver parcels in your city',
     icon: Bike,
-    fields: ['vehicleType', 'plateNumber', 'nin', 'driversLicenseNo']
+    fields: ['vehicleType', 'plateNumber', 'nin', 'driversLicenseNo', 'homePostcode']
   },
   {
     id: 'enterprise_shipper',
@@ -171,8 +171,10 @@ export default function AuthScreen({ initialView = 'signin', resetToken = '', on
     if (accountType === 'rider' && plateNumber.trim().length < 3) {
       nextErrors.plateNumber = 'Enter your vehicle plate number.';
     }
-    if (accountType === 'rider' && nin.trim() && !/^\d{11}$/.test(nin.trim())) {
-      nextErrors.nin = 'Enter your 11-digit NIN.';
+    if (accountType === 'rider') {
+      if (!/^\d{11}$/.test(nin.trim())) nextErrors.nin = 'Enter your 11-digit NIN.';
+      if (!driversLicenseNo.trim()) nextErrors.driversLicenseNo = "Enter your driver's licence number.";
+      if (!postcode.trim()) nextErrors.postcode = 'Enter the postcode where you operate.';
     }
     if (!agree) nextErrors.agree = 'Please accept the terms to continue.';
 
@@ -568,7 +570,7 @@ export default function AuthScreen({ initialView = 'signin', resetToken = '', on
 
                 {selectedType.fields.includes('nin') && (
                   <div className="grid grid-cols-2 gap-2">
-                    <Field label="NIN" icon={User} error={formErrors.nin} optional>
+                    <Field label="NIN" icon={User} error={formErrors.nin}>
                       <input
                         type="text"
                         inputMode="numeric"
@@ -579,7 +581,7 @@ export default function AuthScreen({ initialView = 'signin', resetToken = '', on
                         className={inputClass}
                       />
                     </Field>
-                    <Field label="Driver's licence no." icon={ShieldCheck} optional>
+                    <Field label="Driver's licence no." icon={ShieldCheck} error={formErrors.driversLicenseNo}>
                       <input
                         type="text"
                         value={driversLicenseNo}
@@ -589,6 +591,18 @@ export default function AuthScreen({ initialView = 'signin', resetToken = '', on
                       />
                     </Field>
                   </div>
+                )}
+
+                {selectedType.fields.includes('homePostcode') && (
+                  <Field label="Home postcode" icon={MapPin} error={formErrors.postcode}>
+                    <input
+                      type="text"
+                      value={postcode}
+                      onChange={(e) => setPostcode(e.target.value)}
+                      placeholder="Postcode where you are based"
+                      className={inputClass}
+                    />
+                  </Field>
                 )}
 
                 <Field label="Password" icon={Lock} error={formErrors.password}>

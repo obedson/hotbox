@@ -7,6 +7,7 @@ import {
 import CustodyScanner from './CustodyScanner';
 import RiderLookup from './RiderLookup';
 import { apiFetch } from '../lib/api';
+import { ensureWalletFunds } from '../lib/walletFunding';
 
 export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showToast }) {
   const [me, setMe] = useState(null);
@@ -27,6 +28,8 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
   const [savingProfile, setSavingProfile] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(null);
   const [kycMessage, setKycMessage] = useState(null);
+  const [registrationFee, setRegistrationFee] = useState({ amountNgn: 0, paid: false });
+  const [payingFee, setPayingFee] = useState(false);
 
   const loadVerification = useCallback(async () => {
     try {
@@ -41,6 +44,10 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
         plateNumber: data.profile?.plateNumber || '',
         postcode: data.profile?.postcode || '',
         operationalPostcodes: (data.profile?.operationalPostcodes || []).join(', ')
+      });
+      setRegistrationFee({
+        amountNgn: Number(data.profile?.registrationFeeNgn) || 0,
+        paid: Boolean(data.profile?.registrationFeePaid)
       });
     } catch (err) {
       // A Track B load failure must never blank the whole console.
@@ -211,6 +218,10 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
     setSavingProfile(true);
     setKycMessage(null);
     try {
+      if (!/^\d{11}$/.test(kycForm.nin.trim())) throw new Error('Enter your 11-digit NIN.');
+      if (!kycForm.driversLicenseNo.trim()) throw new Error("Enter your driver's licence number.");
+      if (!kycForm.postcode.trim()) throw new Error('Enter your home postcode.');
+
       const res = await apiFetch('/api/v1/riders/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -235,6 +246,33 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
       setKycMessage({ type: 'error', text: err.message });
     } finally {
       setSavingProfile(false);
+    }
+  };
+
+  const payRegistrationFee = async () => {
+    setPayingFee(true);
+    setKycMessage(null);
+    try {
+      await ensureWalletFunds({
+        requiredAmount: registrationFee.amountNgn,
+        email: rider?.email,
+        balance: walletBalance,
+        onBalanceRefreshed: async () => {
+          const meRes = await apiFetch('/api/v1/riders/me');
+          if (meRes.ok) setMe(await meRes.json());
+        }
+      });
+      const res = await apiFetch('/api/v1/riders/registration-fee/pay', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not pay the rider registration fee.');
+      setRegistrationFee({ amountNgn: registrationFee.amountNgn, paid: true });
+      setKycMessage({ type: 'success', text: 'Registration fee paid. Operations can now clear you for dispatch.' });
+      if (showToast) showToast('Rider registration fee paid.');
+      await loadVerification();
+    } catch (err) {
+      setKycMessage({ type: 'error', text: err.message });
+    } finally {
+      setPayingFee(false);
     }
   };
 
@@ -646,6 +684,28 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
             </div>
           )}
 
+          {registrationFee.amountNgn > 0 && !registrationFee.paid && (
+            <div className="flex items-center justify-between gap-3 flex-wrap border border-amber-200 bg-amber-50 rounded-xl px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-amber-900">
+                  Rider registration fee: {formatMoney(registrationFee.amountNgn)}
+                </p>
+                <p className="text-[11px] text-amber-700 mt-0.5">
+                  Payable from your Hotbox wallet. Operations cannot clear you for dispatch until this is settled.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={payRegistrationFee}
+                disabled={payingFee}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5"
+              >
+                {payingFee ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wallet className="w-3.5 h-3.5" />}
+                {payingFee ? 'Processing...' : walletBalance >= registrationFee.amountNgn ? 'Pay from wallet' : 'Fund & pay'}
+              </button>
+            </div>
+          )}
+
           <form onSubmit={saveProfile} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
               <div className="space-y-4">
@@ -668,7 +728,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">NIN</label>
+                  <label className="font-bold text-slate-700 block mb-1">NIN <span className="text-rose-500">*</span></label>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -680,7 +740,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Driver's Licence Number</label>
+                  <label className="font-bold text-slate-700 block mb-1">Driver's Licence Number <span className="text-rose-500">*</span></label>
                   <input
                     type="text"
                     value={kycForm.driversLicenseNo}
@@ -716,7 +776,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Home Postcode</label>
+                  <label className="font-bold text-slate-700 block mb-1">Home Postcode <span className="text-rose-500">*</span></label>
                   <input
                     type="text"
                     value={kycForm.postcode}
@@ -771,6 +831,16 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
                 <span>NIN Identity Check</span>
                 {checkBadge(Boolean(rider?.nin), 'Verified', 'Pending')}
               </div>
+              <div className="py-1.5 flex justify-between items-center">
+                <span>Home Postcode</span>
+                {checkBadge(Boolean(kyc?.profile?.postcode), 'Provided', 'Pending')}
+              </div>
+              {registrationFee.amountNgn > 0 && (
+                <div className="py-1.5 flex justify-between items-center">
+                  <span>Registration Fee</span>
+                  {checkBadge(registrationFee.paid, 'Paid', 'Pending')}
+                </div>
+              )}
             </div>
           </div>
 

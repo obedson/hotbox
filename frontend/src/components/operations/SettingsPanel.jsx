@@ -1,5 +1,5 @@
 import { InfoTooltip } from './SettingsUi';
-import { Settings, DollarSign, Users, Package, Clock, ShieldCheck, CheckCircle2, AlertTriangle, RefreshCw, Save, RotateCcw, Check, X, History, Link2, Database } from 'lucide-react';
+import { Settings, DollarSign, Users, Package, Clock, ShieldCheck, CheckCircle2, AlertTriangle, RefreshCw, Save, RotateCcw, Check, X, History, Link2, Database, Bike } from 'lucide-react';
 import AuditHistoryTab from './AuditHistoryTab';
 import SettingsConfirmModal from './SettingsConfirmModal';
 import DeliveryTargetsTab from './DeliveryTargetsTab';
@@ -9,10 +9,11 @@ import DeliveryRatesTab from './DeliveryRatesTab';
 import DigitalBoxFeesTab from './DigitalBoxFeesTab';
 import LegacyBoxLinkFeesTab from './LegacyBoxLinkFeesTab';
 import NipostRegistryTab from './NipostRegistryTab';
+import RiderRegistrationFeeTab from './RiderRegistrationFeeTab';
 
 export default function SettingsPanel({ directory }) {
   const {
-    activeTab, adminReason, auditHistory, commsVal, copiedId, currentTabSettingKey, error, fetchSettings, formSettings, handleConfirmSave, handleCopy, handleRevertTab, hasChangesInTab, legacyBoxLinkVal, loading, nipostRegistryVal, pricingVal, reasonError, saveModalOpen, saving, secVal, setActiveTab, setAdminReason, setReasonError, setSaveModalOpen, slaVal, storageVal, successMessage, updateField
+    activeTab, adminReason, auditHistory, commsVal, copiedId, currentTabSettingKey, error, fetchSettings, formSettings, handleConfirmSave, handleCopy, handleRevertTab, hasChangesInTab, legacyBoxLinkVal, loading, nipostRegistryVal, pricingVal, reasonError, riderRegistrationVal, saveModalOpen, saving, secVal, setActiveTab, setAdminReason, setReasonError, setSaveModalOpen, slaVal, storageVal, successMessage, updateField
   } = directory;
 
   return (
@@ -281,6 +282,20 @@ export default function SettingsPanel({ directory }) {
         </button>
 
         <button
+          onClick={() => setActiveTab('riderregistration')}
+          className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all ${
+            activeTab === 'riderregistration'
+              ? 'bg-slate-900 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200/80'
+          }`}
+        >
+          <Bike className="w-4 h-4" />
+          <span>Rider Registration</span>
+          {hasChangesInTab('riderregistration') && (
+            <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+          )}
+        </button>
+        <button
           onClick={() => setActiveTab('registry')}
           className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all ${
             activeTab === 'registry'
@@ -327,6 +342,7 @@ export default function SettingsPanel({ directory }) {
       {activeTab === 'digitalbox' && <DigitalBoxFeesTab digitalBoxVal={directory.digitalBoxVal} updateField={directory.updateField} />}
       {activeTab === 'legacylink' && <LegacyBoxLinkFeesTab legacyBoxLinkVal={directory.legacyBoxLinkVal} updateField={directory.updateField} />}
       {activeTab === 'registry' && <NipostRegistryTab nipostRegistryVal={directory.nipostRegistryVal} updateField={directory.updateField} />}
+      {activeTab === 'riderregistration' && <RiderRegistrationFeeTab riderRegistrationVal={directory.riderRegistrationVal} updateField={directory.updateField} />}
 
       {/* TAB 6: AUDIT HISTORY */}
       {activeTab === 'history' && <AuditHistoryTab auditHistory={directory.auditHistory} copiedId={directory.copiedId} handleCopy={directory.handleCopy} />}

@@ -42,6 +42,8 @@ const kycPayload = {
     plateNumber: 'ABJ-432-QA',
     operationalPostcodes: ['FC-01-A03-FK-01', 'FC-01-A02-FK-02'],
     postcode: 'FC-01-A03-FK-01',
+    registrationFeeNgn: 0,
+    registrationFeePaid: false,
     status: 'verified'
   },
   records: [
@@ -83,6 +85,13 @@ function mockConsole({ rider = true, jobs = [], myJobs = [], kyc = kycPayload } 
     }
     if (path === '/api/v1/riders/verification/documents') {
       return Promise.resolve({ ok: true, status: 201, json: async () => ({ record: { id: 'rec-3', status: 'PENDING' } }) });
+    }
+    if (path === '/api/v1/riders/registration-fee/pay') {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ message: 'Rider registration fee paid.', reference: 'RIDER-REG-1', newBalance: 30000, registrationFeePaid: true })
+      });
     }
     if (path === '/api/v1/riders/radar/jobs') {
       return Promise.resolve({ ok: true, status: 200, json: async () => ({ jobs, total: jobs.length }) });
@@ -217,6 +226,52 @@ describe('RiderRadarConsole', () => {
     expect(screen.getByText("Driver's Licence")).toBeInTheDocument();
     expect(screen.getByText('Courier Licence')).toBeInTheDocument();
     expect(screen.getByText('Proof of Address')).toBeInTheDocument();
+  });
+
+  it('collects the administrator-set registration fee from the wallet', async () => {
+    let paid = false;
+    const feeKyc = {
+      ...kycPayload,
+      profile: { ...kycPayload.profile, registrationFeeNgn: 2500, registrationFeePaid: false }
+    };
+    apiFetchMock.mockImplementation((path) => {
+      if (path === '/api/v1/riders/me') {
+        return Promise.resolve({ ok: true, status: 200, json: async () => riderPayload });
+      }
+      if (path === '/api/v1/riders/verification') {
+        const payload = { ...feeKyc, profile: { ...feeKyc.profile, registrationFeePaid: paid } };
+        return Promise.resolve({ ok: true, status: 200, json: async () => payload });
+      }
+      if (path === '/api/v1/riders/registration-fee/pay') {
+        paid = true;
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ message: 'Rider registration fee paid.', reference: 'RIDER-REG-1', newBalance: 30000, registrationFeePaid: true })
+        });
+      }
+      if (path === '/api/v1/riders/radar/jobs') {
+        return Promise.resolve({ ok: true, status: 200, json: async () => ({ jobs: [], total: 0 }) });
+      }
+      if (path === '/api/v1/riders/me/jobs') {
+        return Promise.resolve({ ok: true, status: 200, json: async () => ({ jobs: [], total: 0 }) });
+      }
+      return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
+    });
+
+    render(<RiderRadarConsole activeNav="profile" setActiveNav={() => {}} hubs={[]} showToast={() => {}} />);
+
+    expect(await screen.findByText(/Rider registration fee:/)).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Pay from wallet' }));
+    });
+
+    expect(apiFetchMock).toHaveBeenCalledWith(
+      '/api/v1/riders/registration-fee/pay',
+      expect.objectContaining({ method: 'POST' })
+    );
+    expect(await screen.findByText(/Registration fee paid/)).toBeInTheDocument();
+    expect(screen.queryByText(/Rider registration fee:/)).not.toBeInTheDocument();
   });
 
   it('submits an identity document for operations review', async () => {

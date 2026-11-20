@@ -4,7 +4,7 @@ const { SELF_SIGNUP_ROLES, PROVISIONABLE_ROLES } = require('../config/roles');
 // Schema for User Registration
 // Identity is self-service only: visitors may create a customer, hub partner,
 // rider or enterprise account. Staff roles are provisioned by an administrator.
-const registerSchema = z.object({
+const registerSchemaBase = z.object({
   name: z.string().trim().min(2, 'Enter your full name').max(120),
   phone: z.string().trim().min(11, 'Enter a valid Nigerian phone number').max(25),
   email: z.string().trim().email('Enter a valid email address').max(120),
@@ -20,6 +20,23 @@ const registerSchema = z.object({
   cacNumber: z.string().trim().max(40).optional(),
   nin: z.string().trim().max(20).optional(),
   driversLicenseNo: z.string().trim().max(50).optional()
+});
+
+// A rider cannot be accredited without identity (NIN), driving privilege
+// (licence) and a service postcode, so those three are compulsory at signup
+// rather than something the rider can defer to the verification screen.
+const registerSchema = registerSchemaBase.superRefine((value, ctx) => {
+  if (value.role !== 'rider') return;
+
+  if (!/^\d{11}$/.test(value.nin || '')) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['nin'], message: 'Enter your 11-digit NIN.' });
+  }
+  if (!value.driversLicenseNo || !value.driversLicenseNo.trim()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['driversLicenseNo'], message: "Enter your driver's licence number." });
+  }
+  if (!value.postcode || !value.postcode.trim()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['postcode'], message: 'Enter the postcode where you operate.' });
+  }
 });
 
 // Schema for Sign In

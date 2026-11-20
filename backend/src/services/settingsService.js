@@ -7,6 +7,7 @@ const DIGITAL_BOX_FEES_KEY = 'digital_box_fees';
 const LEGACY_BOX_LINK_FEES_KEY = 'legacy_box_link_fees';
 const NIPOST_REVIEW_EMAIL_KEY = 'nipost_review_email';
 const NIPOST_REGISTRY_KEY = 'nipost_registry';
+const RIDER_REGISTRATION_FEES_KEY = 'rider_registration_fees';
 
 const MATCH_POLICIES = ['name_or_phone', 'name_only', 'phone_only'];
 
@@ -28,6 +29,11 @@ const DEFAULT_LEGACY_BOX_LINK_FEES = {
 const DEFAULT_NIPOST_REGISTRY = {
   enabled: false,
   match_policy: 'name_or_phone'
+};
+
+// Rider registration is free until a super administrator sets an amount.
+const DEFAULT_RIDER_REGISTRATION_FEES = {
+  registration_fee_ngn: 0
 };
 
 async function getSettingValue(key, fallback = null) {
@@ -77,6 +83,14 @@ async function getNipostRegistry() {
   };
 }
 
+async function getRiderRegistrationFees() {
+  const stored = await getSettingValue(RIDER_REGISTRATION_FEES_KEY, null);
+  const fees = stored && typeof stored === 'object' ? stored : {};
+  return {
+    registrationFeeNgn: Number(fees.registration_fee_ngn) || DEFAULT_RIDER_REGISTRATION_FEES.registration_fee_ngn
+  };
+}
+
 async function getNipostReviewEmail() {
   const stored = await getSettingValue(NIPOST_REVIEW_EMAIL_KEY, null);
   const configured = stored && typeof stored === 'string' ? stored.trim() : '';
@@ -88,13 +102,16 @@ module.exports = {
   LEGACY_BOX_LINK_FEES_KEY,
   NIPOST_REVIEW_EMAIL_KEY,
   NIPOST_REGISTRY_KEY,
+  RIDER_REGISTRATION_FEES_KEY,
   MATCH_POLICIES,
   DEFAULT_DIGITAL_BOX_FEES,
   DEFAULT_LEGACY_BOX_LINK_FEES,
   DEFAULT_NIPOST_REGISTRY,
+  DEFAULT_RIDER_REGISTRATION_FEES,
   getSettingValue,
   getDigitalBoxFees,
   getLegacyBoxLinkFees,
   getNipostRegistry,
+  getRiderRegistrationFees,
   getNipostReviewEmail
 };

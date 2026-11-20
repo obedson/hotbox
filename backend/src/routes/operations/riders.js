@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../../config/db');
+const settingsService = require('../../services/settingsService');
+const { missingRiderClearance } = require('../../utils/riderClearance');
 // GET /api/v1/operations/riders (Comprehensive Fleet Ledger & Dispatch Monitor)
 router.get('/riders', async (req, res) => {
   try {
@@ -129,6 +131,33 @@ router.post('/riders/:id/toggle-status', async (req, res) => {
     const isActive = action !== 'suspend';
     const isAvailable = action !== 'suspend';
 
+    // Reinstatement is a clearance decision: a rider may only return to duty
+    // once identity, driving privilege, service postcode and any
+    // administrator-set registration fee are all in place.
+    if (action !== 'suspend') {
+      const riderRes = await db.query(
+        'SELECT r.*, u.postcode AS user_postcode FROM riders r JOIN users u ON u.id = r.user_id WHERE r.id = $1',
+        [id]
+      );
+      const record = riderRes.rows[0];
+      if (!record) {
+        return res.status(404).json({ error: 'Rider not found' });
+      }
+      const { registrationFeeNgn } = await settingsService.getRiderRegistrationFees();
+      const missing = missingRiderClearance({
+        rider: record,
+        postcode: record.user_postcode,
+        registrationFeeNgn,
+        registrationFeePaid: Boolean(record.registration_fee_paid_at)
+      });
+      if (missing.length > 0) {
+        return res.status(409).json({
+          error: 'This rider has not completed every verification requirement and cannot be reinstated yet.',
+          missing
+        });
+      }
+    }
+
     const updateRes = await db.query(`
       UPDATE riders
       SET status = $1, is_active = $2, is_available = $3, updated_at = NOW()
@@ -145,7 +174,7 @@ router.post('/riders/:id/toggle-status', async (req, res) => {
       INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details)
       VALUES ($1, $2, 'rider', $3, $4)
     `, [
-      req.headers['x-user-id'] || 'a0000000-0000-0000-0000-000000000002',
+      req.user.id,
       action === 'suspend' ? 'RIDER_SUSPENDED' : 'RIDER_REINSTATED',
       id,
       JSON.stringify({ role: 'ops_admin', reason, previousStatus: updateRes.rows[0].status, newStatus })

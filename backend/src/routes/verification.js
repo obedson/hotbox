@@ -3,6 +3,8 @@ const router = express.Router();
 const db = require('../config/db');
 const { authenticate, requireRoles } = require('../middleware/auth');
 const digitalBoxService = require('../services/digitalBoxService');
+const settingsService = require('../services/settingsService');
+const { missingRiderClearance } = require('../utils/riderClearance');
 
 // POST /api/v1/verification/submit
 router.post('/submit', authenticate, async (req, res) => {
@@ -559,13 +561,33 @@ router.post('/review/:id', async (req, res) => {
 
       const record = reviewRes.rows[0];
       let issuesCertificate = false;
+      let riderClearance = null;
 
       // If approved, update entity operational status
       if (status === 'APPROVED') {
         if (record.entity_type === 'hub') {
           await client.query("UPDATE hubs SET status = 'accredited' WHERE id = $1", [record.entity_id]);
         } else if (record.entity_type === 'rider') {
-          await client.query("UPDATE riders SET status = 'verified' WHERE id = $1", [record.entity_id]);
+          // Clearance is only granted once the rider has evidenced identity
+          // (NIN), driving privilege (licence), a service postcode and any
+          // administrator-set registration fee. Approving one document must not
+          // open the dispatch console while another requirement is still missing.
+          const riderRes = await client.query(
+            'SELECT r.*, u.postcode AS user_postcode FROM riders r JOIN users u ON u.id = r.user_id WHERE r.id = $1',
+            [record.entity_id]
+          );
+          const rider = riderRes.rows[0];
+          const { registrationFeeNgn } = await settingsService.getRiderRegistrationFees();
+          const missing = missingRiderClearance({
+            rider,
+            postcode: rider ? rider.user_postcode : null,
+            registrationFeeNgn,
+            registrationFeePaid: rider ? Boolean(rider.registration_fee_paid_at) : false
+          });
+          riderClearance = { granted: missing.length === 0, missing };
+          if (missing.length === 0) {
+            await client.query("UPDATE riders SET status = 'verified' WHERE id = $1", [record.entity_id]);
+          }
         } else if (record.entity_type === 'user') {
           await client.query("UPDATE users SET status = 'active' WHERE id = $1", [record.entity_id]);
           if (record.document_type === 'PHYSICAL_INSPECTION_REPORT') {
@@ -622,7 +644,8 @@ router.post('/review/:id', async (req, res) => {
       res.json({
         success: true,
         message: `Verification record successfully updated to ${status}.`,
-        record
+        record,
+        clearance: riderClearance
       });
     } catch (e) {
       await client.query('ROLLBACK');

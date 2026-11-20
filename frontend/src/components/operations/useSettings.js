@@ -61,7 +61,8 @@ export default function useSettings() {
       security: 'security_governance',
       digitalbox: 'digital_box_fees',
       legacylink: 'legacy_box_link_fees',
-      registry: 'nipost_registry'
+      registry: 'nipost_registry',
+      riderregistration: 'rider_registration_fees'
     };
     const key = settingMap[tabKey];
     if (!key || !serverSettings[key] || !formSettings[key]) return false;
@@ -75,7 +76,8 @@ export default function useSettings() {
     sla: 'sla_benchmarks',
     digitalbox: 'digital_box_fees',
     legacylink: 'legacy_box_link_fees',
-    registry: 'nipost_registry'
+    registry: 'nipost_registry',
+    riderregistration: 'rider_registration_fees'
   }[activeTab];
 
   // Nested field updater
@@ -151,6 +153,7 @@ export default function useSettings() {
   const digitalBoxVal = formSettings.digital_box_fees?.value || {};
   const legacyBoxLinkVal = formSettings.legacy_box_link_fees?.value || {};
   const nipostRegistryVal = formSettings.nipost_registry?.value || {};
+  const riderRegistrationVal = formSettings.rider_registration_fees?.value || {};
 
 
   return {
@@ -173,6 +176,7 @@ export default function useSettings() {
     loading,
     pricingVal,
     reasonError,
+    riderRegistrationVal,
     saveModalOpen,
     saving,
     secVal,

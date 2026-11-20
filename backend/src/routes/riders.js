@@ -1,11 +1,14 @@
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const db = require('../config/db');
 const { authenticate, requireRoles } = require('../middleware/auth');
 const { parseBoxNumber } = require('../utils/boxNumber');
 const digitalBoxService = require('../services/digitalBoxService');
 const legacyBoxLinkService = require('../services/legacyBoxLinkService');
 const { parseDocumentDataUrl } = require('../utils/documentUpload');
+const settingsService = require('../services/settingsService');
+const { PLACEHOLDER_LICENCE } = require('../utils/riderClearance');
 
 // Rider endpoints are restricted to riders and operations staff.
 router.use(authenticate, requireRoles('rider', 'ops_admin'));
@@ -306,7 +309,6 @@ router.get('/me/jobs', requireVerifiedRider, async (req, res) => {
 // role gate rather than `requireVerifiedRider`.
 
 const TRACK_B_DOCUMENT_TYPES = ['NIN', 'DRIVERS_LICENSE', 'COURIER_LICENCE', 'PROOF_OF_ADDRESS'];
-const PLACEHOLDER_LICENCE = 'DL-PENDING';
 const VEHICLE_TYPES = ['bicycle', 'motorcycle', 'van', 'truck'];
 
 const getRiderRecord = async (userId) => {
@@ -331,6 +333,7 @@ router.get('/verification', async (req, res) => {
       [rider.id]
     );
     const userRes = await db.query('SELECT postcode FROM users WHERE id = $1', [req.user.id]);
+    const fees = await settingsService.getRiderRegistrationFees();
 
     res.json({
       profile: {
@@ -340,6 +343,8 @@ router.get('/verification', async (req, res) => {
         plateNumber: rider.plate_number,
         operationalPostcodes: rider.operational_postcodes,
         postcode: userRes.rows[0]?.postcode || null,
+        registrationFeeNgn: fees.registrationFeeNgn,
+        registrationFeePaid: Boolean(rider.registration_fee_paid_at),
         status: rider.status
       },
       records: recordsRes.rows
@@ -363,8 +368,14 @@ router.patch('/profile', async (req, res) => {
     ? body.operationalPostcodes.map((value) => String(value).trim()).filter(Boolean)
     : null;
 
-  if (body.nin !== undefined && nin && !/^\d{11}$/.test(nin)) {
+  if (body.nin !== undefined && !/^\d{11}$/.test(nin)) {
     return res.status(400).json({ error: 'Enter your 11-digit NIN.' });
+  }
+  if (body.driversLicenseNo !== undefined && !licence) {
+    return res.status(400).json({ error: "Driver's licence number is required." });
+  }
+  if (body.postcode !== undefined && !homePostcode) {
+    return res.status(400).json({ error: 'Enter the postcode where you operate.' });
   }
   if (licence.length > 50) {
     return res.status(400).json({ error: "Driver's licence number is too long." });
@@ -488,6 +499,82 @@ router.post('/verification/documents', async (req, res) => {
     res.status(201).json({ record: inserted.rows[0] });
   } catch (err) {
     res.status(500).json({ error: 'Could not submit that document.' });
+  }
+});
+
+// POST /api/v1/riders/registration-fee/pay
+// Settles the administrator-configured registration fee from the rider's
+// prepaid wallet. Operations cannot grant dispatch clearance until this is
+// settled, so the amount is read fresh from settings on every attempt.
+router.post('/registration-fee/pay', async (req, res) => {
+  try {
+    const rider = await getRiderRecord(req.user.id);
+    if (!rider) {
+      return res.status(404).json({ error: 'Rider profile not found for this user.' });
+    }
+
+    const { registrationFeeNgn } = await settingsService.getRiderRegistrationFees();
+    const fee = Number(registrationFeeNgn) || 0;
+    if (fee <= 0) {
+      return res.status(400).json({ error: 'No rider registration fee is configured.' });
+    }
+    if (rider.registration_fee_paid_at) {
+      return res.status(409).json({ error: 'Your rider registration fee has already been paid.' });
+    }
+
+    const walletRes = await db.query('SELECT * FROM wallets WHERE user_id = $1', [req.user.id]);
+    const wallet = walletRes.rows[0];
+    const currentBalance = wallet ? parseFloat(wallet.balance_ngn || 0) : 0;
+    if (currentBalance < fee) {
+      return res.status(400).json({
+        error: `Insufficient prepaid wallet balance for the rider registration fee (₦${fee.toFixed(2)} required). Please top up your wallet.`,
+        required: fee,
+        currentBalance
+      });
+    }
+
+    const newBalance = currentBalance - fee;
+    const reference = `RIDER-REG-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        'UPDATE wallets SET balance_ngn = $1, ledger_balance_ngn = $1, updated_at = NOW() WHERE id = $2',
+        [newBalance, wallet.id]
+      );
+      await client.query(
+        `INSERT INTO transactions (
+           wallet_id, transaction_type, amount_ngn, fee_ngn, net_amount_ngn,
+           balance_before_ngn, balance_after_ngn, reference, payment_gateway,
+           gateway_reference, status, metadata
+         ) VALUES ($1, 'BOOKING_PAYMENT', $2, 0.00, $2, $3, $4, $5, 'WALLET', $5, 'COMPLETED', $6)`,
+        [wallet.id, fee, currentBalance, newBalance, reference, JSON.stringify({ description: 'Rider Registration Fee' })]
+      );
+      await client.query(
+        'UPDATE riders SET registration_fee_paid_at = NOW(), updated_at = NOW() WHERE id = $1',
+        [rider.id]
+      );
+      await client.query(
+        `INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details)
+         VALUES ($1, 'RIDER_REGISTRATION_FEE_PAID', 'rider', $2, $3)`,
+        [req.user.id, rider.id, JSON.stringify({ amountNgn: fee, reference })]
+      );
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    res.json({
+      message: 'Rider registration fee paid.',
+      reference,
+      newBalance,
+      registrationFeePaid: true
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not settle the rider registration fee.' });
   }
 });
 

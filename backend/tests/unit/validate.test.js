@@ -33,7 +33,13 @@ test('registerSchema rejects privileged roles on the self-service path', () => {
 
 test('registerSchema only exposes the four public account types', () => {
   for (const role of SELF_SIGNUP_ROLES) {
-    const parsed = registerSchema.parse({ ...validRegistration, role });
+    const payload = { ...validRegistration, role };
+    if (role === 'rider') {
+      payload.nin = '12345678901';
+      payload.driversLicenseNo = 'ABJ123456789';
+      payload.postcode = 'FC-01-A03-FK-01';
+    }
+    const parsed = registerSchema.parse(payload);
     assert.equal(parsed.role, role);
   }
 });
@@ -43,13 +49,34 @@ test('registerSchema accepts rider identity fields and bounds their length', () 
     ...validRegistration,
     role: 'rider',
     nin: '12345678901',
-    driversLicenseNo: 'ABJ123456789'
+    driversLicenseNo: 'ABJ123456789',
+    postcode: 'FC-01-A03-FK-01'
   });
   assert.equal(parsed.nin, '12345678901');
   assert.equal(parsed.driversLicenseNo, 'ABJ123456789');
+  assert.equal(parsed.postcode, 'FC-01-A03-FK-01');
 
   assert.throws(() => registerSchema.parse({ ...validRegistration, role: 'rider', nin: '1'.repeat(21) }));
   assert.throws(() => registerSchema.parse({ ...validRegistration, role: 'rider', driversLicenseNo: 'L'.repeat(51) }));
+});
+
+test('registerSchema makes NIN, driver licence and postcode compulsory for riders', () => {
+  const rider = {
+    ...validRegistration,
+    role: 'rider',
+    nin: '12345678901',
+    driversLicenseNo: 'ABJ123456789',
+    postcode: 'FC-01-A03-FK-01'
+  };
+
+  assert.throws(() => registerSchema.parse({ ...rider, nin: undefined }));
+  assert.throws(() => registerSchema.parse({ ...rider, nin: '12345' }));
+  assert.throws(() => registerSchema.parse({ ...rider, driversLicenseNo: undefined }));
+  assert.throws(() => registerSchema.parse({ ...rider, postcode: undefined }));
+  assert.throws(() => registerSchema.parse({ ...rider, postcode: '   ' }));
+
+  // The same fields stay optional for every other self-service account type.
+  assert.ok(registerSchema.parse({ ...validRegistration, role: 'customer' }));
 });
 
 test('registerSchema requires a verified contact channel and a strong password', () => {
