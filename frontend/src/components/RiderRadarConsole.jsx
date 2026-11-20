@@ -190,11 +190,99 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
     return date.toLocaleString('en-NG', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
-  const checkBadge = (ok, okText, pendingText) => (
-    <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${ok ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-      {ok ? okText : pendingText}
-    </span>
-  );
+  const verificationRecords = kyc?.records || [];
+  const recordFor = (documentType) =>
+    verificationRecords.find((record) => record.document_type === documentType);
+
+  const clearanceBadge = (state, label) => {
+    const styles = {
+      approved: 'bg-emerald-100 text-emerald-800',
+      rejected: 'bg-rose-100 text-rose-700',
+      review: 'bg-amber-100 text-amber-800',
+      provided: 'bg-sky-100 text-sky-800',
+      pending: 'bg-slate-100 text-slate-500'
+    };
+    return (
+      <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${styles[state]}`}>
+        {label}
+      </span>
+    );
+  };
+
+  // A badge is driven by the Operations review outcome, never by the mere
+  // presence of a value in the profile. "Provided" means saved, not cleared.
+  const clearanceFor = (item) => {
+    const record = item.documentType ? recordFor(item.documentType) : null;
+    if (record) {
+      if (record.status === 'APPROVED') return clearanceBadge('approved', item.approvedLabel);
+      if (record.status === 'REJECTED') return clearanceBadge('rejected', 'Rejected');
+      return clearanceBadge('review', 'Under review');
+    }
+    if (item.paid) return clearanceBadge('approved', item.approvedLabel);
+    if (item.clearWhenVerified && isVerified) return clearanceBadge('approved', item.approvedLabel);
+    if (item.provided) return clearanceBadge('provided', item.providedLabel || 'Provided');
+    return clearanceBadge('pending', item.pendingLabel || 'Pending');
+  };
+
+  const accreditationItems = [
+    {
+      key: 'drivers_license',
+      label: "Driver's License (FRSC)",
+      documentType: 'DRIVERS_LICENSE',
+      approvedLabel: 'Verified',
+      providedLabel: 'Provided',
+      provided: Boolean(rider?.drivers_license_no) && rider.drivers_license_no !== 'DL-PENDING'
+    },
+    {
+      key: 'vehicle',
+      label: 'Vehicle Roadworthiness',
+      approvedLabel: 'Passed',
+      providedLabel: 'Provided',
+      provided: Boolean(rider?.vehicle_type)
+    },
+    {
+      key: 'courier_licence',
+      label: 'Track B Courier Licensing',
+      documentType: 'COURIER_LICENCE',
+      approvedLabel: 'Accredited',
+      providedLabel: 'Provided',
+      provided: false,
+      clearWhenVerified: true
+    },
+    {
+      key: 'nin',
+      label: 'NIN Identity Check',
+      documentType: 'NIN',
+      approvedLabel: 'Verified',
+      providedLabel: 'Provided',
+      provided: Boolean(rider?.nin)
+    },
+    {
+      key: 'postcode',
+      label: 'Home Postcode',
+      approvedLabel: 'Verified',
+      providedLabel: 'Provided',
+      provided: Boolean(kyc?.profile?.postcode)
+    },
+    {
+      key: 'phone',
+      label: 'Phone Number',
+      approvedLabel: 'Verified',
+      providedLabel: 'Provided',
+      provided: Boolean(kyc?.profile?.phone)
+    }
+  ];
+
+  if (registrationFee.amountNgn > 0) {
+    accreditationItems.push({
+      key: 'registration_fee',
+      label: 'Registration Fee',
+      approvedLabel: 'Paid',
+      pendingLabel: 'Pending',
+      provided: false,
+      paid: registrationFee.paid
+    });
+  }
 
   const handleClaimJob = async (job) => {
     setClaimingId(job.id);
@@ -840,39 +928,23 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
           </form>
 
           <div className="pt-4 border-t border-slate-100 space-y-3">
-            <h4 className="text-xs font-bold text-slate-900">Accreditation Checklist</h4>
-            <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl p-2 bg-slate-50 space-y-1 text-xs">
-              <div className="py-1.5 flex justify-between items-center">
-                <span>Driver's License (FRSC)</span>
-                {checkBadge(Boolean(rider?.drivers_license_no) && rider.drivers_license_no !== 'DL-PENDING', 'Verified', 'Pending')}
-              </div>
-              <div className="py-1.5 flex justify-between items-center">
-                <span>Vehicle Roadworthiness</span>
-                {checkBadge(Boolean(rider?.vehicle_type), 'Passed', 'Pending')}
-              </div>
-              <div className="py-1.5 flex justify-between items-center">
-                <span>Track B Courier Licensing</span>
-                {checkBadge(isVerified, 'Accredited', 'Pending')}
-              </div>
-              <div className="py-1.5 flex justify-between items-center">
-                <span>NIN Identity Check</span>
-                {checkBadge(Boolean(rider?.nin), 'Verified', 'Pending')}
-              </div>
-              <div className="py-1.5 flex justify-between items-center">
-                <span>Home Postcode</span>
-                {checkBadge(Boolean(kyc?.profile?.postcode), 'Provided', 'Pending')}
-              </div>
-              <div className="py-1.5 flex justify-between items-center">
-                <span>Phone Number</span>
-                {checkBadge(Boolean(kyc?.profile?.phone), 'Provided', 'Pending')}
-              </div>
-              {registrationFee.amountNgn > 0 && (
-                <div className="py-1.5 flex justify-between items-center">
-                  <span>Registration Fee</span>
-                  {checkBadge(registrationFee.paid, 'Paid', 'Pending')}
-                </div>
-              )}
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="text-xs font-bold text-slate-900">Accreditation Checklist</h4>
+              {isVerified
+                ? clearanceBadge('approved', 'Cleared for dispatch')
+                : clearanceBadge('review', 'Operations review required')}
             </div>
+            <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl p-2 bg-slate-50 space-y-1 text-xs">
+              {accreditationItems.map((item) => (
+                <div key={item.key} className="py-1.5 flex justify-between items-center gap-2">
+                  <span className="min-w-0">{item.label}</span>
+                  {clearanceFor(item)}
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-slate-400">
+              "Provided" means the details are saved to your record. Operations must still review and approve them before dispatch clearance.
+            </p>
           </div>
 
           <div className="pt-4 border-t border-slate-100 space-y-3">

@@ -317,4 +317,17 @@ describe('RiderRadarConsole', () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
   });
+
+  it('derives checklist badges from Operations review state, not field presence', async () => {
+    mockConsole({ kyc: kycPayload });
+    render(<RiderRadarConsole activeNav="profile" setActiveNav={() => {}} hubs={[]} showToast={() => {}} />);
+
+    expect(await screen.findByText('Accreditation Checklist')).toBeInTheDocument();
+    // Driver's licence is saved and submitted but still awaiting Operations review.
+    expect(screen.getByText('Under review')).toBeInTheDocument();
+    // NIN has an approved verification record.
+    expect(screen.getByText('Verified')).toBeInTheDocument();
+    // Saved-only details are labelled as provided, never as verified.
+    expect(screen.getAllByText('Provided').length).toBe(3);
+  });
 });
