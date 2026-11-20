@@ -700,4 +700,203 @@ router.post('/review/:id', async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Rider applications
+// A rider's application is the whole package: the identity fields on their
+// profile plus the Track B documents they uploaded. Compliance reviews the
+// rider as one application, while the decision still lands on each underlying
+// verification record so the document ledger stays complete.
+// ---------------------------------------------------------------------------
+
+// GET /api/v1/verification/rider-applications
+router.get('/rider-applications', async (req, res) => {
+  const { search, status = 'ALL' } = req.query;
+
+  try {
+    const params = [];
+    const conditions = [];
+
+    if (search && search.trim()) {
+      params.push(`%${search.trim()}%`);
+      conditions.push(`(
+        u.name ILIKE $${params.length} OR
+        u.email ILIKE $${params.length} OR
+        u.phone ILIKE $${params.length} OR
+        r.plate_number ILIKE $${params.length} OR
+        r.nin ILIKE $${params.length} OR
+        r.drivers_license_no ILIKE $${params.length}
+      )`);
+    }
+
+    if (status && status !== 'ALL') {
+      params.push(status);
+      conditions.push(`r.status = $${params.length}`);
+    }
+
+    const whereSql = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const ridersRes = await db.query(
+      `SELECT r.*, u.name, u.email, u.phone, u.postcode AS user_postcode
+       FROM riders r
+       JOIN users u ON u.id = r.user_id
+       ${whereSql}
+       ORDER BY (r.status = 'pending') DESC, r.created_at DESC`,
+      params
+    );
+
+    const docsRes = await db.query(
+      `SELECT id, entity_id, document_type, document_number, status, submitted_at, reviewed_at, reviewer_notes
+       FROM verification_records
+       WHERE entity_type = 'rider'
+       ORDER BY submitted_at DESC`
+    );
+
+    const documentsByRider = {};
+    for (const doc of docsRes.rows) {
+      documentsByRider[doc.entity_id] = documentsByRider[doc.entity_id] || [];
+      documentsByRider[doc.entity_id].push(doc);
+    }
+
+    const { registrationFeeNgn } = await settingsService.getRiderRegistrationFees();
+
+    const riders = ridersRes.rows.map((rider) => {
+      const documents = documentsByRider[rider.id] || [];
+      const missing = missingRiderClearance({
+        rider,
+        postcode: rider.user_postcode,
+        phone: rider.phone,
+        registrationFeeNgn,
+        registrationFeePaid: Boolean(rider.registration_fee_paid_at)
+      });
+
+      return {
+        ...rider,
+        documents,
+        pendingDocuments: documents.filter((doc) => doc.status === 'PENDING').length,
+        rejectedDocuments: documents.filter((doc) => doc.status === 'REJECTED').length,
+        missingClearance: missing,
+        readyForApproval: missing.length === 0
+      };
+    });
+
+    res.json({
+      riders,
+      registrationFeeNgn,
+      counts: {
+        awaiting: riders.filter((r) => r.status === 'pending' && r.pendingDocuments > 0).length,
+        rejected: riders.filter((r) => r.status === 'pending' && r.pendingDocuments === 0 && r.rejectedDocuments > 0).length,
+        verified: riders.filter((r) => r.status === 'verified').length,
+        suspended: riders.filter((r) => r.status === 'suspended').length,
+        total: riders.length
+      }
+    });
+  } catch (err) {
+    console.error('Rider applications error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/v1/verification/riders/:id/review
+router.post('/riders/:id/review', async (req, res) => {
+  const { action, reason } = req.body || {};
+
+  if (!['approve', 'reject'].includes(action)) {
+    return res.status(400).json({ error: 'Action must be either approve or reject.' });
+  }
+  if (action === 'reject' && (!reason || !String(reason).trim())) {
+    return res.status(400).json({ error: 'A rejection reason is required.' });
+  }
+
+  const reviewerId = req.user.id;
+  const notes = action === 'reject'
+    ? `Reason: ${String(reason).trim()}`
+    : 'Rider application approved by compliance review.';
+
+  try {
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+
+      const riderRes = await client.query(
+        `SELECT r.*, u.postcode AS user_postcode, u.phone AS user_phone
+         FROM riders r JOIN users u ON u.id = r.user_id
+         WHERE r.id = $1`,
+        [req.params.id]
+      );
+      const rider = riderRes.rows[0];
+      if (!rider) {
+        const notFound = new Error('Rider not found.');
+        notFound.status = 404;
+        throw notFound;
+      }
+
+      const { registrationFeeNgn } = await settingsService.getRiderRegistrationFees();
+      const missing = missingRiderClearance({
+        rider,
+        postcode: rider.user_postcode,
+        phone: rider.user_phone,
+        registrationFeeNgn,
+        registrationFeePaid: Boolean(rider.registration_fee_paid_at)
+      });
+
+      if (action === 'approve' && missing.length > 0) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({
+          error: 'This rider has not completed every verification requirement and cannot be approved yet.',
+          missing
+        });
+      }
+
+      const reviewed = await client.query(
+        `UPDATE verification_records
+         SET status = $1, reviewed_by = $2, reviewer_notes = $3, reviewed_at = NOW()
+         WHERE entity_type = 'rider' AND entity_id = $4 AND status = 'PENDING'
+         RETURNING id`,
+        [action === 'approve' ? 'APPROVED' : 'REJECTED', reviewerId, notes, req.params.id]
+      );
+
+      if (action === 'approve') {
+        await client.query(
+          `UPDATE riders SET status = 'verified', is_active = TRUE, is_available = TRUE, updated_at = NOW()
+           WHERE id = $1`,
+          [req.params.id]
+        );
+      }
+
+      await client.query(
+        `INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details)
+         VALUES ($1, $2, 'rider', $3, $4)`,
+        [
+          reviewerId,
+          action === 'approve' ? 'RIDER_APPLICATION_APPROVED' : 'RIDER_APPLICATION_REJECTED',
+          req.params.id,
+          JSON.stringify({
+            riderId: req.params.id,
+            records: reviewed.rows.map((row) => row.id),
+            reason: action === 'reject' ? String(reason).trim() : null
+          })
+        ]
+      );
+
+      await client.query('COMMIT');
+
+      res.json({
+        success: true,
+        message: action === 'approve'
+          ? 'Rider application approved. The rider now has dispatch clearance.'
+          : 'Rider application rejected. The rider can resolve the issues and resubmit.',
+        recordsReviewed: reviewed.rows.length
+      });
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Rider application review error:', err);
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

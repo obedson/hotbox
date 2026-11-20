@@ -26,6 +26,7 @@ import ShipmentManagement from './components/ShipmentManagement';
 import RiderManagement from './components/RiderManagement';
 import HubManagement from './components/HubManagement';
 import HubApplicationsPanel from './components/operations/HubApplicationsPanel';
+import RiderApplicationsPanel from './components/operations/RiderApplicationsPanel';
 import TeamPanel from './components/operations/TeamPanel';
 import GroundTruthQueue from './components/operations/GroundTruthQueue';
 import PostcodeManagement from './components/PostcodeManagement';
@@ -370,6 +371,9 @@ export default function App() {
 
                   {activeNav === 'hub_applications' && (
                     <HubApplicationsPanel />
+                  )}
+                  {activeNav === 'rider_applications' && (
+                    <RiderApplicationsPanel currentUser={currentUser} showToast={showToast} />
                   )}
                   {activeNav === 'team' && (
                     <TeamPanel currentUser={currentUser} showToast={showToast} />

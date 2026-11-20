@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   LayoutDashboard, Package, Users, Store, MapPin, AlertTriangle,
   ShieldCheck, BarChart2, FileText, Settings, LogOut, Key, Webhook,
@@ -20,21 +20,33 @@ const PORTAL_CONFIG = {
     activeNavBg: 'bg-[#0f4430] text-white shadow-sm font-bold',
     hoverNavBg: 'text-slate-300 hover:text-white hover:bg-[#0a3323]',
     iconActiveColor: 'text-emerald-400',
+    navGroupAfter: 'overview',
     navItems: [
       { id: 'overview', label: 'Overview', icon: LayoutDashboard, tooltip: 'Nationwide performance & live network metrics' },
       { id: 'shipments', label: 'Shipments', icon: Package, tooltip: 'Verified nationwide parcel volume ledger' },
       { id: 'riders', label: 'Riders', icon: Users, tooltip: 'Accredited courier fleet & corridor assignments' },
       { id: 'hubs', label: 'Partner Hubs', icon: Store, tooltip: 'Community merchant collection & storage hubs' },
-      { id: 'hub_applications', label: 'Hub Applications', icon: ClipboardList, tooltip: 'Hub accreditation applications, inspections & decisions' },
       { id: 'postcodes', label: 'Service Areas', icon: MapPin, tooltip: 'Operational delivery zones, corridors & hub coverage' },
       { id: 'exceptions', label: 'Delivery Issues', icon: AlertTriangle, badge: '18', badgeType: 'danger', tooltip: 'Delayed parcels, overdue pickups & claims' },
-      { id: 'verification', label: 'Verification', icon: ShieldCheck, badge: '9', badgeType: 'info', tooltip: 'Hub & rider accreditation KYC queue' },
-      { id: 'legacy_links', label: 'Legacy Box Links', icon: Link2, badge: 'NIPOST', badgeType: 'info', tooltip: 'Verify old P.O. Box numbers against NIPOST archives' },
-      { id: 'ground_truth', label: 'Ground-Truth Queue', icon: Crosshair, tooltip: 'Postcode ground-truth doorway inspections and field reports' },
       { id: 'reports', label: 'Reports', icon: BarChart2, tooltip: 'Network intelligence & financial settlements' },
       { id: 'audit', label: 'Audit Log', icon: FileText, tooltip: 'Immutable custody transfers & administrative logs' },
       { id: 'settings', label: 'Settings', icon: Settings, tooltip: 'Delivery rates, commission splits & SLA rules' },
       { id: 'team', label: 'Team & Access', icon: UserCog, tooltip: 'Provision staff accounts, roles and temporary passwords' },
+    ],
+    navGroups: [
+      {
+        id: 'applications',
+        label: 'Applications',
+        icon: ClipboardList,
+        tooltip: 'Accreditation, verification & linking applications',
+        items: [
+          { id: 'hub_applications', label: 'Hub Applications', icon: Store, tooltip: 'Hub accreditation applications, inspections & decisions' },
+          { id: 'rider_applications', label: 'Rider Applications', icon: Bike, tooltip: 'Rider KYC applications, clearance & dispatch decisions' },
+          { id: 'ground_truth', label: 'Postcode Validations', icon: Crosshair, tooltip: 'Postcode ground-truth doorway inspections and field reports' },
+          { id: 'legacy_links', label: 'Legacy Box Links', icon: Link2, badge: 'NIPOST', badgeType: 'info', tooltip: 'Verify old P.O. Box numbers against NIPOST archives' },
+          { id: 'verification', label: 'Document Review', icon: ShieldCheck, tooltip: 'Address proofs, regulatory documents & inspection evidence' }
+        ]
+      }
     ]
   },
   enterprise: {
@@ -134,10 +146,70 @@ export default function Sidebar({
 }) {
   const currentPortalMeta = PORTAL_CONFIG[activePortal] || PORTAL_CONFIG.operations;
   const allowedNav = allowedOperationsNavForRole(currentUser?.role);
-  const navItems = allowedNav && activePortal === 'operations'
-    ? currentPortalMeta.navItems.filter((item) => allowedNav.includes(item.id))
-    : currentPortalMeta.navItems;
+  const filterNavItems = (items) => (
+    allowedNav && activePortal === 'operations'
+      ? items.filter((item) => allowedNav.includes(item.id))
+      : items
+  );
+  const navItems = filterNavItems(currentPortalMeta.navItems);
+  const navGroups = (currentPortalMeta.navGroups || [])
+    .map((group) => ({ ...group, items: filterNavItems(group.items) }))
+    .filter((group) => group.items.length > 0);
+  const groupAfter = currentPortalMeta.navGroupAfter;
   const BrandIcon = currentPortalMeta.brandIcon;
+
+  const [collapsedGroups, setCollapsedGroups] = useState({});
+  const toggleGroup = (groupId) => setCollapsedGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
+
+  // Keep the group containing the active screen expanded so the current
+  // application queue is always visible in the sidebar.
+  useEffect(() => {
+    const groups = PORTAL_CONFIG[activePortal]?.navGroups || [];
+    const activeGroup = groups.find((group) => group.items.some((item) => item.id === activeNav));
+    if (!activeGroup) return;
+    setCollapsedGroups((prev) => {
+      if (!prev[activeGroup.id]) return prev;
+      const next = { ...prev };
+      delete next[activeGroup.id];
+      return next;
+    });
+  }, [activeNav, activePortal]);
+
+  const renderNavItem = (item, isMobile) => {
+    const Icon = item.icon;
+    const isActive = activeNav === item.id;
+    return (
+      <button
+        key={item.id}
+        onClick={() => {
+          setActiveNav(item.id);
+          if (isMobile && onCloseMobile) onCloseMobile();
+        }}
+        title={item.tooltip}
+        className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+          isActive
+            ? currentPortalMeta.activeNavBg
+            : currentPortalMeta.hoverNavBg
+        }`}
+      >
+        <div className="flex items-center space-x-3 min-w-0">
+          <Icon className={`w-4 h-4 shrink-0 ${isActive ? currentPortalMeta.iconActiveColor : 'text-slate-400'}`} />
+          <span className="truncate">{item.label}</span>
+        </div>
+        {item.badge && (
+          <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md shrink-0 ml-1.5 ${
+            item.badgeType === 'danger'
+              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+              : item.badgeType === 'warning'
+              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+          }`}>
+            {item.badge}
+          </span>
+        )}
+      </button>
+    );
+  };
 
   const renderSidebarContent = (isMobile = false) => (
     <div className="flex flex-col h-full bg-[#062419] text-slate-200 select-none">
@@ -179,41 +251,50 @@ export default function Sidebar({
 
       {/* Navigation Items */}
       <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeNav === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => {
-                setActiveNav(item.id);
-                if (isMobile && onCloseMobile) onCloseMobile();
-              }}
-              title={item.tooltip}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                isActive
-                  ? currentPortalMeta.activeNavBg
-                  : currentPortalMeta.hoverNavBg
-              }`}
-            >
-              <div className="flex items-center space-x-3 min-w-0">
-                <Icon className={`w-4 h-4 shrink-0 ${isActive ? currentPortalMeta.iconActiveColor : 'text-slate-400'}`} />
-                <span className="truncate">{item.label}</span>
-              </div>
-              {item.badge && (
-                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md shrink-0 ml-1.5 ${
-                  item.badgeType === 'danger'
-                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                    : item.badgeType === 'warning'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                    : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                }`}>
-                  {item.badge}
-                </span>
-              )}
-            </button>
-          );
-        })}
+        {(() => {
+          const entries = [];
+          let inserted = false;
+          navItems.forEach((item) => {
+            entries.push({ type: 'item', item });
+            if (groupAfter === item.id) {
+              navGroups.forEach((group) => entries.push({ type: 'group', group }));
+              inserted = true;
+            }
+          });
+          if (!inserted) {
+            navGroups.forEach((group) => entries.push({ type: 'group', group }));
+          }
+
+          return entries.map((entry) => {
+            if (entry.type === 'group') {
+              const group = entry.group;
+              const GroupIcon = group.icon;
+              const expanded = collapsedGroups[group.id] !== true;
+              return (
+                <div key={group.id} className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(group.id)}
+                    title={group.tooltip}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${currentPortalMeta.hoverNavBg}`}
+                  >
+                    <div className="flex items-center space-x-3 min-w-0">
+                      <GroupIcon className="w-4 h-4 shrink-0 text-slate-400" />
+                      <span className="truncate">{group.label}</span>
+                    </div>
+                    <ChevronRight className={`w-3.5 h-3.5 shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`} />
+                  </button>
+                  {expanded && (
+                    <div className="ml-3 pl-3 border-l border-[#0d3b2b] space-y-1">
+                      {group.items.map((item) => renderNavItem(item, isMobile))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            return renderNavItem(entry.item, isMobile);
+          });
+        })()}
       </nav>
 
       {/* User / Sign Out Footer */}

@@ -64,7 +64,7 @@ export const STAFF_ROLES = [
 // map sees the full operations navigation.
 export const OPERATIONS_NAV_BY_ROLE = {
   nipost_verifier: ['legacy_links', 'ground_truth'],
-  compliance_officer: ['verification', 'legacy_links', 'hub_applications']
+  compliance_officer: ['hub_applications', 'rider_applications', 'ground_truth', 'legacy_links', 'verification']
 };
 
 export function allowedOperationsNavForRole(role) {

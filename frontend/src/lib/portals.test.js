@@ -42,7 +42,11 @@ describe('portal authorization', () => {
 
   it('gives a compliance officer the verification desk, link queue and hub applications', () => {
     expect(allowedOperationsNavForRole('compliance_officer')).toEqual([
-      'verification', 'legacy_links', 'hub_applications'
+      'hub_applications',
+      'rider_applications',
+      'ground_truth',
+      'legacy_links',
+      'verification'
     ]);
   });
 });

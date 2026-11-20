@@ -109,6 +109,7 @@ export default function TopHeader({
     postcodes: 'Service Areas & Coverage',
     exceptions: 'Delivery Issues & Claims',
     verification: 'Partner Verification Desk',
+    rider_applications: 'Rider Verification Applications',
     reports: 'Reports & Analytics',
     audit: 'Immutable Custody Audit Log',
     settings: 'Platform Settings',
