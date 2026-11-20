@@ -20,27 +20,35 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
     setLoading(true);
     setError('');
     try {
-      const [meRes, jobsRes, mineRes] = await Promise.all([
-        apiFetch('/api/v1/riders/me'),
-        apiFetch('/api/v1/riders/radar/jobs'),
-        apiFetch('/api/v1/riders/me/jobs')
-      ]);
-
-      const jobsData = await jobsRes.json();
-      if (!jobsRes.ok) throw new Error(jobsData.error || 'Unable to load delivery jobs');
-      setRadarJobs(jobsData.jobs || []);
-
+      const meRes = await apiFetch('/api/v1/riders/me');
+      let riderStatus = null;
       if (meRes.ok) {
-        setMe(await meRes.json());
+        const meData = await meRes.json();
+        setMe(meData);
+        riderStatus = meData?.rider?.status || null;
       } else {
         const meData = await meRes.json().catch(() => ({}));
         if (meRes.status !== 404) throw new Error(meData.error || 'Unable to load rider profile');
         setMe(null);
       }
 
-      if (mineRes.ok) {
-        const mineData = await mineRes.json();
-        setMyJobs(mineData.jobs || []);
+      // Dispatch data is blocked at the API for an unverified rider, so only ask
+      // for it once the account is cleared. That keeps this console on its
+      // verification screen instead of failing to load.
+      if (riderStatus === 'verified') {
+        const [jobsRes, mineRes] = await Promise.all([
+          apiFetch('/api/v1/riders/radar/jobs'),
+          apiFetch('/api/v1/riders/me/jobs')
+        ]);
+
+        const jobsData = await jobsRes.json();
+        if (!jobsRes.ok) throw new Error(jobsData.error || 'Unable to load delivery jobs');
+        setRadarJobs(jobsData.jobs || []);
+
+        if (mineRes.ok) {
+          const mineData = await mineRes.json();
+          setMyJobs(mineData.jobs || []);
+        }
       }
     } catch (err) {
       setError(err.message);
@@ -55,6 +63,16 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
 
   const rider = me?.rider || null;
   const walletBalance = me?.walletBalance ?? 0;
+
+  // Clearance is driven by the regulatory verification status, never by the
+  // legacy `is_active` flag (which is true from the moment of signup).
+  const riderStatus = rider?.status || 'unknown';
+  const isVerified = riderStatus === 'verified';
+  const statusBadge = isVerified
+    ? { label: 'Track B Verified Rider', className: 'bg-blue-950 text-blue-300 border-blue-800' }
+    : riderStatus === 'suspended'
+      ? { label: 'Suspended', className: 'bg-rose-950 text-rose-300 border-rose-800' }
+      : { label: 'Verification Pending', className: 'bg-amber-950 text-amber-300 border-amber-800' };
 
   const serviceLabels = {
     DOOR_TO_HUB: 'Door-to-Hub',
@@ -191,8 +209,8 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
       <div className="bg-slate-900 text-white p-4 sm:p-6 rounded-2xl border border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800">
-              {rider?.is_active ? 'Track B Verified Rider' : 'Track B Verification Pending'}
+            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${statusBadge.className}`}>
+              {statusBadge.label}
             </span>
             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">
               {rider?.is_available ? 'Available for Dispatch' : 'Offline'}
@@ -217,8 +235,25 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
         </div>
       </div>
 
+      {!isVerified && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 space-y-2">
+          <div className="flex items-center gap-2 text-amber-800 font-bold text-sm">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            Rider verification pending
+          </div>
+          <p className="text-xs text-amber-800 leading-relaxed">
+            Your account has been created, but Hotbox cannot grant dispatch access until your
+            regulatory verification is approved. Operations reviews every rider before the first
+            delivery, and you will be notified by email once your account is cleared.
+          </p>
+          <p className="text-[11px] text-amber-700">
+            Current status: <span className="font-bold uppercase">{riderStatus}</span>
+          </p>
+        </div>
+      )}
+
       {/* TAB 1: JOB RADAR */}
-      {activeNav === 'radar' && (
+      {isVerified && activeNav === 'radar' && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200">
             <div>
@@ -282,7 +317,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
       )}
 
       {/* TAB 2: ACTIVE ROUTE */}
-      {activeNav === 'active_route' && (
+      {!isVerified && activeNav === 'active_route' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
@@ -374,7 +409,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
       )}
 
       {/* TAB 3: CUSTODY SCANNER */}
-      {activeNav === 'scanner' && (
+      {!isVerified && activeNav === 'scanner' && (
         <div className="space-y-4">
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-blue-900 text-xs flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -397,7 +432,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
       )}
 
       {/* TAB 4: POSTCODE & DIGITAL P.O. BOX LOOKUP */}
-      {activeNav === 'lookup' && (
+      {!isVerified && activeNav === 'lookup' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
             <div>
@@ -414,7 +449,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
       )}
 
       {/* TAB 5: DELIVERY TRIP HISTORY */}
-      {activeNav === 'history' && (
+      {!isVerified && activeNav === 'history' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <h3 className="text-sm font-bold text-slate-900">Completed Delivery Trips Archive</h3>
@@ -458,7 +493,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
       )}
 
       {/* TAB 5: EARNINGS & WALLET */}
-      {activeNav === 'earnings' && (
+      {!isVerified && activeNav === 'earnings' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
@@ -495,8 +530,8 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
               <h3 className="text-sm font-bold text-slate-900">Rider Credentials & Track B Accreditation</h3>
               <p className="text-xs text-slate-500">Government driver ID, vehicle documentation, and operational clearance</p>
             </div>
-            <span className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold">
-              {rider?.is_active ? 'Clearance Active' : 'Clearance Pending'}
+            <span className={`px-3 py-1 rounded-xl text-xs font-bold border ${isVerified ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'}`}>
+              {isVerified ? 'Clearance Active' : riderStatus === 'suspended' ? 'Clearance Suspended' : 'Clearance Pending'}
             </span>
           </div>
 
@@ -547,7 +582,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
                   </div>
                   <div className="py-1.5 flex justify-between items-center">
                     <span>Track B Courier Licensing</span>
-                    {checkBadge(Boolean(rider?.is_active), 'Accredited', 'Pending')}
+                    {checkBadge(isVerified, 'Accredited', 'Pending')}
                   </div>
                   <div className="py-1.5 flex justify-between items-center">
                     <span>NIN Identity Check</span>

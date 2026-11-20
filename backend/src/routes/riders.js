@@ -9,8 +9,29 @@ const legacyBoxLinkService = require('../services/legacyBoxLinkService');
 // Rider endpoints are restricted to riders and operations staff.
 router.use(authenticate, requireRoles('rider', 'ops_admin'));
 
+// A rider account is created at signup, but it must clear regulatory review
+// before it can operate. Staff keep full access. `GET /riders/me` stays open so
+// the console can show the rider their own verification state.
+const requireVerifiedRider = async (req, res, next) => {
+  if (req.user.role !== 'rider') return next();
+  try {
+    const result = await db.query('SELECT status FROM riders WHERE user_id = $1', [req.user.id]);
+    const status = result.rows.length ? result.rows[0].status : 'unknown';
+    if (status !== 'verified') {
+      return res.status(403).json({
+        error: 'Your rider account has not been verified yet.',
+        status,
+        reason: 'Rider accounts can only operate after regulatory verification is approved.'
+      });
+    }
+    return next();
+  } catch (err) {
+    return res.status(500).json({ error: 'Could not confirm rider verification status.' });
+  }
+};
+
 // GET /api/v1/riders/lookup (Resolve any posted identifier to a delivery address)
-router.get('/lookup', authenticate, async (req, res) => {
+router.get('/lookup', requireVerifiedRider, async (req, res) => {
   const rawInput = String(req.query.code || '').trim();
   if (!rawInput) {
     return res.status(400).json({ error: 'A postcode or digital P.O. Box number is required.' });
@@ -162,7 +183,7 @@ router.get('/lookup', authenticate, async (req, res) => {
 });
 
 // GET /api/v1/riders/radar/jobs (Active jobs within rider operational zone)
-router.get('/radar/jobs', authenticate, async (req, res) => {
+router.get('/radar/jobs', requireVerifiedRider, async (req, res) => {
   try {
     // Find active jobs waiting for pickup or in-transit
     const result = await db.query(`
@@ -190,7 +211,7 @@ router.get('/radar/jobs', authenticate, async (req, res) => {
 });
 
 // POST /api/v1/riders/jobs/:id/accept
-router.post('/jobs/:id/accept', authenticate, async (req, res) => {
+router.post('/jobs/:id/accept', requireVerifiedRider, async (req, res) => {
   const shipmentId = req.params.id;
   try {
     // Find rider id linked to authenticated user
@@ -247,7 +268,7 @@ router.get('/me', authenticate, async (req, res) => {
 });
 
 // GET /api/v1/riders/me/jobs - shipments assigned to the signed-in rider (active + completed)
-router.get('/me/jobs', authenticate, async (req, res) => {
+router.get('/me/jobs', requireVerifiedRider, async (req, res) => {
   try {
     const riderRes = await db.query('SELECT id FROM riders WHERE user_id = $1', [req.user.id]);
     if (riderRes.rows.length === 0) {
@@ -280,3 +301,5 @@ router.get('/me/jobs', authenticate, async (req, res) => {
 });
 
 module.exports = router;
+// Exposed so the verification gate can be asserted directly.
+module.exports.requireVerifiedRider = requireVerifiedRider;

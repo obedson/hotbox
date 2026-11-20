@@ -24,6 +24,7 @@ const riderPayload = {
     vehicle_type: 'Bajaj Boxer 150cc',
     rating: 4.95,
     total_deliveries: 7,
+    status: 'verified',
     is_active: true,
     is_available: true,
     operational_postcodes: ['FC-01-A03-FK-01', 'FC-01-A02-FK-02'],
@@ -90,6 +91,29 @@ describe('RiderRadarConsole', () => {
     expect(screen.getByText('Door-to-Hub')).toBeInTheDocument();
     expect(screen.getByText(/\u20a61,500/)).toBeInTheDocument();
     expect(screen.getByText('1 Jobs Available')).toBeInTheDocument();
+  });
+
+  it('blocks dispatch for a rider still pending verification', async () => {
+    const pendingPayload = {
+      ...riderPayload,
+      rider: { ...riderPayload.rider, status: 'pending', is_active: true }
+    };
+    apiFetchMock.mockImplementation((path) => {
+      if (path === '/api/v1/riders/me') {
+        return Promise.resolve({ ok: true, status: 200, json: async () => pendingPayload });
+      }
+      return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
+    });
+
+    render(<RiderRadarConsole activeNav="radar" setActiveNav={() => {}} hubs={[]} showToast={() => {}} />);
+
+    expect(await screen.findByText('Rider verification pending')).toBeInTheDocument();
+    expect(screen.getByText('Verification Pending')).toBeInTheDocument();
+    expect(screen.queryByText('1 Jobs Available')).not.toBeInTheDocument();
+    expect(screen.queryByText('HBX-FC01A0-4491')).not.toBeInTheDocument();
+    // Dispatch data is never requested for an unverified rider.
+    expect(apiFetchMock).not.toHaveBeenCalledWith('/api/v1/riders/radar/jobs');
+    expect(apiFetchMock).not.toHaveBeenCalledWith('/api/v1/riders/me/jobs');
   });
 
   it('shows an empty state when the account has no rider profile', async () => {
