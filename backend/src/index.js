@@ -79,6 +79,12 @@ app.use('/api/v1/auth', authLimiter);
 app.use('/api/v1/customer/request-otp', otpLimiter);
 app.use(/^\/api\/v1\/shipments\/[^/]+\/resend-otp$/, otpLimiter);
 app.use(express.json({
+  // Evidence uploads travel as base64 data URLs inside JSON. A 2 MB document
+  // becomes roughly 2.7 MB of JSON, so the parser must allow more than the
+  // 100 kb Express default or legitimate rider KYC and legacy box-link
+  // evidence is rejected with "request entity too large" before it reaches
+  // the route's own 2 MB document check.
+  limit: '4mb',
   verify: (req, res, buf) => { req.rawBody = buf; }
 }));
 
