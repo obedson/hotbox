@@ -4,7 +4,7 @@ import {
   ShieldCheck, BarChart2, FileText, Settings, LogOut, Key, Webhook,
   Receipt, LifeBuoy, Building2, PlusCircle, Navigation, Wallet,
   HelpCircle, User, QrCode, KeyRound, Boxes, Clock, TrendingUp,
-  Compass, Bike, CheckCircle2, BookOpen, X, Search, Link2, ClipboardList, UserCog, Crosshair
+  Compass, Bike, CheckCircle2, BookOpen, X, Search, Link2, ClipboardList, UserCog, Crosshair, ChevronRight
 } from 'lucide-react';
 
 import { allowedOperationsNavForRole } from '../lib/portals';
