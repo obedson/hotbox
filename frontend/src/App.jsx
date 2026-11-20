@@ -240,6 +240,7 @@ export default function App() {
     setCurrentUser(user);
     const portal = user.portal || 'customer';
     setActivePortal(portal);
+    setActiveNav(DEFAULT_PORTAL_NAVS[portal] || 'overview');
     if (user.role === 'compliance_officer') setActiveNav('verification');
     if (portal !== 'customer') {
       try {

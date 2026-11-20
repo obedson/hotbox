@@ -118,7 +118,7 @@ const PORTAL_CONFIG = {
       { id: 'scanner', label: 'Custody Scanner', icon: QrCode, tooltip: 'Pickup verification & doorstep proof-of-delivery' },
       { id: 'history', label: 'Trip History', icon: CheckCircle2, tooltip: 'Completed deliveries & customer ratings' },
       { id: 'earnings', label: 'Earnings & Wallet', icon: Wallet, tooltip: 'Delivery pay per drop & instant withdrawals' },
-      { id: 'profile', label: 'Rider Profile', icon: ShieldCheck, tooltip: 'Driver credentials, verified zones & vehicle details' },
+      { id: 'profile', label: 'Verification & Profile', icon: ShieldCheck, tooltip: 'Apply for rider verification - NIN, licence, postcode' },
     ]
   }
 };

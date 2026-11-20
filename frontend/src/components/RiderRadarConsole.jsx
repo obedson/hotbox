@@ -338,7 +338,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
         </div>
         <h2 className="text-lg font-black text-slate-900">No rider profile linked to this account</h2>
         <p className="text-xs text-slate-500 max-w-md mx-auto">
-          This console shows live dispatch data for verified riders. Complete rider onboarding, or ask an administrator to link a rider profile to your account.
+          This console belongs to a Dispatch Rider account. Register a rider account to apply for verification.
         </p>
         {error && <p className="text-xs text-rose-600">{error}</p>}
       </div>
@@ -461,6 +461,28 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Unverified riders land on Job Radar by default. The radar is empty
+         until clearance is granted, so surface the application instead. */}
+      {!isVerified && activeNav === 'radar' && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+            <ShieldCheck className="w-6 h-6" />
+          </div>
+          <h3 className="text-sm font-bold text-slate-900">Apply for rider verification</h3>
+          <p className="text-xs text-slate-500 max-w-md mx-auto">
+            Submit your NIN, driver's licence, home postcode and phone, then upload the supporting
+            documents. Operations reviews every application before dispatch access is granted.
+          </p>
+          <button
+            type="button"
+            onClick={() => setActiveNav('profile')}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm"
+          >
+            Start verification application
+          </button>
         </div>
       )}
 
