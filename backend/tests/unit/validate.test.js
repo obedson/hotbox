@@ -38,6 +38,20 @@ test('registerSchema only exposes the four public account types', () => {
   }
 });
 
+test('registerSchema accepts rider identity fields and bounds their length', () => {
+  const parsed = registerSchema.parse({
+    ...validRegistration,
+    role: 'rider',
+    nin: '12345678901',
+    driversLicenseNo: 'ABJ123456789'
+  });
+  assert.equal(parsed.nin, '12345678901');
+  assert.equal(parsed.driversLicenseNo, 'ABJ123456789');
+
+  assert.throws(() => registerSchema.parse({ ...validRegistration, role: 'rider', nin: '1'.repeat(21) }));
+  assert.throws(() => registerSchema.parse({ ...validRegistration, role: 'rider', driversLicenseNo: 'L'.repeat(51) }));
+});
+
 test('registerSchema requires a verified contact channel and a strong password', () => {
   assert.throws(() => registerSchema.parse({ ...validRegistration, email: undefined }));
   assert.throws(() => registerSchema.parse({ ...validRegistration, email: 'not-an-email' }));
