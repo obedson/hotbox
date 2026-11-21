@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Bike, Compass, QrCode, CheckCircle2, Wallet, ShieldCheck,
   Navigation, MapPin, Phone, ArrowRight, DollarSign, Clock,
-  AlertTriangle, ExternalLink, User, Calendar, Check, Loader2
+  AlertTriangle, ExternalLink, User, Calendar, Check, Loader2, Lock
 } from 'lucide-react';
 import CustodyScanner from './CustodyScanner';
 import RiderLookup from './RiderLookup';
@@ -118,6 +118,28 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
     : riderStatus === 'suspended'
       ? { label: 'Suspended', className: 'bg-rose-950 text-rose-300 border-rose-800' }
       : { label: 'Verification Pending', className: 'bg-amber-950 text-amber-300 border-amber-800' };
+
+  // Unverified riders may open any tab, but dispatch tooling stays locked
+  // until Operations grants Track B clearance.
+  const renderLockedTool = (title) => (
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center space-y-3">
+      <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+        <Lock className="w-6 h-6" />
+      </div>
+      <h3 className="text-sm font-bold text-slate-900">{title} is locked until verification</h3>
+      <p className="text-xs text-slate-500 max-w-md mx-auto">
+        Dispatch tools are released once Operations approves your Track B rider verification.
+        Complete your accreditation to unlock this workspace.
+      </p>
+      <button
+        type="button"
+        onClick={() => setActiveNav('profile')}
+        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm"
+      >
+        Go to Rider Credentials
+      </button>
+    </div>
+  );
 
   const serviceLabels = {
     DOOR_TO_HUB: 'Door-to-Hub',
@@ -580,7 +602,9 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
       )}
 
       {/* TAB 2: ACTIVE ROUTE */}
-      {!isVerified && activeNav === 'active_route' && (
+      {!isVerified && activeNav === 'active_route' && renderLockedTool('Active Deliveries')}
+
+      {isVerified && activeNav === 'active_route' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
@@ -672,7 +696,9 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
       )}
 
       {/* TAB 3: CUSTODY SCANNER */}
-      {!isVerified && activeNav === 'scanner' && (
+      {!isVerified && activeNav === 'scanner' && renderLockedTool('Custody Scanner')}
+
+      {isVerified && activeNav === 'scanner' && (
         <div className="space-y-4">
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-blue-900 text-xs flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -695,7 +721,9 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
       )}
 
       {/* TAB 4: POSTCODE & DIGITAL P.O. BOX LOOKUP */}
-      {!isVerified && activeNav === 'lookup' && (
+      {!isVerified && activeNav === 'lookup' && renderLockedTool('Postcode Lookup')}
+
+      {isVerified && activeNav === 'lookup' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
             <div>
@@ -712,7 +740,9 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
       )}
 
       {/* TAB 5: DELIVERY TRIP HISTORY */}
-      {!isVerified && activeNav === 'history' && (
+      {!isVerified && activeNav === 'history' && renderLockedTool('Trip History')}
+
+      {isVerified && activeNav === 'history' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <h3 className="text-sm font-bold text-slate-900">Completed Delivery Trips Archive</h3>
@@ -756,7 +786,9 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
       )}
 
       {/* TAB 5: EARNINGS & WALLET */}
-      {!isVerified && activeNav === 'earnings' && (
+      {!isVerified && activeNav === 'earnings' && renderLockedTool('Earnings & Wallet')}
+
+      {isVerified && activeNav === 'earnings' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">

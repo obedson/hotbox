@@ -346,4 +346,35 @@ describe('RiderRadarConsole', () => {
     const row = screen.getByText('Vehicle Roadworthiness').closest('div');
     expect(within(row).getByText('Pending')).toBeInTheDocument();
   });
+
+  it('renders dispatch tools for a verified rider on the postcode lookup tab', async () => {
+    mockConsole();
+    render(<RiderRadarConsole activeNav="lookup" setActiveNav={() => {}} hubs={[]} showToast={() => {}} />);
+
+    expect(await screen.findByText('Postcode & Digital P.O. Box Lookup')).toBeInTheDocument();
+    expect(screen.queryByText('Postcode Lookup is locked until verification')).not.toBeInTheDocument();
+  });
+
+  it('renders dispatch tools for a verified rider on the earnings tab', async () => {
+    mockConsole();
+    render(<RiderRadarConsole activeNav="earnings" setActiveNav={() => {}} hubs={[]} showToast={() => {}} />);
+
+    expect(await screen.findByText('Available for Instant Payout')).toBeInTheDocument();
+  });
+
+  it('locks dispatch tools for a pending rider instead of rendering a blank tab', async () => {
+    mockConsole({ rider: { ...riderPayload.rider, status: 'pending' } });
+    render(<RiderRadarConsole activeNav="lookup" setActiveNav={() => {}} hubs={[]} showToast={() => {}} />);
+
+    expect(await screen.findByText('Postcode Lookup is locked until verification')).toBeInTheDocument();
+    expect(screen.queryByText('Postcode & Digital P.O. Box Lookup')).not.toBeInTheDocument();
+  });
+
+  it('locks the earnings tab for a pending rider instead of rendering a blank tab', async () => {
+    mockConsole({ rider: { ...riderPayload.rider, status: 'pending' } });
+    render(<RiderRadarConsole activeNav="earnings" setActiveNav={() => {}} hubs={[]} showToast={() => {}} />);
+
+    expect(await screen.findByText('Earnings & Wallet is locked until verification')).toBeInTheDocument();
+    expect(screen.queryByText('Available for Instant Payout')).not.toBeInTheDocument();
+  });
 });
