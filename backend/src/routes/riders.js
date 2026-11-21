@@ -12,6 +12,38 @@ const settingsService = require('../services/settingsService');
 const { PLACEHOLDER_LICENCE } = require('../utils/riderClearance');
 const { normalizePhone, digitsOf } = require('../lib/phone');
 
+// Rider job payloads carry no custody credentials. A rider proves possession
+// by reading the code presented at the door, never by reading it back from the
+// API, otherwise the OTP check is theatre.
+const RIDER_JOB_COLUMNS = [
+  's.id',
+  's.tracking_code',
+  's.service_type',
+  's.sender_name',
+  's.sender_phone',
+  's.sender_postcode',
+  's.sender_address_text',
+  's.recipient_name',
+  's.recipient_phone',
+  's.recipient_postcode',
+  's.recipient_address_text',
+  's.origin_hub_id',
+  's.destination_hub_id',
+  's.assigned_rider_id',
+  's.size',
+  's.weight_kg',
+  's.package_description',
+  's.status',
+  's.pricing_total_ngn',
+  's.expires_at',
+  's.picked_up_at',
+  's.received_at_hub_at',
+  's.delivered_at',
+  's.collected_at',
+  's.created_at',
+  's.updated_at'
+].join(', ');
+
 // Rider endpoints are restricted to riders and operations staff.
 router.use(authenticate, requireRoles('rider', 'ops_admin'));
 
@@ -194,7 +226,7 @@ router.get('/radar/jobs', requireVerifiedRider, async (req, res) => {
     // Find active jobs waiting for pickup or in-transit
     const result = await db.query(`
       SELECT 
-        s.*,
+        ${RIDER_JOB_COLUMNS},
         h.business_name as destination_hub_name,
         h.address_text as destination_hub_address,
         h.postcode as destination_hub_postcode,
@@ -282,7 +314,7 @@ router.get('/me/jobs', requireVerifiedRider, async (req, res) => {
     }
 
     const result = await db.query(
-      `SELECT s.*,
+      `SELECT ${RIDER_JOB_COLUMNS},
               h.business_name as destination_hub_name,
               h.address_text as destination_hub_address,
               h.postcode as destination_hub_postcode,

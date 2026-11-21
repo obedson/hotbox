@@ -377,4 +377,51 @@ describe('RiderRadarConsole', () => {
     expect(await screen.findByText('Earnings & Wallet is locked until verification')).toBeInTheDocument();
     expect(screen.queryByText('Available for Instant Payout')).not.toBeInTheDocument();
   });
+
+  it('shows the real handover state of an active delivery', async () => {
+    mockConsole({
+      myJobs: [
+        { ...bookedJob, id: 'ship-1', status: 'RIDER_ASSIGNED', tracking_code: 'HBX-FC01A0-4491' },
+        { ...bookedJob, id: 'ship-2', status: 'IN_TRANSIT_TO_HUB', tracking_code: 'HBX-FC01A0-5555' }
+      ]
+    });
+    render(<RiderRadarConsole activeNav="active_route" setActiveNav={() => {}} hubs={[]} showToast={() => {}} />);
+
+    expect(await screen.findByText('Assigned')).toBeInTheDocument();
+    expect(screen.getByText('In transit to hub')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Pick up parcel' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Hand over to hub' })).toBeInTheDocument();
+    expect(screen.queryByText('IN PROGRESS')).not.toBeInTheDocument();
+  });
+
+  it('drops a parcel from the active run once it is handed to the hub', async () => {
+    mockConsole({
+      myJobs: [{ ...bookedJob, id: 'ship-3', status: 'STORED_IN_BAY', tracking_code: 'HBX-FC01A0-6666' }]
+    });
+    render(<RiderRadarConsole activeNav="active_route" setActiveNav={() => {}} hubs={[]} showToast={() => {}} />);
+
+    expect(await screen.findByText(/No active run right now/)).toBeInTheDocument();
+    expect(screen.queryByText('HBX-FC01A0-6666')).not.toBeInTheDocument();
+  });
+
+  it('archives a handed-over parcel in trip history', async () => {
+    mockConsole({
+      myJobs: [{ ...bookedJob, id: 'ship-3', status: 'STORED_IN_BAY', tracking_code: 'HBX-FC01A0-6666' }]
+    });
+    render(<RiderRadarConsole activeNav="history" setActiveNav={() => {}} hubs={[]} showToast={() => {}} />);
+
+    expect(await screen.findByText('HBX-FC01A0-6666')).toBeInTheDocument();
+  });
+
+  it('refetches the active route after a successful claim', async () => {
+    mockConsole({ jobs: [bookedJob], myJobs: [{ ...bookedJob, status: 'RIDER_ASSIGNED' }] });
+    render(<RiderRadarConsole activeNav="radar" setActiveNav={() => {}} hubs={[]} showToast={() => {}} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Claim Job' }));
+
+    await vi.waitFor(() => {
+      const mineCalls = apiFetchMock.mock.calls.filter((call) => call[0] === '/api/v1/riders/me/jobs');
+      expect(mineCalls.length).toBeGreaterThanOrEqual(2);
+    });
+  });
 });

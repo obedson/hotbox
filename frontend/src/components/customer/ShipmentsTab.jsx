@@ -73,9 +73,19 @@ export default function ShipmentsTab({
                       <div className="text-slate-500">{s.destination_hub_name || s.recipient_address_text} ({s.recipient_postcode})</div>
                     </div>
                     <div>
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Collection Authorization</span>
-                      <div className="font-mono text-emerald-700 font-bold">QR Pass: {s.collection_qr_token}</div>
-                      <div className="text-slate-500">Delivery OTP: <strong>{s.delivery_otp}</strong></div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                        {s.is_recipient ? 'Collection Authorization' : 'Collection'}
+                      </span>
+                      {s.is_recipient ? (
+                        <>
+                          <div className="font-mono text-emerald-700 font-bold">QR Pass: {s.collection_qr_token}</div>
+                          <div className="text-slate-500">Delivery OTP: <strong>{s.delivery_otp}</strong></div>
+                        </>
+                      ) : (
+                        <div className="text-slate-500">
+                          The recipient receives the collection code by SMS when this parcel is ready.
+                        </div>
+                      )}
                       {pickupOtpById[s.id] && (
                         <div className="text-slate-500">
                           Pickup OTP: <strong className="font-mono text-emerald-700">{pickupOtpById[s.id]}</strong>
@@ -91,7 +101,7 @@ export default function ShipmentsTab({
 
                   {/* Action Buttons: Cancel, Return, Dispute */}
                   <div className="pt-2 flex flex-wrap items-center justify-end gap-2 border-t border-slate-100">
-                    {['BOOKED', 'RIDER_ASSIGNED'].includes(s.status) && (
+                    {s.is_sender && ['BOOKED', 'RIDER_ASSIGNED'].includes(s.status) && (
                       <button
                         onClick={() => handleResendPickupOtp(s)}
                         disabled={resendingId === s.id}
@@ -101,7 +111,7 @@ export default function ShipmentsTab({
                       </button>
                     )}
 
-                    {s.status === 'BOOKED' && (
+                    {s.is_sender && s.status === 'BOOKED' && (
                       <button
                         onClick={() => handleCancelShipment(s.id)}
                         className="px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs font-bold transition"
@@ -110,7 +120,7 @@ export default function ShipmentsTab({
                       </button>
                     )}
 
-                    {['STORED_IN_BAY', 'RECEIVED_AT_HUB'].includes(s.status) && (
+                    {s.is_sender && ['STORED_IN_BAY', 'RECEIVED_AT_HUB'].includes(s.status) && (
                       <button
                         onClick={() => handleRequestReturn(s.id)}
                         className="px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-bold transition"

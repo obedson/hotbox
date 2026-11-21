@@ -4,6 +4,35 @@ const crypto = require('crypto');
 const db = require('../../config/db');
 const { authenticate } = require('../../middleware/auth');
 const { paginate } = require('../../utils/pagination');
+
+// Credentials that must never travel inside a list payload. The pickup OTP is
+// delivered out-of-band at booking and on an explicit resend, so a stolen
+// session token cannot harvest a live code from this list.
+const LIST_SECRET_COLUMNS = [
+  'pickup_otp',
+  'pickup_otp_expires_at',
+  'pickup_otp_attempts',
+  'pickup_otp_consumed_at'
+];
+
+// Collection credentials belong to the recipient. A sender who booked the
+// parcel must never be able to read the code that releases it.
+const RECIPIENT_ONLY_COLUMNS = [
+  'delivery_otp',
+  'collection_qr_token'
+];
+
+function scopeShipmentForList(shipment, user) {
+  const isSender = shipment.sender_id === user.id;
+  const isRecipient = shipment.recipient_phone === user.phone;
+  const scoped = { ...shipment, is_sender: isSender, is_recipient: isRecipient };
+
+  for (const column of LIST_SECRET_COLUMNS) delete scoped[column];
+  if (!isRecipient) {
+    for (const column of RECIPIENT_ONLY_COLUMNS) delete scoped[column];
+  }
+  return scoped;
+}
 // GET /api/v1/customer/shipments
 router.get('/shipments', authenticate, async (req, res) => {
   try {
@@ -23,7 +52,7 @@ router.get('/shipments', authenticate, async (req, res) => {
     );
 
     res.json({
-      shipments: result.items,
+      shipments: result.items.map((shipment) => scopeShipmentForList(shipment, req.user)),
       page: result.page,
       limit: result.limit,
       total: result.total,

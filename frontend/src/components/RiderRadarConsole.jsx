@@ -10,6 +10,38 @@ import { apiFetch } from '../lib/api';
 import { ensureWalletFunds } from '../lib/walletFunding';
 import PhoneInput from './PhoneInput';
 
+// A rider active run only holds parcels they currently carry; a parcel
+// committed to a hub bay belongs to the hub from that moment on.
+const RIDER_ACTIVE_STATUSES = ['RIDER_ASSIGNED', 'IN_TRANSIT_TO_HUB'];
+
+const RIDER_STATUS_LABELS = {
+  RIDER_ASSIGNED: 'Assigned',
+  IN_TRANSIT_TO_HUB: 'In transit to hub'
+};
+
+const RIDER_STATUS_TONES = {
+  RIDER_ASSIGNED: 'assigned',
+  IN_TRANSIT_TO_HUB: 'transit'
+};
+
+const STOP_TONES = {
+  assigned: {
+    card: 'bg-amber-50/60 border-amber-300 ring-2 ring-amber-500/20',
+    circle: 'bg-amber-500 text-white',
+    badge: 'bg-amber-100 text-amber-800'
+  },
+  transit: {
+    card: 'bg-blue-50/50 border-blue-300 ring-2 ring-blue-500/20',
+    circle: 'bg-blue-600 text-white animate-pulse',
+    badge: 'bg-blue-100 text-blue-800'
+  },
+  completed: {
+    card: 'bg-slate-50 border-slate-200 opacity-60',
+    circle: 'bg-emerald-600 text-white',
+    badge: 'bg-emerald-100 text-emerald-800'
+  }
+};
+
 export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showToast }) {
   const [me, setMe] = useState(null);
   const [radarJobs, setRadarJobs] = useState([]);
@@ -57,6 +89,14 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
     }
   }, []);
 
+  const loadMyJobs = useCallback(async () => {
+    const mineRes = await apiFetch('/api/v1/riders/me/jobs');
+    if (mineRes.ok) {
+      const mineData = await mineRes.json();
+      setMyJobs(mineData.jobs || []);
+    }
+  }, []);
+
   const loadConsole = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -81,26 +121,20 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
       // for it once the account is cleared. That keeps this console on its
       // verification screen instead of failing to load.
       if (riderStatus === 'verified') {
-        const [jobsRes, mineRes] = await Promise.all([
-          apiFetch('/api/v1/riders/radar/jobs'),
-          apiFetch('/api/v1/riders/me/jobs')
-        ]);
+        const jobsRes = await apiFetch('/api/v1/riders/radar/jobs');
 
         const jobsData = await jobsRes.json();
         if (!jobsRes.ok) throw new Error(jobsData.error || 'Unable to load delivery jobs');
         setRadarJobs(jobsData.jobs || []);
 
-        if (mineRes.ok) {
-          const mineData = await mineRes.json();
-          setMyJobs(mineData.jobs || []);
-        }
+        await loadMyJobs();
       }
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [loadVerification]);
+  }, [loadVerification, loadMyJobs]);
 
   useEffect(() => {
     loadConsole();
@@ -173,7 +207,9 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
       payout: Number(job.potential_earning_ngn || 0)
     }));
 
-  const activeJobs = myJobs.filter(job => !['COLLECTED_AT_HUB', 'DELIVERED_TO_RECIPIENT'].includes(job.status));
+  // A rider active run holds only the parcels they currently carry. Once a
+  // parcel is committed to a hub bay it belongs to the hub, not the rider.
+  const activeJobs = myJobs.filter(job => RIDER_ACTIVE_STATUSES.includes(job.status));
 
   const activeRouteStops = activeJobs.map((job, idx) => ({
     stopNumber: idx + 1,
@@ -182,15 +218,17 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
     address: job.recipient_address_text || job.destination_hub_name || job.sender_address_text || 'Address on waybill',
     postcode: job.recipient_postcode || job.destination_hub_postcode || job.sender_postcode || '\u2014',
     contact: job.recipient_phone || job.sender_phone || 'Contact on waybill',
-    status: 'IN_PROGRESS',
+    status: RIDER_STATUS_LABELS[job.status] || RIDER_STATUS_LABELS.RIDER_ASSIGNED,
+    tone: RIDER_STATUS_TONES[job.status] || RIDER_STATUS_TONES.RIDER_ASSIGNED,
+    nextAction: job.status === 'IN_TRANSIT_TO_HUB' ? 'Hand over to hub' : 'Pick up parcel',
     trackingCode: job.tracking_code
   }));
 
   const completedJobs = myJobs
-    .filter(job => ['COLLECTED_AT_HUB', 'DELIVERED_TO_RECIPIENT'].includes(job.status))
+    .filter(job => ['STORED_IN_BAY', 'COLLECTED_AT_HUB', 'DELIVERED_TO_RECIPIENT'].includes(job.status))
     .map(job => ({
       id: job.id,
-      time: job.delivered_at || job.collected_at || job.updated_at,
+      time: job.delivered_at || job.collected_at || job.received_at_hub_at || job.updated_at,
       code: job.tracking_code,
       corridor: `${job.sender_postcode || '\u2014'} \u2794 ${job.recipient_postcode || job.destination_hub_postcode || '\u2014'}`,
       service: serviceLabel(job.service_type),
@@ -316,11 +354,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
       if (!res.ok) throw new Error(data.error || 'Unable to claim this job');
       setRadarJobs(prev => prev.filter(j => j.id !== job.id));
       if (showToast) showToast(`Claimed job ${job.trackingCode}. Added to your active route.`);
-      const mineRes = await apiFetch('/api/v1/riders/me/jobs');
-      if (mineRes.ok) {
-        const mineData = await mineRes.json();
-        setMyJobs(mineData.jobs || []);
-      }
+      await loadMyJobs();
     } catch (err) {
       if (showToast) showToast(err.message);
     } finally {
@@ -624,37 +658,19 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
             {activeRouteStops.map(stop => (
               <div
                 key={stop.stopNumber}
-                className={`p-4 rounded-xl border transition flex items-start justify-between gap-4 ${
-                  stop.status === 'COMPLETED'
-                    ? 'bg-slate-50 border-slate-200 opacity-60'
-                    : stop.status === 'IN_PROGRESS'
-                    ? 'bg-blue-50/50 border-blue-300 ring-2 ring-blue-500/20'
-                    : 'bg-white border-slate-200'
-                }`}
+                className={`p-4 rounded-xl border transition flex items-start justify-between gap-4 ${STOP_TONES[stop.tone].card}`}
               >
                 <div className="flex items-start gap-3">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-                    stop.status === 'COMPLETED'
-                      ? 'bg-emerald-600 text-white'
-                      : stop.status === 'IN_PROGRESS'
-                      ? 'bg-blue-600 text-white animate-pulse'
-                      : 'bg-slate-200 text-slate-700'
-                  }`}>
-                    {stop.status === 'COMPLETED' ? <Check className="w-4 h-4" /> : stop.stopNumber}
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${STOP_TONES[stop.tone].circle}`}>
+                    {stop.tone === 'completed' ? <Check className="w-4 h-4" /> : stop.stopNumber}
                   </div>
 
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-xs text-slate-900">{stop.title}</span>
                       <span className="font-mono text-[10px] text-slate-500">({stop.trackingCode})</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.2 rounded ${
-                        stop.status === 'COMPLETED'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : stop.status === 'IN_PROGRESS'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-slate-100 text-slate-600'
-                      }`}>
-                        {stop.status.replace(/_/g, ' ')}
+                      <span className={`text-[10px] font-bold px-2 py-0.2 rounded ${STOP_TONES[stop.tone].badge}`}>
+                        {stop.status}
                       </span>
                     </div>
 
@@ -674,14 +690,12 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
                     <Phone className="w-3.5 h-3.5" />
                   </button>
 
-                  {stop.status === 'IN_PROGRESS' && (
-                    <button
-                      onClick={() => setActiveNav('scanner')}
-                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
-                    >
-                      Complete Handover
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setActiveNav('scanner')}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+                  >
+                    {stop.nextAction}
+                  </button>
                 </div>
               </div>
             ))}
@@ -715,6 +729,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
             hubs={hubs}
             onCustodySuccess={() => {
               if (showToast) showToast('Rider custody transfer committed to immutable ledger!');
+              loadMyJobs();
             }}
           />
         </div>
