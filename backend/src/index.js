@@ -31,7 +31,20 @@ const hubApplicationsRouter = require('./routes/hubApplications');
 
 const app = express();
 
-app.use(helmet());
+// Helmet hardens the response headers. Evidence previews and map tiles are
+// fetched from external HTTPS origins (Supabase Storage signed URLs, Leaflet
+// tile servers), so img-src has to admit them; every other directive keeps
+// helmet's restrictive defaults.
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        'img-src': ["'self'", 'data:', 'https:']
+      }
+    }
+  })
+);
 
 // CORS: allow only trusted origins when CORS_ORIGINS is configured.
 const allowedOrigins = (process.env.CORS_ORIGINS || '')
