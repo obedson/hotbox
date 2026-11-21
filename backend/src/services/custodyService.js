@@ -1,4 +1,42 @@
 const db = require('../config/db');
+const { OTP_MAX_ATTEMPTS } = require('../utils/otp');
+
+// Pickup OTP pre-flight. Runs outside the custodial transaction so a rejected
+// attempt is still counted after the rollback that follows a failed handover.
+async function assertPickupOtpUsable(shipmentId, verificationToken) {
+  const res = await db.query(
+    `SELECT pickup_otp, pickup_otp_expires_at, pickup_otp_attempts, pickup_otp_consumed_at
+     FROM shipments WHERE id = $1`,
+    [shipmentId]
+  );
+  if (res.rows.length === 0) return; // the transaction reports the missing shipment
+
+  const otp = res.rows[0];
+  if (otp.pickup_otp_consumed_at) {
+    throw new Error('This Pickup OTP has already been used for this parcel.');
+  }
+  if (otp.pickup_otp_expires_at && new Date(otp.pickup_otp_expires_at).getTime() <= Date.now()) {
+    throw new Error('This Pickup OTP has expired. Request a new one before pickup.');
+  }
+
+  const attempts = Number(otp.pickup_otp_attempts || 0);
+  if (attempts >= OTP_MAX_ATTEMPTS) {
+    throw new Error('Too many incorrect Pickup OTP attempts. This code is now locked; request a new one.');
+  }
+
+  if (verificationToken !== otp.pickup_otp) {
+    await db.query(
+      'UPDATE shipments SET pickup_otp_attempts = COALESCE(pickup_otp_attempts, 0) + 1 WHERE id = $1',
+      [shipmentId]
+    );
+    const remaining = OTP_MAX_ATTEMPTS - attempts - 1;
+    throw new Error(
+      remaining > 0
+        ? `Invalid Pickup OTP provided by sender. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`
+        : 'Invalid Pickup OTP. No attempts remaining; this code is now locked.'
+    );
+  }
+}
 
 /**
  * Executes an atomic custody transfer with verification token validation,
@@ -16,6 +54,10 @@ async function processCustodyTransfer({
   bayCode = null,
   notes = ''
 }) {
+  if (handoverType === 'SENDER_TO_RIDER') {
+    await assertPickupOtpUsable(shipmentId, verificationToken);
+  }
+
   const client = await db.getClient();
   try {
     await client.query('BEGIN');
@@ -49,10 +91,8 @@ async function processCustodyTransfer({
     // 1. Process Handover Specific Business Logic & OTP/QR Verification
     switch (handoverType) {
       case 'SENDER_TO_RIDER': {
-        // Verify pickup OTP
-        if (verificationToken !== shipment.pickup_otp) {
-          throw new Error('Invalid Pickup OTP provided by sender.');
-        }
+        // Pickup OTP expiry, attempt ceiling and single-use are enforced before
+        // the transaction opens; reaching here means the code is usable.
         newStatus = 'PICKED_UP_FROM_SENDER';
         prevHolderType = 'SENDER';
         prevHolderId = shipment.sender_id;
@@ -64,6 +104,8 @@ async function processCustodyTransfer({
            SET status = 'IN_TRANSIT_TO_HUB', 
                picked_up_at = NOW(), 
                assigned_rider_id = COALESCE(assigned_rider_id, $1), 
+               pickup_otp_consumed_at = NOW(), 
+               pickup_otp_attempts = 0, 
                updated_at = NOW() 
            WHERE id = $2`,
           [riderEntityId, shipmentId]

@@ -254,10 +254,10 @@ export default function ShipmentDossierModal({ isOpen, onClose, trackingCode, on
                   <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200">
                     <span className="text-emerald-800 block text-[10px] uppercase font-bold tracking-wider">Handover Verification OTPs</span>
                     <div className="flex items-center justify-between mt-0.5">
-                      <span className="text-[11px] text-slate-600">Pickup: <strong className="font-mono text-emerald-900">{s.pickup_otp || '—'}</strong></span>
-                      <span className="text-[11px] text-slate-600">Delivery: <strong className="font-mono text-emerald-900">{s.delivery_otp || '—'}</strong></span>
+                      <span className="text-[11px] text-slate-600">Pickup: <strong className="font-mono text-emerald-900">Sent to sender</strong></span>
+                      <span className="text-[11px] text-slate-600">Delivery: <strong className="font-mono text-emerald-900">Sent to recipient</strong></span>
                     </div>
-                    <span className="text-[9px] text-emerald-700 block mt-0.5">Dual-factor custody release</span>
+                    <span className="text-[9px] text-emerald-700 block mt-0.5">Time-boxed, single-use codes — never published here</span>
                   </div>
                 </div>
               </div>

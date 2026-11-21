@@ -318,6 +318,9 @@ CREATE TABLE IF NOT EXISTS shipments (
   declared_value_ngn DECIMAL(12, 2) DEFAULT 0.00,
 
   pickup_otp VARCHAR(6) NOT NULL,
+  pickup_otp_expires_at TIMESTAMP WITH TIME ZONE,
+  pickup_otp_attempts INT NOT NULL DEFAULT 0,
+  pickup_otp_consumed_at TIMESTAMP WITH TIME ZONE,
   delivery_otp VARCHAR(6) NOT NULL,
   collection_qr_token VARCHAR(64) NOT NULL UNIQUE,
 
@@ -356,6 +359,7 @@ CREATE INDEX IF NOT EXISTS idx_shipments_tracking ON shipments(tracking_code);
 CREATE INDEX IF NOT EXISTS idx_shipments_status ON shipments(status);
 CREATE INDEX IF NOT EXISTS idx_shipments_sender ON shipments(sender_id);
 CREATE INDEX IF NOT EXISTS idx_shipments_dest_hub ON shipments(destination_hub_id);
+CREATE INDEX IF NOT EXISTS idx_shipments_pickup_otp_expires ON shipments (pickup_otp_expires_at);
 CREATE INDEX IF NOT EXISTS idx_shipments_rider ON shipments(assigned_rider_id);
 
 -- Backward compatibility view for legacy 'parcels'

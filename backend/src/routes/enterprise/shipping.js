@@ -5,6 +5,7 @@ const { authenticate } = require('../../middleware/auth');
 const { getEnterpriseStats } = require('./helpers');
 const { parseBoxNumber } = require('../../utils/boxNumber');
 const digitalBoxService = require('../../services/digitalBoxService');
+const { generateOtp, otpExpiryFromNow } = require('../../utils/otp');
 // POST /api/v1/enterprise/verify-address (B2B KYC Address Verification API)
 router.post('/verify-address', authenticate, async (req, res) => {
   const { postcode, phone, name } = req.body;
@@ -313,8 +314,9 @@ router.post('/shipments/bulk', authenticate, async (req, res) => {
         const custom = customParcels && customParcels[i] ? customParcels[i] : null;
 
         const trackingCode = `HBX-FC01A0-${Math.floor(10000 + Math.random() * 90000)}`;
-        const pickupOtp = String(Math.floor(100000 + Math.random() * 900000));
-        const deliveryOtp = String(Math.floor(100000 + Math.random() * 900000));
+        const pickupOtp = generateOtp();
+        const pickupOtpExpiresAt = otpExpiryFromNow();
+        const deliveryOtp = generateOtp();
         const qrToken = `QR-TOKEN-${trackingCode}-${Math.random().toString(36).substring(2, 7)}`;
 
         const recipientName = custom?.recipientName || `Recipient ${i + 1} (${['Abuja', 'Lagos', 'Kano', 'Ibadan'][i % 4]})`;
@@ -331,13 +333,13 @@ router.post('/shipments/bulk', authenticate, async (req, res) => {
             sender_postcode, sender_address_text, recipient_name, recipient_phone,
             recipient_email, recipient_postcode, recipient_address_text,
             destination_hub_id, size, weight_kg, package_description, declared_value_ngn,
-            pickup_otp, delivery_otp, collection_qr_token, status, pricing_total_ngn, created_at, expires_at, manifest_id
+            pickup_otp, pickup_otp_expires_at, delivery_otp, collection_qr_token, status, pricing_total_ngn, created_at, expires_at, manifest_id
           ) VALUES (
             $1, 'DOOR_TO_HUB', $2, $3, '+2348090001122',
             'FC-01-A03-FK-01', 'Plot 14 Idu Industrial Layout, Abuja FCT',
             $4, $5, $6, $7, $8,
             $9, 'medium', 1.5, $10, $11,
-            $12, $13, $14, 'IN_TRANSIT_TO_HUB', 1300.00, NOW(), NOW() + interval '5 days', $15
+            $12, $13, $14, $15, 'IN_TRANSIT_TO_HUB', 1300.00, NOW(), NOW() + interval '5 days', $16
           ) RETURNING id, tracking_code, status, pricing_total_ngn
         `;
         const r = await client.query(q, [
@@ -345,7 +347,7 @@ router.post('/shipments/bulk', authenticate, async (req, res) => {
           recipientName, recipientPhone, recipientEmail,
           recipientPostcode, recipientAddress,
           destHub.id, desc, declaredVal,
-          pickupOtp, deliveryOtp, qrToken, createdManifest.id
+          pickupOtp, pickupOtpExpiresAt, deliveryOtp, qrToken, createdManifest.id
         ]);
         inserted.push(r.rows[0]);
       }

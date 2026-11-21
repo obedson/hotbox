@@ -11,6 +11,7 @@ const legacyBoxLinkService = require('../../services/legacyBoxLinkService');
 const legacyBoxReviewMailer = require('../../services/legacyBoxReviewMailer');
 const settingsService = require('../../services/settingsService');
 const { normalizePhone } = require('../../lib/phone');
+const { generateOtp, otpExpiryFromNow } = require('../../utils/otp');
 // GET /api/v1/customer/profile
 router.get('/profile', authenticate, async (req, res) => {
   try {
@@ -246,18 +247,19 @@ router.post('/test-reroute-alert', authenticate, async (req, res) => {
       const defaultSenderId = senderRes.rows[0]?.id || req.user.id;
 
       const testCode = `HBX-${(user.postcode || '900001').replace(/[^A-Z0-9]/gi, '').slice(0, 6)}-${Math.floor(1000 + Math.random() * 9000)}`;
-      const pickupOtp = Math.floor(100000 + Math.random() * 900000).toString();
-      const deliveryOtp = Math.floor(100000 + Math.random() * 900000).toString();
+      const pickupOtp = generateOtp();
+      const pickupOtpExpiresAt = otpExpiryFromNow();
+      const deliveryOtp = generateOtp();
       const collectionQrToken = `QR-PASS-${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
 
       const newShip = await db.query(`
         INSERT INTO shipments (
           tracking_code, service_type, sender_id, sender_name, sender_phone, sender_postcode, sender_address_text,
           recipient_name, recipient_phone, recipient_email, recipient_postcode, recipient_address_text,
-          pickup_otp, delivery_otp, collection_qr_token, status, pricing_total_ngn, expires_at
+          pickup_otp, pickup_otp_expires_at, delivery_otp, collection_qr_token, status, pricing_total_ngn, expires_at
         ) VALUES (
           $1, 'DOOR_TO_HUB', $2, 'First Bank of Nigeria (Cards Division)', '+2348030001122', 'LA-01-A01-AA-01', 'Marina, Lagos Island',
-          $3, $4, $5, $6, 'Abuja Verified Resident', $7, $8, $9, 'IN_TRANSIT_TO_HUB', 1600.00, NOW() + INTERVAL '3 days'
+          $3, $4, $5, $6, 'Abuja Verified Resident', $7, $8, $9, $10, 'IN_TRANSIT_TO_HUB', 1600.00, NOW() + INTERVAL '3 days'
         ) RETURNING *
       `, [
         testCode,
@@ -267,6 +269,7 @@ router.post('/test-reroute-alert', authenticate, async (req, res) => {
         user.email,
         user.postcode || 'FC-01-A03-FK-01',
         pickupOtp,
+        pickupOtpExpiresAt,
         deliveryOtp,
         collectionQrToken
       ]);

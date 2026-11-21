@@ -4,6 +4,8 @@ const crypto = require('crypto');
 const db = require('../config/db');
 const { authenticate, requireRoles } = require('../middleware/auth');
 const { validate, bookingSchema } = require('../middleware/validate');
+const { generateOtp, otpExpiryFromNow, OTP_EXPIRY_MINUTES } = require('../utils/otp');
+const notificationService = require('../services/notificationService');
 
 function generateTrackingCode(postcode) {
   const cleanPostcode = (postcode || '900001').replace(/[^A-Z0-9]/gi, '').slice(0, 6);
@@ -11,8 +13,36 @@ function generateTrackingCode(postcode) {
   return `HBX-${cleanPostcode}-${randomNum}`;
 }
 
-function generateOtp() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+// Deliver a pickup OTP to the sender through every channel we have. Returns a
+// per-channel receipt so the booking screen can tell the sender where to look.
+async function deliverPickupOtp({ phone, email, otp, trackingCode, expiryMinutes }) {
+  const message = `Hotbox pickup OTP for ${trackingCode} is ${otp}. Valid for ${expiryMinutes} minutes. Hand it to the rider at pickup.`;
+  const receipt = { sms: null, email: null };
+
+  if (phone) {
+    try {
+      receipt.sms = await notificationService.sendSmsNotification({ phone, message });
+    } catch (err) {
+      console.warn('[shipments] Pickup OTP SMS failed:', err.message);
+      receipt.sms = { success: false, delivered: false };
+    }
+  }
+
+  if (email) {
+    try {
+      receipt.email = await notificationService.sendEmailNotification({
+        to: email,
+        subject: `Hotbox Pickup OTP for ${trackingCode}`,
+        text: message,
+        html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#0f172a;">${message}</p>`
+      });
+    } catch (err) {
+      console.warn('[shipments] Pickup OTP email failed:', err.message);
+      receipt.email = { success: false, delivered: false };
+    }
+  }
+
+  return receipt;
 }
 
 // Dispatch fee per parcel size. Shared by the booking endpoint and the quote
@@ -53,6 +83,7 @@ router.post('/book', authenticate, validate(bookingSchema), async (req, res) => 
   try {
     const trackingCode = generateTrackingCode(destinationHubId ? recipientPostcode : senderPostcode);
     const pickupOtp = generateOtp();
+    const pickupOtpExpiresAt = otpExpiryFromNow();
     const deliveryOtp = generateOtp();
     const collectionQrToken = `QR-PASS-${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
 
@@ -65,9 +96,9 @@ router.post('/book', authenticate, validate(bookingSchema), async (req, res) => 
          sender_postcode, sender_address_text, recipient_name, recipient_phone,
          recipient_email, recipient_postcode, recipient_address_text,
          destination_hub_id, size, weight_kg, package_description,
-         declared_value_ngn, pickup_otp, delivery_otp, collection_qr_token,
+         declared_value_ngn, pickup_otp, pickup_otp_expires_at, delivery_otp, collection_qr_token,
          status, pricing_total_ngn, expires_at
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, 'BOOKED', $21, NOW() + INTERVAL '3 days')
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, 'BOOKED', $22, NOW() + INTERVAL '3 days')
        RETURNING *`,
       [
         trackingCode,
@@ -88,6 +119,7 @@ router.post('/book', authenticate, validate(bookingSchema), async (req, res) => 
         packageDescription || 'Parcel',
         declaredValueNgn,
         pickupOtp,
+        pickupOtpExpiresAt,
         deliveryOtp,
         collectionQrToken,
         pricingTotal
@@ -129,18 +161,29 @@ router.post('/book', authenticate, validate(bookingSchema), async (req, res) => 
       console.warn('Wallet debit warning:', wErr.message);
     }
 
+    // Deliver the pickup OTP to the sender now. It is time-boxed and
+    // single-use, so the sender must receive it at booking rather than dig
+    // for it later in a dossier.
+    const pickupOtpDelivery = await deliverPickupOtp({
+      phone: newShipment.sender_phone,
+      email: req.user.email,
+      otp: pickupOtp,
+      trackingCode,
+      expiryMinutes: OTP_EXPIRY_MINUTES
+    });
+
     res.status(201).json({
       message: 'Shipment successfully booked.',
       shipment: newShipment,
       pickupOtp, // displayed to sender to give rider
+      pickupOtpExpiresAt,
+      pickupOtpDelivery,
       collectionQrToken,
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to book shipment: ' + err.message });
   }
 });
-
-const notificationService = require('../services/notificationService');
 
 // GET /api/v1/shipments/track/:trackingCode (Public & Authenticated Tracking Dossier)
 router.get('/track/:trackingCode', async (req, res) => {
@@ -201,9 +244,24 @@ router.get('/track/:trackingCode', async (req, res) => {
       availableBays = baysRes.rows;
     }
 
+    // OTPs and the collection QR pass are custody credentials. They must never
+    // leave through this endpoint, which is intentionally unauthenticated.
+    // Senders receive them by SMS/email instead.
+    const {
+      pickup_otp: _pickupOtp,
+      delivery_otp: _deliveryOtp,
+      collection_qr_token: _qrToken,
+      ...safeShipment
+    } = shipment;
+
+    const safeTimeline = custodyRes.rows.map((entry) => {
+      const { verification_token: _token, ...rest } = entry;
+      return rest;
+    });
+
     res.json({
-      shipment,
-      timeline: custodyRes.rows,
+      shipment: safeShipment,
+      timeline: safeTimeline,
       availableBays
     });
   } catch (err) {
@@ -237,6 +295,58 @@ router.post('/:id/resend-otp', authenticate, requireRoles('ops_admin', 'super_ad
     );
 
     res.json({ success: true, message: `Delivery OTP (${s.delivery_otp}) successfully resent to ${dest}.` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/v1/shipments/:id/resend-pickup-otp
+// Reissues and redelivers the sender's pickup OTP. Restricted to the sender or
+// operations staff because it mints a new custody credential.
+router.post('/:id/resend-pickup-otp', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const shipRes = await db.query('SELECT * FROM shipments WHERE id = $1', [id]);
+    if (shipRes.rows.length === 0) return res.status(404).json({ error: 'Shipment not found' });
+    const s = shipRes.rows[0];
+
+    const isSender = s.sender_id === req.user.id;
+    const isStaff = ['ops_admin', 'super_admin'].includes(req.user.role);
+    if (!isSender && !isStaff) {
+      return res.status(403).json({ error: 'Only the sender or operations staff may reissue the pickup OTP.' });
+    }
+    if (!['BOOKED', 'RIDER_ASSIGNED'].includes(s.status)) {
+      return res.status(409).json({ error: 'Pickup OTP can only be reissued before the parcel is picked up.' });
+    }
+
+    const pickupOtp = generateOtp();
+    const pickupOtpExpiresAt = otpExpiryFromNow();
+    await db.query(
+      `UPDATE shipments
+       SET pickup_otp = $1,
+           pickup_otp_expires_at = $2,
+           pickup_otp_attempts = 0,
+           pickup_otp_consumed_at = NULL,
+           updated_at = NOW()
+       WHERE id = $3`,
+      [pickupOtp, pickupOtpExpiresAt, s.id]
+    );
+
+    const pickupOtpDelivery = await deliverPickupOtp({
+      phone: s.sender_phone,
+      email: req.user.email,
+      otp: pickupOtp,
+      trackingCode: s.tracking_code,
+      expiryMinutes: OTP_EXPIRY_MINUTES
+    });
+
+    res.json({
+      success: true,
+      message: `Pickup OTP reissued and sent to ${s.sender_phone}.`,
+      pickupOtp,
+      pickupOtpExpiresAt,
+      pickupOtpDelivery
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

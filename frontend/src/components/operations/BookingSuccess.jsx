@@ -4,6 +4,15 @@ export default function BookingSuccess({ booking, onClose }) {
     bookedResult, copiedOtp, copiedTracking, handleCopy, recipientAddress, recipientName, recipientPostcode, selectedHubObj, senderName, senderPostcode
   } = booking;
 
+  const otpDelivery = bookedResult.pickupOtpDelivery || {};
+  const otpChannels = [
+    otpDelivery.sms?.delivered ? 'SMS' : null,
+    otpDelivery.email?.delivered ? 'email' : null
+  ].filter(Boolean);
+  const otpDeliveryNote = otpChannels.length
+    ? `Also delivered to the sender by ${otpChannels.join(' and ')}.`
+    : 'Shown here only — copy it now and give it to the rider.';
+
   return (
             <div className="space-y-6 text-center animate-fadeIn">
               <div className="w-16 h-16 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto shadow-inner">
@@ -58,7 +67,10 @@ export default function BookingSuccess({ booking, onClose }) {
                       </button>
                     </div>
                     <p className="text-[10px] text-emerald-600 leading-tight">
-                      Confirms physical package handover from your doorway.
+                      Confirms physical package handover from your doorway. Valid for 10 minutes, single-use.
+                    </p>
+                    <p className="text-[10px] text-emerald-700 leading-tight font-semibold">
+                      {otpDeliveryNote}
                     </p>
                   </div>
 

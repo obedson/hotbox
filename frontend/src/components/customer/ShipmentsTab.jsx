@@ -1,9 +1,30 @@
+import { useState } from 'react';
 import { Plus, Wallet } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
 
 export default function ShipmentsTab({
   shipments, setIsBookingOpen, setIsClaimModalOpen,
   setSelectedShipmentForAction, handleCancelShipment, handleRequestReturn
 }) {
+  const [pickupOtpById, setPickupOtpById] = useState({});
+  const [resendingId, setResendingId] = useState(null);
+  const [resendError, setResendError] = useState('');
+
+  const handleResendPickupOtp = async (shipment) => {
+    setResendingId(shipment.id);
+    setResendError('');
+    try {
+      const res = await apiFetch(`/api/v1/shipments/${shipment.id}/resend-pickup-otp`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to resend the pickup OTP.');
+      setPickupOtpById((prev) => ({ ...prev, [shipment.id]: data.pickupOtp }));
+    } catch (err) {
+      setResendError(err.message);
+    } finally {
+      setResendingId(null);
+    }
+  };
+
   return (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
@@ -55,11 +76,31 @@ export default function ShipmentsTab({
                       <span className="text-[10px] uppercase font-bold text-slate-400 block">Collection Authorization</span>
                       <div className="font-mono text-emerald-700 font-bold">QR Pass: {s.collection_qr_token}</div>
                       <div className="text-slate-500">Delivery OTP: <strong>{s.delivery_otp}</strong></div>
+                      {pickupOtpById[s.id] && (
+                        <div className="text-slate-500">
+                          Pickup OTP: <strong className="font-mono text-emerald-700">{pickupOtpById[s.id]}</strong>
+                          <span className="text-slate-400"> (10-min, one-time)</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
+                  {resendError && (
+                    <div className="pt-2 text-right text-[11px] font-semibold text-rose-600">{resendError}</div>
+                  )}
+
                   {/* Action Buttons: Cancel, Return, Dispute */}
                   <div className="pt-2 flex flex-wrap items-center justify-end gap-2 border-t border-slate-100">
+                    {['BOOKED', 'RIDER_ASSIGNED'].includes(s.status) && (
+                      <button
+                        onClick={() => handleResendPickupOtp(s)}
+                        disabled={resendingId === s.id}
+                        className="px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold transition disabled:opacity-60"
+                      >
+                        {resendingId === s.id ? 'Sending…' : 'Resend Pickup OTP'}
+                      </button>
+                    )}
+
                     {s.status === 'BOOKED' && (
                       <button
                         onClick={() => handleCancelShipment(s.id)}

@@ -91,6 +91,7 @@ app.use('/api/', globalLimiter);
 app.use('/api/v1/auth', authLimiter);
 app.use('/api/v1/customer/request-otp', otpLimiter);
 app.use(/^\/api\/v1\/shipments\/[^/]+\/resend-otp$/, otpLimiter);
+app.use(/^\/api\/v1\/shipments\/[^/]+\/resend-pickup-otp$/, otpLimiter);
 app.use(express.json({
   // Evidence uploads travel as base64 data URLs inside JSON. A 2 MB document
   // becomes roughly 2.7 MB of JSON, so the parser must allow more than the
