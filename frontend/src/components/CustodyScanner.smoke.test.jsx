@@ -10,7 +10,9 @@ vi.mock('../lib/api', () => ({
 import CustodyScanner from './CustodyScanner';
 
 const SHIPMENT_UUID = 'd0000000-0000-0000-0000-000000000001';
+const TRACKING_CODE = 'HBX-FC01A0-9781';
 const SHIPMENT_INPUT = /d0000000-0000-0000-0000-000000000001/;
+const TRACKING_INPUT = /HBX-FC01A0-9781/;
 
 // Deliberately different tiers from the fallback list so a passing assertion
 // proves the picker read the hub's real shelves from the tracking endpoint.
@@ -22,11 +24,14 @@ const HUB_BAYS = [
 
 function mockApi() {
   apiFetchMock.mockImplementation((path) => {
-    if (path === `/api/v1/shipments/track/${SHIPMENT_UUID}`) {
+    if (
+      path === `/api/v1/shipments/track/${SHIPMENT_UUID}` ||
+      path === `/api/v1/shipments/track/${TRACKING_CODE}`
+    ) {
       return Promise.resolve({
         ok: true,
         status: 200,
-        json: async () => ({ availableBays: HUB_BAYS })
+        json: async () => ({ shipment: { id: SHIPMENT_UUID }, availableBays: HUB_BAYS })
       });
     }
     if (path === '/api/v1/custody/transfer') {
@@ -40,15 +45,19 @@ function mockApi() {
   });
 }
 
-async function renderIntakeScanner() {
+async function renderScannerWith(value, inputMatcher) {
   render(<CustodyScanner activeRole="hub_owner" hubs={[]} onCustodySuccess={() => {}} />);
   await act(async () => {
-    fireEvent.change(screen.getByPlaceholderText(SHIPMENT_INPUT), {
-      target: { value: SHIPMENT_UUID }
+    fireEvent.change(screen.getByPlaceholderText(inputMatcher), {
+      target: { value }
     });
   });
   expect(await screen.findByText('BAY-01 (large)')).toBeInTheDocument();
   return screen.getByRole('combobox');
+}
+
+async function renderIntakeScanner() {
+  return renderScannerWith(SHIPMENT_UUID, SHIPMENT_INPUT);
 }
 
 describe('CustodyScanner storage bay picker', () => {
@@ -93,6 +102,25 @@ describe('CustodyScanner storage bay picker', () => {
       const call = apiFetchMock.mock.calls.find((entry) => entry[0] === '/api/v1/custody/transfer');
       expect(call).toBeTruthy();
       expect(JSON.parse(call[1].body).bayCode).toBe('BAY-02');
+    });
+  });
+
+  it('accepts the waybill tracking code and resolves it to the shipment id', async () => {
+    mockApi();
+    const select = await renderScannerWith(TRACKING_CODE, TRACKING_INPUT);
+
+    expect(screen.getByText('Shipment UUID or Tracking Code')).toBeInTheDocument();
+    expect(apiFetchMock).toHaveBeenCalledWith(`/api/v1/shipments/track/${TRACKING_CODE}`);
+
+    fireEvent.change(screen.getByPlaceholderText(/419201/), { target: { value: '419201' } });
+    fireEvent.click(screen.getByText('Verify Token & Commit Custody Transfer'));
+
+    await vi.waitFor(() => {
+      const call = apiFetchMock.mock.calls.find((entry) => entry[0] === '/api/v1/custody/transfer');
+      expect(call).toBeTruthy();
+      const body = JSON.parse(call[1].body);
+      expect(body.shipmentId).toBe(SHIPMENT_UUID);
+      expect(body.bayCode).toBe(select.value);
     });
   });
 

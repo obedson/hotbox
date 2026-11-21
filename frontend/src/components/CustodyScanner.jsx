@@ -15,13 +15,15 @@ export default function CustodyScanner({ activeRole, hubs = [], onCustodySuccess
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [availableBays, setAvailableBays] = useState([]);
+  const [resolvedShipmentId, setResolvedShipmentId] = useState('');
 
   // Bay codes differ per hub, so resolve the real shelves for the shipment
   // being handed over instead of offering a hard-coded list.
   useEffect(() => {
     const id = shipmentId.trim();
-    if (id.length < 20) {
+    if (!id) {
       setAvailableBays([]);
+      setResolvedShipmentId('');
       return undefined;
     }
     let cancelled = false;
@@ -29,6 +31,7 @@ export default function CustodyScanner({ activeRole, hubs = [], onCustodySuccess
       .then((res) => res.json())
       .then((data) => {
         if (cancelled) return;
+        setResolvedShipmentId(data.shipment?.id || '');
         const bays = Array.isArray(data.availableBays) ? data.availableBays : [];
         setAvailableBays(bays);
         if (bays.length > 0) {
@@ -76,8 +79,12 @@ export default function CustodyScanner({ activeRole, hubs = [], onCustodySuccess
         ? 'a0000000-0000-0000-0000-000000000006' // Musa Danladi (rider)
         : 'a0000000-0000-0000-0000-000000000001'; // Mallam Ibrahim (hub_owner)
 
+      // Accept either the shipment UUID or the waybill tracking code; the
+      // track lookup above resolves it to the canonical shipment id.
+      const shipmentUuid = resolvedShipmentId || shipmentId.trim();
+
       if (handoverType === 'RELOCATION_FORWARDING') {
-        const res = await apiFetch(`/api/v1/shipments/${encodeURIComponent(shipmentId.trim())}/reroute`, {
+        const res = await apiFetch(`/api/v1/shipments/${encodeURIComponent(shipmentUuid)}/reroute`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -106,7 +113,7 @@ export default function CustodyScanner({ activeRole, hubs = [], onCustodySuccess
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          shipmentId,
+          shipmentId: shipmentUuid,
           handoverType,
           verificationMethod,
           verificationToken,
@@ -186,13 +193,13 @@ export default function CustodyScanner({ activeRole, hubs = [], onCustodySuccess
           {/* Target Shipment UUID or Tracking */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Shipment UUID
+              Shipment UUID or Tracking Code
             </label>
             <input
               type="text"
               value={shipmentId}
               onChange={e => setShipmentId(e.target.value)}
-              placeholder="e.g. d0000000-0000-0000-0000-000000000001"
+              placeholder="e.g. HBX-FC01A0-9781 or d0000000-0000-0000-0000-000000000001"
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               required
             />
