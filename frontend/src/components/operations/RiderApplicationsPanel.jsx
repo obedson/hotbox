@@ -45,17 +45,71 @@ function formatDate(value) {
   return new Date(value).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
+const CLEARANCE_STATUS_STYLES = {
+  APPROVED: { label: 'Verified', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  REJECTED: { label: 'Rejected', className: 'bg-rose-50 text-rose-700 border-rose-200' },
+  PENDING: { label: 'Under review', className: 'bg-amber-50 text-amber-700 border-amber-200' },
+  PROVIDED: { label: 'Provided', className: 'bg-sky-50 text-sky-700 border-sky-200' },
+  MISSING: { label: 'Missing', className: 'bg-slate-50 text-slate-500 border-slate-200' }
+};
+
+// A clearance row is only "cleared" when the value is backed by an approved
+// Track B document. Profile facts (postcode, phone) are cleared by being
+// present. Everything else stays visible as provided / under review / rejected
+// so operations can see exactly what evidence exists before deciding.
 function checklistFor(rider, registrationFeeNgn) {
+  const documents = rider.documents || [];
+  const licenceNumber = rider.drivers_license_no && rider.drivers_license_no !== 'DL-PENDING'
+    ? rider.drivers_license_no
+    : '';
+  const evidenceStatus = (documentType, valuePresent) => {
+    const doc = documents.find((item) => item.document_type === documentType);
+    if (doc) return doc.status;
+    return valuePresent ? 'PROVIDED' : 'MISSING';
+  };
+
   const items = [
-    { label: 'NIN', provided: Boolean(rider.nin) },
-    { label: "Driver's licence", provided: Boolean(rider.drivers_license_no && rider.drivers_license_no !== 'DL-PENDING') },
-    { label: 'Home postcode', provided: Boolean(rider.user_postcode) },
-    { label: 'Phone number', provided: Boolean(rider.phone) }
+    {
+      label: 'NIN',
+      value: rider.nin || '',
+      kind: 'document',
+      status: evidenceStatus('NIN', Boolean(rider.nin))
+    },
+    {
+      label: "Driver's licence",
+      value: licenceNumber,
+      kind: 'document',
+      status: evidenceStatus('DRIVERS_LICENSE', Boolean(licenceNumber))
+    },
+    {
+      label: 'Home postcode',
+      value: rider.user_postcode || '',
+      kind: 'profile',
+      status: rider.user_postcode ? 'PROVIDED' : 'MISSING'
+    },
+    {
+      label: 'Phone number',
+      value: rider.phone || '',
+      kind: 'profile',
+      status: rider.phone ? 'PROVIDED' : 'MISSING'
+    }
   ];
+
   if (Number(registrationFeeNgn) > 0) {
-    items.push({ label: 'Registration fee', provided: Boolean(rider.registration_fee_paid_at) });
+    items.push({
+      label: 'Registration fee',
+      value: rider.registration_fee_paid_at ? 'Paid' : 'Outstanding',
+      kind: 'payment',
+      status: rider.registration_fee_paid_at ? 'APPROVED' : 'MISSING'
+    });
   }
+
   return items;
+}
+
+function isCleared(item) {
+  if (item.kind === 'profile') return item.status === 'PROVIDED';
+  return item.status === 'APPROVED';
 }
 
 function RiderApplicationDossier({
@@ -66,7 +120,7 @@ function RiderApplicationDossier({
   const [decisionNotes, setDecisionNotes] = useState('');
 
   const checklist = checklistFor(rider, registrationFeeNgn);
-  const providedCount = checklist.filter((item) => item.provided).length;
+  const clearedCount = checklist.filter(isCleared).length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
@@ -88,7 +142,7 @@ function RiderApplicationDossier({
                   {rider.status}
                 </span>
                 <span className={`px-2.5 py-1 rounded-xl border font-bold text-xs ${rider.readyForApproval ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
-                  {providedCount}/{checklist.length} clearance items
+                  {clearedCount}/{checklist.length} clearance items
                 </span>
               </div>
             </div>
@@ -117,12 +171,20 @@ function RiderApplicationDossier({
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Clearance checklist</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {checklist.map((item) => (
-                <div key={item.label} className={`flex items-center gap-2 border rounded-xl px-3 py-2 text-xs font-semibold ${item.provided ? 'bg-emerald-50/60 border-emerald-200 text-emerald-800' : 'bg-rose-50/60 border-rose-200 text-rose-700'}`}>
-                  {item.provided ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <XCircle className="w-4 h-4 shrink-0" />}
-                  {item.label}
-                </div>
-              ))}
+              {checklist.map((item) => {
+                const statusStyle = CLEARANCE_STATUS_STYLES[item.status] || CLEARANCE_STATUS_STYLES.MISSING;
+                return (
+                  <div key={item.label} className="flex items-center justify-between gap-2 border border-slate-200 rounded-xl px-3 py-2 bg-white">
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-slate-800">{item.label}</div>
+                      <div className="text-[10px] font-mono text-slate-500 truncate">{item.value || '—'}</div>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded border text-[10px] font-bold shrink-0 ${statusStyle.className}`}>
+                      {statusStyle.label}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
             {rider.missingClearance.length > 0 && (
               <p className="text-[11px] text-rose-600 font-semibold mt-2">
@@ -148,6 +210,9 @@ function RiderApplicationDossier({
                       <div className="min-w-0">
                         <div className="font-bold text-slate-800">{DOCUMENT_LABELS[doc.document_type] || doc.document_type}</div>
                         <div className="text-slate-500 font-mono truncate">{doc.document_number || 'No document number'}</div>
+                        {doc.status === 'REJECTED' && doc.reviewer_notes && (
+                          <div className="text-[10px] text-rose-600 truncate">{doc.reviewer_notes}</div>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -299,7 +364,9 @@ export default function RiderApplicationsPanel({ currentUser, showToast }) {
 
   const filtered = useMemo(() => {
     if (tab === 'ALL') return riders;
-    if (tab === 'AWAITING') return riders.filter((r) => r.status === 'pending' && r.pendingDocuments > 0);
+    if (tab === 'AWAITING') {
+      return riders.filter((r) => r.status === 'pending' && !(r.pendingDocuments === 0 && r.rejectedDocuments > 0));
+    }
     if (tab === 'REJECTED') return riders.filter((r) => r.status === 'pending' && r.pendingDocuments === 0 && r.rejectedDocuments > 0);
     if (tab === 'VERIFIED') return riders.filter((r) => r.status === 'verified');
     if (tab === 'SUSPENDED') return riders.filter((r) => r.status === 'suspended');
@@ -440,7 +507,7 @@ export default function RiderApplicationsPanel({ currentUser, showToast }) {
           <div className="divide-y divide-slate-100">
             {filtered.map((rider) => {
               const checklist = checklistFor(rider, registrationFeeNgn);
-              const provided = checklist.filter((item) => item.provided).length;
+              const cleared = checklist.filter(isCleared).length;
               return (
                 <button
                   key={rider.id}
@@ -467,7 +534,7 @@ export default function RiderApplicationsPanel({ currentUser, showToast }) {
                   <div className="flex items-center gap-3 shrink-0">
                     <div className="text-right">
                       <div className="text-[11px] font-bold text-slate-700">
-                        {provided}/{checklist.length} clearance
+                        {cleared}/{checklist.length} clearance
                       </div>
                       <div className="text-[10px] text-slate-400">
                         {rider.pendingDocuments} pending - {rider.documents.length} documents

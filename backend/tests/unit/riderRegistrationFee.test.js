@@ -21,6 +21,11 @@ const baseRider = {
   registration_fee_paid_at: null
 };
 
+const approvedDocuments = [
+  { document_type: 'NIN', status: 'APPROVED' },
+  { document_type: 'DRIVERS_LICENSE', status: 'APPROVED' }
+];
+
 function handlerFor(method, path) {
   const layer = ridersRouter.stack.find(
     (entry) => entry.route && entry.route.path === path && entry.route.methods[method]
@@ -68,7 +73,8 @@ test('missingRiderClearance is empty for a fully evidenced, paid rider', () => {
       postcode: 'FC-01-A03-FK-01',
       phone: '+2348108525262',
       registrationFeeNgn: 2500,
-      registrationFeePaid: true
+      registrationFeePaid: true,
+      documents: approvedDocuments
     }),
     []
   );
@@ -94,7 +100,8 @@ test('missingRiderClearance ignores the fee while it is set to zero', () => {
       postcode: 'FC-01-A03-FK-01',
       phone: '+2348108525262',
       registrationFeeNgn: 0,
-      registrationFeePaid: false
+      registrationFeePaid: false,
+      documents: approvedDocuments
     }),
     []
   );
@@ -107,9 +114,24 @@ test('missingRiderClearance requires a contact phone number', () => {
       postcode: 'FC-01-A03-FK-01',
       phone: null,
       registrationFeeNgn: 0,
-      registrationFeePaid: false
+      registrationFeePaid: false,
+      documents: approvedDocuments
     }),
     ['phone number']
+  );
+});
+
+test('missingRiderClearance requires approved documents even when the numbers are present', () => {
+  assert.deepEqual(
+    missingRiderClearance({
+      rider: baseRider,
+      postcode: 'FC-01-A03-FK-01',
+      phone: '+2348108525262',
+      registrationFeeNgn: 0,
+      registrationFeePaid: false,
+      documents: []
+    }),
+    ['approved NIN document', "approved driver's licence document"]
   );
 });
 

@@ -618,12 +618,18 @@ router.post('/review/:id', async (req, res) => {
           );
           const rider = riderRes.rows[0];
           const { registrationFeeNgn } = await settingsService.getRiderRegistrationFees();
+          const riderDocumentsRes = await client.query(
+            `SELECT document_type, status FROM verification_records
+             WHERE entity_type = 'rider' AND entity_id = $1`,
+            [record.entity_id]
+          );
           const missing = missingRiderClearance({
             rider,
             postcode: rider ? rider.user_postcode : null,
             phone: rider ? rider.user_phone : null,
             registrationFeeNgn,
-            registrationFeePaid: rider ? Boolean(rider.registration_fee_paid_at) : false
+            registrationFeePaid: rider ? Boolean(rider.registration_fee_paid_at) : false,
+            documents: riderDocumentsRes.rows
           });
           riderClearance = { granted: missing.length === 0, missing };
           if (missing.length === 0) {
@@ -766,7 +772,8 @@ router.get('/rider-applications', async (req, res) => {
         postcode: rider.user_postcode,
         phone: rider.phone,
         registrationFeeNgn,
-        registrationFeePaid: Boolean(rider.registration_fee_paid_at)
+        registrationFeePaid: Boolean(rider.registration_fee_paid_at),
+        documents
       });
 
       return {
@@ -783,7 +790,7 @@ router.get('/rider-applications', async (req, res) => {
       riders,
       registrationFeeNgn,
       counts: {
-        awaiting: riders.filter((r) => r.status === 'pending' && r.pendingDocuments > 0).length,
+        awaiting: riders.filter((r) => r.status === 'pending' && !(r.pendingDocuments === 0 && r.rejectedDocuments > 0)).length,
         rejected: riders.filter((r) => r.status === 'pending' && r.pendingDocuments === 0 && r.rejectedDocuments > 0).length,
         verified: riders.filter((r) => r.status === 'verified').length,
         suspended: riders.filter((r) => r.status === 'suspended').length,
@@ -831,12 +838,18 @@ router.post('/riders/:id/review', async (req, res) => {
       }
 
       const { registrationFeeNgn } = await settingsService.getRiderRegistrationFees();
+      const riderDocumentsRes = await client.query(
+        `SELECT document_type, status FROM verification_records
+         WHERE entity_type = 'rider' AND entity_id = $1`,
+        [req.params.id]
+      );
       const missing = missingRiderClearance({
         rider,
         postcode: rider.user_postcode,
         phone: rider.user_phone,
         registrationFeeNgn,
-        registrationFeePaid: Boolean(rider.registration_fee_paid_at)
+        registrationFeePaid: Boolean(rider.registration_fee_paid_at),
+        documents: riderDocumentsRes.rows
       });
 
       if (action === 'approve' && missing.length > 0) {

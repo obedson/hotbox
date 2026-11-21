@@ -136,7 +136,7 @@ router.post('/riders/:id/toggle-status', async (req, res) => {
     // administrator-set registration fee are all in place.
     if (action !== 'suspend') {
       const riderRes = await db.query(
-        'SELECT r.*, u.postcode AS user_postcode FROM riders r JOIN users u ON u.id = r.user_id WHERE r.id = $1',
+        'SELECT r.*, u.postcode AS user_postcode, u.phone AS user_phone FROM riders r JOIN users u ON u.id = r.user_id WHERE r.id = $1',
         [id]
       );
       const record = riderRes.rows[0];
@@ -144,11 +144,18 @@ router.post('/riders/:id/toggle-status', async (req, res) => {
         return res.status(404).json({ error: 'Rider not found' });
       }
       const { registrationFeeNgn } = await settingsService.getRiderRegistrationFees();
+      const documentsRes = await db.query(
+        `SELECT document_type, status FROM verification_records
+         WHERE entity_type = 'rider' AND entity_id = $1`,
+        [id]
+      );
       const missing = missingRiderClearance({
         rider: record,
         postcode: record.user_postcode,
+        phone: record.user_phone,
         registrationFeeNgn,
-        registrationFeePaid: Boolean(record.registration_fee_paid_at)
+        registrationFeePaid: Boolean(record.registration_fee_paid_at),
+        documents: documentsRes.rows
       });
       if (missing.length > 0) {
         return res.status(409).json({
