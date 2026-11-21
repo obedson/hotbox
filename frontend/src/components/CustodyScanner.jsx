@@ -1,5 +1,5 @@
 import { apiFetch } from '../lib/api';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { QrCode, KeyRound, ShieldCheck, CheckCircle2, ArrowRight } from 'lucide-react';
 
 export default function CustodyScanner({ activeRole, hubs = [], onCustodySuccess }) {
@@ -14,6 +14,48 @@ export default function CustodyScanner({ activeRole, hubs = [], onCustodySuccess
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [availableBays, setAvailableBays] = useState([]);
+
+  // Bay codes differ per hub, so resolve the real shelves for the shipment
+  // being handed over instead of offering a hard-coded list.
+  useEffect(() => {
+    const id = shipmentId.trim();
+    if (id.length < 20) {
+      setAvailableBays([]);
+      return undefined;
+    }
+    let cancelled = false;
+    apiFetch(`/api/v1/shipments/track/${encodeURIComponent(id)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        const bays = Array.isArray(data.availableBays) ? data.availableBays : [];
+        setAvailableBays(bays);
+        if (bays.length > 0) {
+          const free = bays.find((bay) => !bay.is_occupied);
+          setBayCode((free || bays[0]).bay_code);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [shipmentId]);
+
+  const bayOptions = availableBays.length > 0
+    ? availableBays
+    : [
+        { bay_code: 'BAY-01', size_tier: 'small', is_occupied: false },
+        { bay_code: 'BAY-02', size_tier: 'medium', is_occupied: false },
+        { bay_code: 'BAY-03', size_tier: 'large', is_occupied: false }
+      ];
+
+  // Guards against submitting a stale bay code if the shelves were reloaded
+  // after the picker was rendered.
+  const effectiveBayCode = () => {
+    if (availableBays.length === 0) return bayCode;
+    if (availableBays.some((bay) => bay.bay_code === bayCode)) return bayCode;
+    const free = availableBays.find((bay) => !bay.is_occupied);
+    return (free || availableBays[0]).bay_code;
+  };
 
   const handoverOptions = [
     { id: 'SENDER_TO_RIDER', label: 'Sender ➔ Rider (Pickup)', method: 'OTP', desc: 'Rider verifies Sender Pickup OTP' },
@@ -68,7 +110,7 @@ export default function CustodyScanner({ activeRole, hubs = [], onCustodySuccess
           handoverType,
           verificationMethod,
           verificationToken,
-          bayCode: handoverType === 'RIDER_TO_HUB' ? bayCode : null,
+          bayCode: handoverType === 'RIDER_TO_HUB' ? effectiveBayCode() : null,
           notes: notes || `Verified custody handover for ${handoverType}`
         })
       });
@@ -187,10 +229,11 @@ export default function CustodyScanner({ activeRole, hubs = [], onCustodySuccess
               onChange={e => setBayCode(e.target.value)}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono font-semibold focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white"
             >
-              <option value="BAY-A01">BAY-A01 (Small Parcel Box)</option>
-              <option value="BAY-A02">BAY-A02 (Medium Shelf Bay)</option>
-              <option value="BAY-A03">BAY-A03 (Medium Shelf Bay)</option>
-              <option value="BAY-A04">BAY-A04 (Large Heavy Bay)</option>
+              {bayOptions.map((bay) => (
+                <option key={bay.bay_code} value={bay.bay_code} disabled={bay.is_occupied}>
+                  {bay.bay_code} ({bay.size_tier}{bay.is_occupied ? ' — occupied' : ''})
+                </option>
+              ))}
             </select>
           </div>
         )}
