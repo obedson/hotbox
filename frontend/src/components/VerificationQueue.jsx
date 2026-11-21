@@ -252,6 +252,8 @@ export default function VerificationQueue({ onSelectShipment }) {
         return 'Guarantor Bond & Security Deposit';
       case 'COURIER_LICENCE':
         return 'Courier Operating License';
+      case 'VEHICLE_ROADWORTHINESS':
+        return 'Vehicle Roadworthiness Certificate';
       default:
         return (type || 'Document').replace(/_/g, ' ');
     }
