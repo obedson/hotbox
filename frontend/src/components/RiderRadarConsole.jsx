@@ -131,6 +131,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
   const TRACK_B_DOCUMENTS = [
     { type: 'NIN', label: 'NIN Slip', hint: '11-digit national identity number' },
     { type: 'DRIVERS_LICENSE', label: "Driver's Licence", hint: 'FRSC licence card' },
+    { type: 'VEHICLE_ROADWORTHINESS', label: 'Roadworthiness Certificate', hint: 'Certificate of roadworthiness for your vehicle' },
     { type: 'COURIER_LICENCE', label: 'Courier Licence', hint: 'State dispatch permit' },
     { type: 'PROOF_OF_ADDRESS', label: 'Proof of Address', hint: 'Utility bill or bank statement' }
   ];
@@ -236,9 +237,10 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
     {
       key: 'vehicle',
       label: 'Vehicle Roadworthiness',
+      documentType: 'VEHICLE_ROADWORTHINESS',
       approvedLabel: 'Passed',
       providedLabel: 'Provided',
-      provided: Boolean(rider?.vehicle_type)
+      provided: Boolean(rider?.plate_number) && rider.plate_number !== 'ABJ-000-XX'
     },
     {
       key: 'courier_licence',
@@ -311,6 +313,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
     try {
       if (!/^\d{11}$/.test(kycForm.nin.trim())) throw new Error('Enter your 11-digit NIN.');
       if (!kycForm.driversLicenseNo.trim()) throw new Error("Enter your driver's licence number.");
+      if (!kycForm.plateNumber.trim()) throw new Error('Enter your vehicle license plate.');
       if (!kycForm.postcode.trim()) throw new Error('Enter your home postcode.');
       if (!kycForm.phone.trim()) throw new Error('Enter your phone number.');
 
@@ -383,7 +386,9 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
         ? kycForm.nin.trim()
         : documentType === 'DRIVERS_LICENSE'
           ? kycForm.driversLicenseNo.trim()
-          : undefined;
+          : documentType === 'VEHICLE_ROADWORTHINESS'
+            ? kycForm.plateNumber.trim()
+            : undefined;
       const res = await apiFetch('/api/v1/riders/verification/documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -881,7 +886,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
                   </select>
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Vehicle License Plate</label>
+                  <label className="font-bold text-slate-700 block mb-1">Vehicle License Plate <span className="text-rose-500">*</span></label>
                   <input
                     type="text"
                     value={kycForm.plateNumber}

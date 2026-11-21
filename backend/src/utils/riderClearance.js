@@ -1,13 +1,14 @@
 // Shared rider clearance rules. A rider is only granted dispatch access once
-// operations has evidenced identity (NIN), driving privilege (licence), a
-// service postcode and a contact phone number, and any registration fee set by
-// the super administrator has been paid.
+// operations has evidenced identity (NIN), driving privilege (licence), vehicle
+// roadworthiness, a service postcode and a contact phone number, and any
+// registration fee set by the super administrator has been paid.
 //
 // "Evidenced" means an approved Track B document, not merely a value typed into
 // the rider profile: a typed NIN with no NIN slip uploaded is not evidence.
 // Keeping the rule in one module means the rider console, the operations ledger
 // and the compliance review queue can never drift apart.
 const PLACEHOLDER_LICENCE = 'DL-PENDING';
+const PLACEHOLDER_PLATE = 'ABJ-000-XX';
 
 const REQUIRED_EVIDENCE = [
   {
@@ -23,6 +24,13 @@ const REQUIRED_EVIDENCE = [
     documentType: 'DRIVERS_LICENSE',
     evidenceLabel: "approved driver's licence document",
     placeholder: PLACEHOLDER_LICENCE
+  },
+  {
+    valueKey: 'plate_number',
+    missingLabel: 'vehicle plate number',
+    documentType: 'VEHICLE_ROADWORTHINESS',
+    evidenceLabel: 'approved vehicle roadworthiness certificate',
+    placeholder: PLACEHOLDER_PLATE
   }
 ];
 
@@ -68,5 +76,6 @@ function missingRiderClearance({
 
 module.exports = {
   PLACEHOLDER_LICENCE,
+  PLACEHOLDER_PLATE,
   missingRiderClearance
 };

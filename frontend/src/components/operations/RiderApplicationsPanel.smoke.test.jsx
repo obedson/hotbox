@@ -68,7 +68,7 @@ describe('RiderApplicationsPanel', () => {
     expect(screen.getAllByText('12345678901').length).toBeGreaterThan(0);
     expect(screen.getByText('DL-ABC-123')).toBeInTheDocument();
     expect(within(checklistBox).getByText('Under review')).toBeInTheDocument();
-    expect(within(checklistBox).getAllByText('Provided').length).toBe(3);
+    expect(within(checklistBox).getAllByText('Provided').length).toBe(4);
     expect(within(checklistBox).queryByText('Verified')).not.toBeInTheDocument();
     expect(screen.getByText('Approval is disabled until every clearance item above is provided.')).toBeInTheDocument();
   });
@@ -78,7 +78,8 @@ describe('RiderApplicationsPanel', () => {
       ...baseRider,
       documents: [
         { id: 'd1', document_type: 'NIN', document_number: '12345678901', status: 'APPROVED', submitted_at: '2026-11-18T09:00:00Z' },
-        { id: 'd2', document_type: 'DRIVERS_LICENSE', document_number: 'DL-ABC-123', status: 'APPROVED', submitted_at: '2026-11-18T09:00:00Z' }
+        { id: 'd2', document_type: 'DRIVERS_LICENSE', document_number: 'DL-ABC-123', status: 'APPROVED', submitted_at: '2026-11-18T09:00:00Z' },
+        { id: 'd3', document_type: 'VEHICLE_ROADWORTHINESS', document_number: 'ABJ-123-XY', status: 'APPROVED', submitted_at: '2026-11-18T09:00:00Z' }
       ],
       missingClearance: [],
       readyForApproval: true
@@ -89,7 +90,7 @@ describe('RiderApplicationsPanel', () => {
 
     expect(await screen.findByText('Approve rider & grant dispatch clearance')).toBeInTheDocument();
     const checklistHeading = screen.getByText('Clearance checklist');
-    expect(within(checklistHeading.parentElement).getAllByText('Verified').length).toBe(2);
-    expect(screen.getByText('4/4 clearance items')).toBeInTheDocument();
+    expect(within(checklistHeading.parentElement).getAllByText('Verified').length).toBe(3);
+    expect(screen.getByText('5/5 clearance items')).toBeInTheDocument();
   });
 });

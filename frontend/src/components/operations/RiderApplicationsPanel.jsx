@@ -23,6 +23,7 @@ const STATUS_BADGE = {
 const DOCUMENT_LABELS = {
   NIN: 'NIN slip',
   DRIVERS_LICENSE: "Driver's licence",
+  VEHICLE_ROADWORTHINESS: 'Vehicle roadworthiness certificate',
   COURIER_LICENCE: 'Courier licence',
   PROOF_OF_ADDRESS: 'Proof of address'
 };
@@ -62,6 +63,9 @@ function checklistFor(rider, registrationFeeNgn) {
   const licenceNumber = rider.drivers_license_no && rider.drivers_license_no !== 'DL-PENDING'
     ? rider.drivers_license_no
     : '';
+  const plateNumber = rider.plate_number && rider.plate_number !== 'ABJ-000-XX'
+    ? rider.plate_number
+    : '';
   const evidenceStatus = (documentType, valuePresent) => {
     const doc = documents.find((item) => item.document_type === documentType);
     if (doc) return doc.status;
@@ -80,6 +84,12 @@ function checklistFor(rider, registrationFeeNgn) {
       value: licenceNumber,
       kind: 'document',
       status: evidenceStatus('DRIVERS_LICENSE', Boolean(licenceNumber))
+    },
+    {
+      label: 'Vehicle roadworthiness',
+      value: plateNumber,
+      kind: 'document',
+      status: evidenceStatus('VEHICLE_ROADWORTHINESS', Boolean(plateNumber))
     },
     {
       label: 'Home postcode',
@@ -199,7 +209,7 @@ function RiderApplicationDossier({
             </h4>
             {rider.documents.length === 0 ? (
               <div className="border border-dashed border-slate-200 rounded-xl p-4 text-xs text-slate-500">
-                No documents uploaded yet. The rider can submit NIN, driver's licence, courier licence and proof of address from the Rider Radar portal.
+                No documents uploaded yet. The rider can submit NIN, driver's licence, vehicle roadworthiness, courier licence and proof of address from the Rider Radar portal.
               </div>
             ) : (
               <div className="space-y-2">

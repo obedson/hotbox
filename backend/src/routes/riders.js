@@ -310,7 +310,7 @@ router.get('/me/jobs', requireVerifiedRider, async (req, res) => {
 // A pending rider must be able to submit these, so they sit behind the router's
 // role gate rather than `requireVerifiedRider`.
 
-const TRACK_B_DOCUMENT_TYPES = ['NIN', 'DRIVERS_LICENSE', 'COURIER_LICENCE', 'PROOF_OF_ADDRESS'];
+const TRACK_B_DOCUMENT_TYPES = ['NIN', 'DRIVERS_LICENSE', 'VEHICLE_ROADWORTHINESS', 'COURIER_LICENCE', 'PROOF_OF_ADDRESS'];
 const VEHICLE_TYPES = ['bicycle', 'motorcycle', 'van', 'truck'];
 
 const getRiderRecord = async (userId) => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, act, within } from '@testing-library/react';
 
 const { apiFetchMock } = vi.hoisted(() => ({ apiFetchMock: vi.fn() }));
 
@@ -74,7 +74,7 @@ function mockConsole({ rider = true, jobs = [], myJobs = [], kyc = kycPayload } 
     if (path === '/api/v1/riders/me') {
       return Promise.resolve(
         rider
-          ? { ok: true, status: 200, json: async () => riderPayload }
+          ? { ok: true, status: 200, json: async () => (typeof rider === 'object' ? { ...riderPayload, rider } : riderPayload) }
           : { ok: false, status: 404, json: async () => ({ error: 'Rider profile not found for this user.' }) }
       );
     }
@@ -284,7 +284,7 @@ describe('RiderRadarConsole', () => {
     await screen.findByText('Identity Documents');
 
     const uploadInputs = container.querySelectorAll('input[type="file"]');
-    expect(uploadInputs).toHaveLength(4);
+    expect(uploadInputs).toHaveLength(5);
 
     await act(async () => {
       fireEvent.change(uploadInputs[0], {
@@ -329,5 +329,21 @@ describe('RiderRadarConsole', () => {
     expect(screen.getByText('Verified')).toBeInTheDocument();
     // Saved-only details are labelled as provided, never as verified.
     expect(screen.getAllByText('Provided').length).toBe(3);
+  });
+
+  it('does not mark vehicle roadworthiness as provided without a plate and certificate', async () => {
+    mockConsole({
+      rider: { ...riderPayload.rider, plate_number: 'ABJ-000-XX', status: 'pending' },
+      kyc: {
+        ...kycPayload,
+        profile: { ...kycPayload.profile, plateNumber: '' },
+        records: [{ id: 'rec-1', document_type: 'NIN', status: 'APPROVED' }]
+      }
+    });
+    render(<RiderRadarConsole activeNav="profile" setActiveNav={() => {}} hubs={[]} showToast={() => {}} />);
+
+    expect(await screen.findByText('Accreditation Checklist')).toBeInTheDocument();
+    const row = screen.getByText('Vehicle Roadworthiness').closest('div');
+    expect(within(row).getByText('Pending')).toBeInTheDocument();
   });
 });

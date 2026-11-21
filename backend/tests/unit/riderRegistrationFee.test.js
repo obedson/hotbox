@@ -23,7 +23,8 @@ const baseRider = {
 
 const approvedDocuments = [
   { document_type: 'NIN', status: 'APPROVED' },
-  { document_type: 'DRIVERS_LICENSE', status: 'APPROVED' }
+  { document_type: 'DRIVERS_LICENSE', status: 'APPROVED' },
+  { document_type: 'VEHICLE_ROADWORTHINESS', status: 'APPROVED' }
 ];
 
 function handlerFor(method, path) {
@@ -89,7 +90,7 @@ test('missingRiderClearance reports every outstanding requirement', () => {
       registrationFeeNgn: 2500,
       registrationFeePaid: false
     }),
-    ['NIN', "driver's licence number", 'home postcode', 'phone number', 'registration fee payment']
+    ['NIN', "driver's licence number", 'approved vehicle roadworthiness certificate', 'home postcode', 'phone number', 'registration fee payment']
   );
 });
 
@@ -131,7 +132,35 @@ test('missingRiderClearance requires approved documents even when the numbers ar
       registrationFeePaid: false,
       documents: []
     }),
-    ['approved NIN document', "approved driver's licence document"]
+    ['approved NIN document', "approved driver's licence document", 'approved vehicle roadworthiness certificate']
+  );
+});
+
+test('missingRiderClearance requires a plate number before any certificate counts', () => {
+  assert.deepEqual(
+    missingRiderClearance({
+      rider: { ...baseRider, plate_number: 'ABJ-000-XX' },
+      postcode: 'FC-01-A03-FK-01',
+      phone: '+2348108525262',
+      registrationFeeNgn: 0,
+      registrationFeePaid: false,
+      documents: approvedDocuments
+    }),
+    ['vehicle plate number']
+  );
+});
+
+test('missingRiderClearance demands an approved roadworthiness certificate', () => {
+  assert.deepEqual(
+    missingRiderClearance({
+      rider: baseRider,
+      postcode: 'FC-01-A03-FK-01',
+      phone: '+2348108525262',
+      registrationFeeNgn: 0,
+      registrationFeePaid: false,
+      documents: approvedDocuments.filter((doc) => doc.document_type !== 'VEHICLE_ROADWORTHINESS')
+    }),
+    ['approved vehicle roadworthiness certificate']
   );
 });
 
