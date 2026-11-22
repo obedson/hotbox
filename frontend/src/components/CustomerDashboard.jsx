@@ -77,6 +77,14 @@ export default function CustomerDashboard({ currentUser, onBookNewShipment, acti
     }
   }, [activeNav]);
 
+  // A hosted-checkout return credits the wallet at the app shell; refresh the
+  // customer data so balances, box status and certificates stay in sync.
+  useEffect(() => {
+    const refresh = () => { fetchCustomerData(); };
+    window.addEventListener('hotbox:wallet:credited', refresh);
+    return () => window.removeEventListener('hotbox:wallet:credited', refresh);
+  }, [fetchCustomerData]);
+
   const [isSearchingOccupants, setIsSearchingOccupants] = useState(false);
   const [isCertificateModalOpen, setIsCertificateModalOpen] = useState(false);
   // Modals & Action States

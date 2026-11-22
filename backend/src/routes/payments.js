@@ -1,9 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const { creditWalletForGatewayReference } = require('../services/walletService');
-const { verifyPaystackSignature } = require('../services/paymentService');
+const {
+  verifyPaystackSignature,
+  initializePaystackTransaction,
+  buildGatewayReference
+} = require('../services/paymentService');
+const { authenticate } = require('../middleware/auth');
 
-// GET /api/v1/payments/config - client config for the Paystack checkout popup.
+// GET /api/v1/payments/config - client config for the payment gateway.
 // The secret key never leaves the server; only the public key is exposed here.
 router.get('/config', (req, res) => {
   const publicKey = process.env.PAYSTACK_PUBLIC_KEY || '';
@@ -14,6 +19,45 @@ router.get('/config', (req, res) => {
     enabled: Boolean(publicKey && secretKey),
     publicKey
   });
+});
+
+// POST /api/v1/payments/checkout - start a hosted Paystack checkout.
+// The customer is redirected to Paystack's hosted page and back to the app,
+// so the browser never loads an external popup script.
+router.post('/checkout', authenticate, async (req, res) => {
+  const email = String((req.body && req.body.email) || req.user.email || '').trim();
+  const amountNgn = Number(req.body && req.body.amountNgn);
+  const metadata = req.body && req.body.metadata && typeof req.body.metadata === 'object'
+    ? req.body.metadata
+    : {};
+
+  if (!email || email.indexOf('@') === -1) {
+    return res.status(400).json({ error: 'A valid email address is required to start checkout.' });
+  }
+  if (!Number.isFinite(amountNgn) || amountNgn <= 0) {
+    return res.status(400).json({ error: 'A valid payment amount is required.' });
+  }
+
+  const reference = buildGatewayReference('HBX');
+  const baseUrl = String(process.env.APP_BASE_URL || '').replace(/\/+$/, '');
+  const returnUrl = baseUrl + '/?payment=success';
+
+  try {
+    const result = await initializePaystackTransaction({
+      email,
+      amountNgn,
+      reference,
+      returnUrl,
+      metadata: Object.assign({}, metadata, { userId: req.user.id })
+    });
+
+    return res.json({
+      reference: result.reference,
+      authorizationUrl: result.authorizationUrl
+    });
+  } catch (err) {
+    return res.status(502).json({ error: err.message || 'Could not start the checkout. Please try again.' });
+  }
 });
 
 // POST /api/v1/payments/webhooks/paystack - server-to-server payment confirmation.

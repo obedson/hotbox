@@ -36,6 +36,7 @@ export default function DigitalBoxTab({
           amountNgn: annualFee - balance,
           email: currentUser?.email || '',
           metadata: { reason: 'box_renewal' },
+          resume: { kind: 'renewDigitalBox' },
           onCredited: () => fetchCustomerData()
         });
       }
@@ -70,6 +71,7 @@ export default function DigitalBoxTab({
           amountNgn: verificationFee - balance,
           email: currentUser?.email || '',
           metadata: { reason: 'doorway_verification' },
+          resume: { kind: 'requestGroundTruth' },
           onCredited: () => fetchCustomerData()
         });
       }

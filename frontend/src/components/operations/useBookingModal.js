@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { apiFetch } from '../../lib/api';
 import { fetchWithHardTimeout } from '../../lib/apiTimeout';
 import { fundWalletWithCard } from '../../lib/walletFunding';
-import { getPaystackConfig } from '../../lib/paystack';
 
 export default function useBookingModal({ isOpen, hubs, currentUser, prefilledSender, prefilledRecipient, onBookSuccess }) {
 
@@ -368,7 +367,26 @@ export default function useBookingModal({ isOpen, hubs, currentUser, prefilledSe
 
     try {
       // Customers settle the dispatch fee from their prepaid wallet. When the
-      // wallet is short, open the Paystack checkout for the difference first.
+      // wallet is short, send them to the hosted Paystack checkout for the
+      // difference. The booking draft is stored so it can be completed after
+      // they return and the wallet is credited.
+      const bookingPayload = {
+        serviceType,
+        senderName: senderName.trim(),
+        senderPhone: senderPhone.trim(),
+        senderPostcode: senderPostcode.trim(),
+        senderAddressText: senderAddress.trim(),
+        recipientName: recipientName.trim(),
+        recipientPhone: recipientPhone.trim(),
+        recipientEmail: recipientEmail.trim(),
+        recipientPostcode: recipientPostcode.trim(),
+        recipientAddressText: recipientAddress.trim(),
+        destinationHubId,
+        size,
+        packageDescription: packageDescription.trim() + (isFragile ? ' [FRAGILE]' : ''),
+        declaredValueNgn: parseFloat(declaredValue) || 0
+      };
+
       if (currentUser?.role === 'customer') {
         let dispatchFee = Number(priceMap[size] || 0);
         const quoteRes = await apiFetch(`/api/v1/shipments/quote?size=${encodeURIComponent(size)}`, { headers });
@@ -383,14 +401,12 @@ export default function useBookingModal({ isOpen, hubs, currentUser, prefilledSe
             const walletData = await walletRes.json();
             const balance = Number(walletData?.wallet?.balance || 0);
             if (balance < dispatchFee) {
-              const config = await getPaystackConfig();
-              if (config.enabled) {
-                await fundWalletWithCard({
-                  amountNgn: dispatchFee - balance,
-                  email: currentUser?.email || '',
-                  metadata: { reason: 'booking', size }
-                });
-              }
+              await fundWalletWithCard({
+                amountNgn: dispatchFee - balance,
+                email: currentUser?.email || '',
+                metadata: { reason: 'booking', size },
+                resume: { kind: 'booking', draft: bookingPayload }
+              });
             }
           }
         }
@@ -399,22 +415,7 @@ export default function useBookingModal({ isOpen, hubs, currentUser, prefilledSe
       const res = await apiFetch('/api/v1/shipments/book', {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          serviceType,
-          senderName: senderName.trim(),
-          senderPhone: senderPhone.trim(),
-          senderPostcode: senderPostcode.trim(),
-          senderAddressText: senderAddress.trim(),
-          recipientName: recipientName.trim(),
-          recipientPhone: recipientPhone.trim(),
-          recipientEmail: recipientEmail.trim(),
-          recipientPostcode: recipientPostcode.trim(),
-          recipientAddressText: recipientAddress.trim(),
-          destinationHubId,
-          size,
-          packageDescription: `${packageDescription.trim()}${isFragile ? ' [FRAGILE]' : ''}`,
-          declaredValueNgn: parseFloat(declaredValue) || 0
-        })
+        body: JSON.stringify(bookingPayload)
       });
 
       const data = await res.json();

@@ -409,6 +409,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
         requiredAmount: registrationFee.amountNgn,
         email: rider?.email,
         balance: walletBalance,
+        resume: { kind: 'riderRegistrationFee' },
         onBalanceRefreshed: async () => {
           const meRes = await apiFetch('/api/v1/riders/me');
           if (meRes.ok) setMe(await meRes.json());

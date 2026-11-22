@@ -1,4 +1,10 @@
 import { apiFetch } from './lib/api';
+import {
+  capturePaymentReturn,
+  readPaymentReturn,
+  clearPaymentReturn,
+  runPaymentResume
+} from './lib/hostedCheckout';
 import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -115,6 +121,7 @@ export default function App() {
     }
   });
   const isRestoringRef = useRef(true);
+  const paymentReturnHandledRef = useRef(false);
 
   const [resetToken] = useState(() => {
     try {
@@ -222,6 +229,66 @@ export default function App() {
       cancelled = true;
     };
   }, []);
+
+  // A payment return lands on the app URL. Capture it before anything rewrites
+  // the query string so the wallet can be credited after the session resolves.
+  useEffect(() => {
+    capturePaymentReturn();
+  }, []);
+
+  // Once the customer is signed in, credit the wallet for the returned payment
+  // and resume whatever they were doing when the checkout redirected them.
+  useEffect(() => {
+    if (!currentUser || paymentReturnHandledRef.current) return;
+    const pending = readPaymentReturn();
+    if (!pending) return;
+    paymentReturnHandledRef.current = true;
+    clearPaymentReturn();
+
+    (async () => {
+      if (pending.status !== 'success') {
+        showToast('Payment was not completed. Your wallet has not been charged.', 'error');
+        return;
+      }
+
+      try {
+        const res = await apiFetch('/api/v1/wallets/topup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gatewayReference: pending.reference })
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok && res.status !== 409) {
+          showToast(data.error || 'Your payment could not be confirmed. Please contact support.', 'error');
+          return;
+        }
+
+        showToast('Payment confirmed. Your wallet has been credited.');
+        window.dispatchEvent(new CustomEvent('hotbox:wallet:credited', { detail: data }));
+
+        await runPaymentResume({
+          onResult: (result) => {
+            if (result.kind === 'booking') {
+              if (result.ok) showToast(`Booked shipment ${result.data?.shipment?.tracking_code}!`);
+              else showToast(result.data?.error || result.error || 'Could not complete your booking. Please try again.', 'error');
+            } else if (result.kind === 'renewDigitalBox') {
+              if (result.ok) showToast(result.data?.message || 'Digital P.O. Box renewed successfully!');
+              else showToast(result.data?.error || result.error || 'Could not renew your Digital P.O. Box.', 'error');
+            } else if (result.kind === 'requestGroundTruth') {
+              if (result.ok) showToast(result.data?.message || 'Doorway verification ordered.');
+              else showToast(result.data?.error || result.error || 'Could not request doorway verification.', 'error');
+            } else if (result.kind === 'riderRegistrationFee') {
+              if (result.ok) showToast('Rider registration fee paid. Operations can now clear you for dispatch.');
+              else showToast(result.data?.error || result.error || 'Could not pay the rider registration fee.', 'error');
+            }
+          }
+        });
+      } catch (err) {
+        showToast('Your payment could not be confirmed. Please contact support.', 'error');
+      }
+    })();
+  }, [currentUser]);
 
   // A protected API call rejected the stored token: clear the session and let
   // the auth screen take over instead of failing silently.
