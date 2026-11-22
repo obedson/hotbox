@@ -14,8 +14,11 @@ async function verifyPaystackReference(reference) {
   });
 
   const data = await response.json();
-  if (!data.status || !data.data || data.data.status !== 'success') {
+  if (!data.status || !data.data) {
     throw new Error(data.message || 'Payment verification failed.');
+  }
+  if (data.data.status !== 'success') {
+    throw new Error('This payment has not been completed yet. Finish the payment and try again.');
   }
 
   return {

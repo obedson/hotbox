@@ -72,4 +72,11 @@ describe('hosted checkout storage', () => {
       startHostedCheckout({ email: 'payer@example.com', amountNgn: 0 })
     ).rejects.toThrow('A valid payment amount is required.');
   });
+
+  it('falls back to the stored intent reference when the callback omits it', () => {
+    sessionStorage.setItem('hotbox_payment_intent', JSON.stringify({ reference: 'HBX-FALLBACK' }));
+    window.history.replaceState({}, '', '/?payment=success');
+
+    expect(capturePaymentReturn()).toEqual({ status: 'success', reference: 'HBX-FALLBACK' });
+  });
 });

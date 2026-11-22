@@ -155,3 +155,19 @@ test('buildGatewayReference uses the prefix and is unique', () => {
   assert.match(first, /^HBX-\d+-[0-9A-F]{12}$/);
   assert.notEqual(first, second);
 });
+test('verifyPaystackReference explains an unpaid reference', async () => {
+  process.env.PAYSTACK_SECRET_KEY = 'sk_test_unit';
+  global.fetch = async () => ({
+    json: async () => ({
+      status: true,
+      message: 'Verification successful',
+      data: { status: 'abandoned', reference: 'ref-123' }
+    })
+  });
+
+  const { verifyPaystackReference } = loadPaymentService();
+  await assert.rejects(
+    () => verifyPaystackReference('ref-123'),
+    /not been completed/
+  );
+});

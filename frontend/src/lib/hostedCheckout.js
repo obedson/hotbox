@@ -65,8 +65,13 @@ export function capturePaymentReturn() {
   try {
     const params = new URLSearchParams(window.location.search);
     const status = params.get('payment');
-    const reference = params.get('reference');
-    if (!status || !reference) return null;
+    if (!status) return null;
+    let reference = params.get('reference');
+    if (!reference) {
+      const intent = readStoredIntent();
+      reference = intent && intent.reference ? intent.reference : '';
+    }
+    if (!reference) return null;
     const record = { status, reference };
     sessionStorage.setItem(RETURN_KEY, JSON.stringify(record));
     window.history.replaceState({}, '', window.location.pathname);
