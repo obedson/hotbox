@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const { OTP_MAX_ATTEMPTS } = require('../utils/otp');
 const { isRoleAllowedForHandover } = require('../config/custodyRoles');
+const { sendCollectionCredentials } = require('./collectionNotificationService');
 
 // Pickup OTP pre-flight. Runs outside the custodial transaction so a rejected
 // attempt is still counted after the rollback that follows a failed handover.
@@ -164,6 +165,28 @@ async function processCustodyTransfer({
           [bayId, shipmentId]
         );
         newStatus = 'STORED_IN_BAY';
+
+        // The parcel is collectable from this moment, so the recipient must
+        // receive their release credentials now rather than at booking.
+        // Delivery is best-effort: a failed SMS/email must not roll back a
+        // completed custody transfer.
+        let hubName = null;
+        if (shipment.destination_hub_id) {
+          try {
+            const hubRes = await client.query('SELECT business_name FROM hubs WHERE id = $1', [shipment.destination_hub_id]);
+            hubName = hubRes.rows[0]?.business_name || null;
+          } catch { hubName = null; }
+        }
+        try {
+          await sendCollectionCredentials({
+            shipment: { ...shipment, assigned_bay_id: bayId },
+            hubName,
+            recipientPhone: shipment.recipient_phone,
+            recipientEmail: shipment.recipient_email
+          });
+        } catch (notifyErr) {
+          console.warn('[custody] collection credential delivery failed:', notifyErr.message);
+        }
         break;
       }
 
