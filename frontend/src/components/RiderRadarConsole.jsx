@@ -140,6 +140,14 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
     loadConsole();
   }, [loadConsole]);
 
+  // A hosted-checkout return may have settled the registration fee; reload the
+  // console so the wallet and clearance status reflect the payment.
+  useEffect(() => {
+    const refresh = () => { loadConsole(); };
+    window.addEventListener('hotbox:wallet:credited', refresh);
+    return () => window.removeEventListener('hotbox:wallet:credited', refresh);
+  }, [loadConsole]);
+
   const rider = me?.rider || null;
   const walletBalance = me?.walletBalance ?? 0;
 
