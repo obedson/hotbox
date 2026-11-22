@@ -124,9 +124,17 @@ describe('CustodyScanner storage bay picker', () => {
     });
   });
 
-  it('omits the bay code for handovers that do not assign a shelf', async () => {
+  it('only offers handover transitions the active role is entitled to', async () => {
     mockApi();
     render(<CustodyScanner activeRole="hub_owner" hubs={[]} onCustodySuccess={() => {}} />);
+
+    expect(screen.queryByRole('button', { name: /Door Delivery/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Hub Host .*Intake/ })).toBeInTheDocument();
+  });
+
+  it('omits the bay code for handovers that do not assign a shelf', async () => {
+    mockApi();
+    render(<CustodyScanner activeRole="rider" hubs={[]} onCustodySuccess={() => {}} />);
     await act(async () => {
       fireEvent.change(screen.getByPlaceholderText(SHIPMENT_INPUT), {
         target: { value: SHIPMENT_UUID }

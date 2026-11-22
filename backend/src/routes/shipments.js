@@ -177,8 +177,7 @@ router.post('/book', authenticate, validate(bookingSchema), async (req, res) => 
       shipment: newShipment,
       pickupOtp, // displayed to sender to give rider
       pickupOtpExpiresAt,
-      pickupOtpDelivery,
-      collectionQrToken,
+      pickupOtpDelivery
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to book shipment: ' + err.message });

@@ -1,13 +1,23 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, requireRoles } = require('../middleware/auth');
 const { processCustodyTransfer } = require('../services/custodyService');
 const { validate, custodyTransferSchema } = require('../middleware/validate');
+const { rolesForHandoverType } = require('../config/custodyRoles');
 
 // POST /api/v1/custody/transfer
 // Atomically executes physical handover with OTP or QR verification
-router.post('/transfer', authenticate, validate(custodyTransferSchema), async (req, res) => {
+router.post('/transfer', authenticate, validate(custodyTransferSchema), (req, res, next) => {
+  // Each transition belongs to one side of the chain. Resolve the allowlist
+  // from the handover type so the route can never admit a role the service
+  // would reject anyway.
+  const allowedRoles = rolesForHandoverType(req.body.handoverType);
+  if (!allowedRoles) {
+    return res.status(400).json({ error: `Unsupported handover type '${req.body.handoverType}'.` });
+  }
+  requireRoles(...allowedRoles)(req, res, next);
+}, async (req, res) => {
   const {
     shipmentId,
     handoverType,

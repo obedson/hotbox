@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const { OTP_MAX_ATTEMPTS } = require('../utils/otp');
+const { isRoleAllowedForHandover } = require('../config/custodyRoles');
 
 // Pickup OTP pre-flight. Runs outside the custodial transaction so a rejected
 // attempt is still counted after the rollback that follows a failed handover.
@@ -54,6 +55,12 @@ async function processCustodyTransfer({
   bayCode = null,
   notes = ''
 }) {
+  // Defence in depth: even if a route forgets its gate, the service refuses a
+  // transition the caller's role is not entitled to perform.
+  if (!isRoleAllowedForHandover(handoverType, actorRole)) {
+    throw new Error(`Role '${actorRole}' may not perform a ${handoverType} custody handover.`);
+  }
+
   if (handoverType === 'SENDER_TO_RIDER') {
     await assertPickupOtpUsable(shipmentId, verificationToken);
   }

@@ -60,13 +60,25 @@ export default function CustodyScanner({ activeRole, hubs = [], onCustodySuccess
     return (free || availableBays[0]).bay_code;
   };
 
-  const handoverOptions = [
-    { id: 'SENDER_TO_RIDER', label: 'Sender ➔ Rider (Pickup)', method: 'OTP', desc: 'Rider verifies Sender Pickup OTP' },
-    { id: 'RIDER_TO_HUB', label: 'Rider ➔ Hub Host (Intake)', method: 'QR_SCAN', desc: 'Hub host scans Parcel QR pass and assigns storage bay' },
+  const allHandoverOptions = [
+    { id: 'SENDER_TO_RIDER', label: 'Sender → Rider (Pickup)', method: 'OTP', desc: 'Rider verifies Sender Pickup OTP' },
+    { id: 'RIDER_TO_HUB', label: 'Rider → Hub Host (Intake)', method: 'QR_SCAN', desc: 'Hub host scans Parcel QR pass and assigns storage bay' },
     { id: 'RELOCATION_FORWARDING', label: 'Relocation Reroute (Forwarding)', method: 'POSTCODE', desc: 'Auto-forward parcel to verified new address with dual-party alert' },
-    { id: 'HUB_TO_RECIPIENT', label: 'Hub Host ➔ Recipient (Collection)', method: 'OTP', desc: 'Host verifies Recipient Delivery OTP and releases bay' },
-    { id: 'RIDER_TO_RECIPIENT', label: 'Rider ➔ Recipient (Door Delivery)', method: 'OTP', desc: 'Rider confirms recipient door delivery OTP' }
+    { id: 'HUB_TO_RECIPIENT', label: 'Hub Host → Recipient (Collection)', method: 'OTP', desc: 'Host verifies Recipient Delivery OTP and releases bay' },
+    { id: 'RIDER_TO_RECIPIENT', label: 'Rider → Recipient (Door Delivery)', method: 'OTP', desc: 'Rider confirms recipient door delivery OTP' }
   ];
+
+  // A transition may only be started by the side that owns it, mirroring the
+  // backend custody role allowlist. Riders never see hub intake and hub hosts
+  // never see rider pickups, so a handover can never be misfiled.
+  const roleHandoverTypes = {
+    rider: ['SENDER_TO_RIDER', 'RIDER_TO_RECIPIENT'],
+    hub_owner: ['RIDER_TO_HUB', 'HUB_TO_RECIPIENT'],
+    hub_staff: ['RIDER_TO_HUB', 'HUB_TO_RECIPIENT']
+  };
+  const handoverOptions = roleHandoverTypes[activeRole]
+    ? allHandoverOptions.filter((opt) => roleHandoverTypes[activeRole].includes(opt.id))
+    : allHandoverOptions;
 
   const handleTransfer = async (e) => {
     e.preventDefault();
@@ -74,38 +86,9 @@ export default function CustodyScanner({ activeRole, hubs = [], onCustodySuccess
     setError(null);
     setResult(null);
     try {
-      // Pick actor user based on active role
-      const actorId = activeRole === 'rider'
-        ? 'a0000000-0000-0000-0000-000000000006' // Musa Danladi (rider)
-        : 'a0000000-0000-0000-0000-000000000001'; // Mallam Ibrahim (hub_owner)
-
       // Accept either the shipment UUID or the waybill tracking code; the
       // track lookup above resolves it to the canonical shipment id.
       const shipmentUuid = resolvedShipmentId || shipmentId.trim();
-
-      if (handoverType === 'RELOCATION_FORWARDING') {
-        const res = await apiFetch(`/api/v1/shipments/${encodeURIComponent(shipmentUuid)}/reroute`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            newPostcode: verificationToken.trim() || 'FC-01-A03-FK-01',
-            newAddressText: notes.trim() || 'Verified relocation destination address',
-            reason: 'Address relocation forward verified at custody intake'
-          })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Reroute forwarding failed');
-        setResult({
-          message: data.message,
-          newStatus: data.shipment?.status || 'IN_TRANSIT_TO_HUB',
-          ledgerEntry: { id: 'REROUTE-DISPATCH' },
-          alertResult: data.alertResult
-        });
-        if (onCustodySuccess) onCustodySuccess(data);
-        return;
-      }
 
       const res = await apiFetch('/api/v1/custody/transfer', {
         method: 'POST',

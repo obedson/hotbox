@@ -717,7 +717,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-blue-900 text-xs flex items-center justify-between">
             <div className="flex items-center gap-2">
               <QrCode className="w-4 h-4 text-blue-700" />
-              <span><strong>Custody Handover:</strong> Scan sender package at pickup or confirm recipient OTP for doorstep delivery proof.</span>
+              <span><strong>Custody Handover:</strong> Confirm the sender's Pickup OTP at collection, or the recipient's Delivery OTP for doorstep proof. Hub intake is completed by the hub host.</span>
             </div>
             <span className="font-bold text-[11px] bg-blue-200 px-2 py-0.5 rounded text-blue-900">
               GPS Geolocation Active
