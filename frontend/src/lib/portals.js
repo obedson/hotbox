@@ -82,3 +82,9 @@ export function isOperationsDeskRole(role) {
 export function authorizedPortalsForRole(role) {
   return PORTALS.filter((portal) => isRoleAuthorizedForPortal(role, portal.id));
 }
+// The portal to restore after a stored session is confirmed. A portal saved
+// by an earlier session must never override the current user's authorization.
+export function resolveRestoredPortal({ role, portal, savedPortal }) {
+  if (savedPortal && isRoleAuthorizedForPortal(role, savedPortal)) return savedPortal;
+  return portal || 'customer';
+}

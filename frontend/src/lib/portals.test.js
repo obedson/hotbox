@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { authorizedPortalsForRole, isRoleAuthorizedForPortal, allowedOperationsNavForRole, PROVISIONABLE_ROLES, STAFF_ROLES } from './portals';
+import { authorizedPortalsForRole, isRoleAuthorizedForPortal, allowedOperationsNavForRole, PROVISIONABLE_ROLES, STAFF_ROLES, resolveRestoredPortal } from './portals';
 
 describe('portal authorization', () => {
   it('offers a rider only the surfaces a rider may open', () => {
@@ -48,5 +48,13 @@ describe('portal authorization', () => {
       'legacy_links',
       'verification'
     ]);
+  });
+
+  it('restores a saved portal only when the current user may open it', () => {
+    expect(resolveRestoredPortal({ role: 'super_admin', portal: 'operations', savedPortal: 'rider' })).toBe('rider');
+    expect(resolveRestoredPortal({ role: 'rider', portal: 'rider', savedPortal: 'customer' })).toBe('customer');
+    expect(resolveRestoredPortal({ role: 'customer', portal: 'customer', savedPortal: 'rider' })).toBe('customer');
+    expect(resolveRestoredPortal({ role: 'customer', portal: 'customer', savedPortal: 'hub_owner' })).toBe('customer');
+    expect(resolveRestoredPortal({ role: 'hub_owner', portal: 'hub_owner', savedPortal: null })).toBe('hub_owner');
   });
 });

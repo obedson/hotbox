@@ -26,7 +26,7 @@ import ShipmentTracker from './components/ShipmentTracker';
 import BookingModal from './components/BookingModal';
 import AuthScreen from './components/AuthScreen';
 import RbacGuard from './components/RbacGuard';
-import { isRoleAuthorizedForPortal, allowedOperationsNavForRole } from './lib/portals';
+import { isRoleAuthorizedForPortal, allowedOperationsNavForRole, resolveRestoredPortal } from './lib/portals';
 import ShipmentDossierModal from './components/ShipmentDossierModal';
 import ShipmentManagement from './components/ShipmentManagement';
 import RiderManagement from './components/RiderManagement';
@@ -211,6 +211,7 @@ export default function App() {
         if (res.ok) {
           const data = await res.json();
           setCurrentUser(data.user);
+          reconcileRestoredPortal(data.user);
         } else {
           localStorage.removeItem('hotbox_token');
           localStorage.removeItem('hotbox_user');
@@ -304,17 +305,29 @@ export default function App() {
     return () => window.removeEventListener('hotbox:unauthorized', handleUnauthorized);
   }, []);
 
+  // A stored portal can outlive the session that chose it (a customer whose
+  // browser still has "rider" saved, for example). On restore, fall back to
+  // the user's own portal when the saved one is not authorized for them.
+  const reconcileRestoredPortal = (user) => {
+    let savedPortal = null;
+    try {
+      savedPortal = localStorage.getItem('hotbox_active_portal');
+    } catch (e) {}
+    const portal = resolveRestoredPortal({ role: user.role, portal: user.portal, savedPortal });
+    setActivePortal(portal);
+    setActiveNav(DEFAULT_PORTAL_NAVS[portal] || 'overview');
+    if (user.role === 'compliance_officer') setActiveNav('verification');
+  };
+
   const handleAuthenticated = (user) => {
     setCurrentUser(user);
     const portal = user.portal || 'customer';
     setActivePortal(portal);
     setActiveNav(DEFAULT_PORTAL_NAVS[portal] || 'overview');
     if (user.role === 'compliance_officer') setActiveNav('verification');
-    if (portal !== 'customer') {
-      try {
-        localStorage.setItem('hotbox_active_portal', portal);
-      } catch (e) {}
-    }
+    try {
+      localStorage.setItem('hotbox_active_portal', portal);
+    } catch (e) {}
     showToast(`Welcome back, ${user.name.split(' ')[0]}`);
     try {
       window.history.replaceState({}, '', window.location.pathname);
