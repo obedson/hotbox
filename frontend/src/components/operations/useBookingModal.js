@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { apiFetch } from '../../lib/api';
+import { fetchWithHardTimeout } from '../../lib/apiTimeout';
 import { fundWalletWithCard } from '../../lib/walletFunding';
 import { getPaystackConfig } from '../../lib/paystack';
 
@@ -106,7 +107,7 @@ export default function useBookingModal({ isOpen, hubs, currentUser, prefilledSe
     setIsResolvingSender(true);
     setSenderNoPostcodeWarning(null);
     try {
-      const res = await apiFetch(`/api/v1/postcodes/resolve-location?q=${encodeURIComponent(raw)}`, {
+      const res = await fetchWithHardTimeout(`/api/v1/postcodes/resolve-location?q=${encodeURIComponent(raw)}`, {
         signal: abortCtrl.signal
       });
       if (res.ok) {
@@ -191,7 +192,7 @@ export default function useBookingModal({ isOpen, hubs, currentUser, prefilledSe
     setIsResolvingRecipient(true);
     setRecipientNoPostcodeWarning(null);
     try {
-      const res = await apiFetch(`/api/v1/postcodes/resolve-location?q=${encodeURIComponent(raw)}`, {
+      const res = await fetchWithHardTimeout(`/api/v1/postcodes/resolve-location?q=${encodeURIComponent(raw)}`, {
         signal: abortCtrl.signal
       });
       if (res.ok) {
@@ -209,7 +210,7 @@ export default function useBookingModal({ isOpen, hubs, currentUser, prefilledSe
           setRecipientNoPostcodeWarning(null);
 
           if (data.lat && data.lng) {
-            const hubsRes = await apiFetch(`/api/v1/hubs/nearby?lat=${data.lat}&lng=${data.lng}&radius=30`);
+            const hubsRes = await fetchWithHardTimeout(`/api/v1/hubs/nearby?lat=${data.lat}&lng=${data.lng}&radius=30`);
             if (hubsRes.ok) {
               const hubsData = await hubsRes.json();
               if (hubsData.hubs && hubsData.hubs.length > 0) {
@@ -336,7 +337,7 @@ export default function useBookingModal({ isOpen, hubs, currentUser, prefilledSe
     setRecipientAddress(area.address);
     setIsResolvingRecipient(true);
     try {
-      const hubsRes = await apiFetch(`/api/v1/hubs/nearby?lat=${area.lat}&lng=${area.lng}&radius=30`);
+      const hubsRes = await fetchWithHardTimeout(`/api/v1/hubs/nearby?lat=${area.lat}&lng=${area.lng}&radius=30`);
       if (hubsRes.ok) {
         const hubsData = await hubsRes.json();
         if (hubsData.hubs && hubsData.hubs.length > 0) {

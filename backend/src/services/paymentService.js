@@ -9,7 +9,8 @@ async function verifyPaystackReference(reference) {
 
   const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
     method: 'GET',
-    headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` }
+    headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` },
+    signal: AbortSignal.timeout(10000)
   });
 
   const data = await response.json();

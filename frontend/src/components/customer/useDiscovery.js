@@ -1,4 +1,5 @@
 import { apiFetch } from '../../lib/api';
+import { fetchWithHardTimeout } from '../../lib/apiTimeout';
 import { useState, useEffect } from 'react';
 
 export function useDiscovery({ currentUser, profile, showToast, getAuthHeaders, fetchCustomerData, setBookingPrefill, setIsBookingOpen }) {
@@ -116,7 +117,7 @@ export function useDiscovery({ currentUser, profile, showToast, getAuthHeaders, 
     }
 
     try {
-      const res = await apiFetch(`/api/v1/postcodes/search/autocomplete?q=${encodeURIComponent(val.trim())}`);
+      const res = await fetchWithHardTimeout(`/api/v1/postcodes/search/autocomplete?q=${encodeURIComponent(val.trim())}`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.suggestions) && data.suggestions.length > 0) {
@@ -140,7 +141,7 @@ export function useDiscovery({ currentUser, profile, showToast, getAuthHeaders, 
     setIsSearchingLocation(true);
     setShowSuggestions(false);
     try {
-      const res = await apiFetch(`/api/v1/postcodes/resolve-location?q=${encodeURIComponent(raw)}`);
+      const res = await fetchWithHardTimeout(`/api/v1/postcodes/resolve-location?q=${encodeURIComponent(raw)}`);
       const data = await res.json();
 
       if (res.ok) {

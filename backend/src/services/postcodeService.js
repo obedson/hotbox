@@ -307,7 +307,8 @@ async function autocompletePostcodes(query) {
   if (apiKey) {
     try {
       const response = await fetch(`https://api.postcode.gov.ng/v1/search/autocomplete?q=${encodeURIComponent(q)}`, {
-        headers: { 'Accept': 'application/json', 'X-API-Key': apiKey }
+        headers: { 'Accept': 'application/json', 'X-API-Key': apiKey },
+        signal: AbortSignal.timeout(3000)
       });
       if (response.ok) {
         const data = await response.json();
@@ -581,7 +582,8 @@ async function resolveLocation(query) {
   try {
     const osmUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q + ', Nigeria')}&countrycodes=ng&format=json&limit=1`;
     const osmRes = await fetch(osmUrl, {
-      headers: { 'User-Agent': 'Hotbox-Logistics/1.0 (support@hotboxng.com)' }
+      headers: { 'User-Agent': 'Hotbox-Logistics/1.0 (support@hotboxng.com)' },
+      signal: AbortSignal.timeout(3000)
     });
     if (osmRes.ok) {
       const results = await osmRes.json();

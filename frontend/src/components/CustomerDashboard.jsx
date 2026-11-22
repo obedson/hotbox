@@ -477,7 +477,7 @@ export default function CustomerDashboard({ currentUser, onBookNewShipment, acti
         const modalSender = bookingPrefill?.sender || {
           name: profile?.name || currentUser?.name || 'Kolawole Adeleke',
           phone: profile?.phone || currentUser?.phone || '+2348037778899',
-          postcode: discovery.senderLocation.postcode || 'FC-01-A03-FK-01',
+          postcode: discovery.senderLocation.postcode || currentUser?.postcode || '',
           address: discovery.senderLocation.address || ''
         };
         const modalRecipient = bookingPrefill?.recipient || {
