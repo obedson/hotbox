@@ -14,6 +14,9 @@ async function assertPickupOtpUsable(shipmentId, verificationToken) {
   if (res.rows.length === 0) return; // the transaction reports the missing shipment
 
   const otp = res.rows[0];
+  if (!otp.pickup_otp) {
+    throw new Error('No Pickup OTP has been issued yet. The rider must confirm arrival before pickup.');
+  }
   if (otp.pickup_otp_consumed_at) {
     throw new Error('This Pickup OTP has already been used for this parcel.');
   }

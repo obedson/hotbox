@@ -93,8 +93,9 @@ router.post('/book', authenticate, validate(bookingSchema), async (req, res) => 
 
   try {
     const trackingCode = generateTrackingCode(destinationHubId ? recipientPostcode : senderPostcode);
-    const pickupOtp = generateOtp();
-    const pickupOtpExpiresAt = otpExpiryFromNow();
+    // The pickup OTP is deliberately not issued at booking. It is minted when
+    // the assigned rider confirms arrival, so its 10-minute window covers the
+    // actual handover instead of expiring while the rider travels.
     const deliveryOtp = generateOtp();
     const collectionQrToken = `QR-PASS-${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
 
@@ -132,8 +133,8 @@ router.post('/book', authenticate, validate(bookingSchema), async (req, res) => 
         weightKg,
         packageDescription || 'Parcel',
         declaredValueNgn,
-        pickupOtp,
-        pickupOtpExpiresAt,
+        null,
+        null,
         deliveryOtp,
         collectionQrToken,
         pricingTotal
@@ -175,23 +176,9 @@ router.post('/book', authenticate, validate(bookingSchema), async (req, res) => 
       console.warn('Wallet debit warning:', wErr.message);
     }
 
-    // Deliver the pickup OTP to the sender now. It is time-boxed and
-    // single-use, so the sender must receive it at booking rather than dig
-    // for it later in a dossier.
-    const pickupOtpDelivery = await deliverPickupOtp({
-      phone: newShipment.sender_phone,
-      email: req.user.email,
-      otp: pickupOtp,
-      trackingCode,
-      expiryMinutes: OTP_EXPIRY_MINUTES
-    });
-
     res.status(201).json({
       message: 'Shipment successfully booked.',
-      shipment: newShipment,
-      pickupOtp, // displayed to sender to give rider
-      pickupOtpExpiresAt,
-      pickupOtpDelivery
+      shipment: newShipment
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to book shipment: ' + err.message });

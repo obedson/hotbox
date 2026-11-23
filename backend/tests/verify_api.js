@@ -108,7 +108,14 @@ async function testBackend() {
 
     const newShipment = book.data.shipment;
     const trackingCode = newShipment.tracking_code;
-    const pickupOtp = book.data.pickupOtp;
+
+    // The pickup OTP is no longer issued at booking; request one explicitly.
+    const otpRes = await req(`/api/v1/shipments/${newShipment.id}/resend-pickup-otp`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    assert('Pickup OTP Reissued on Request', otpRes.status === 200 && /^\d{6}$/.test(otpRes.data.pickupOtp || ''), JSON.stringify(otpRes.data));
+    const pickupOtp = otpRes.data.pickupOtp;
 
     // 6. Track Shipment
     const track = await req(`/api/v1/shipments/track/${trackingCode}`);

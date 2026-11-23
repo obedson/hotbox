@@ -318,7 +318,7 @@ CREATE TABLE IF NOT EXISTS shipments (
   package_description TEXT,
   declared_value_ngn DECIMAL(12, 2) DEFAULT 0.00,
 
-  pickup_otp VARCHAR(6) NOT NULL,
+  pickup_otp VARCHAR(6),
   pickup_otp_expires_at TIMESTAMP WITH TIME ZONE,
   pickup_otp_attempts INT NOT NULL DEFAULT 0,
   pickup_otp_consumed_at TIMESTAMP WITH TIME ZONE,

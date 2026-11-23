@@ -1,17 +1,8 @@
 import { ArrowRight, Copy, Check, Printer, CheckCircle2 } from 'lucide-react';
 export default function BookingSuccess({ booking, onClose }) {
   const {
-    bookedResult, copiedOtp, copiedTracking, handleCopy, recipientAddress, recipientName, recipientPostcode, selectedHubObj, senderName, senderPostcode
+    bookedResult, copiedTracking, handleCopy, recipientAddress, recipientName, recipientPostcode, selectedHubObj, senderName, senderPostcode
   } = booking;
-
-  const otpDelivery = bookedResult.pickupOtpDelivery || {};
-  const otpChannels = [
-    otpDelivery.sms?.delivered ? 'SMS' : null,
-    otpDelivery.email?.delivered ? 'email' : null
-  ].filter(Boolean);
-  const otpDeliveryNote = otpChannels.length
-    ? `Also delivered to the sender by ${otpChannels.join(' and ')}.`
-    : 'Shown here only — copy it now and give it to the rider.';
 
   return (
             <div className="space-y-6 text-center animate-fadeIn">
@@ -27,7 +18,7 @@ export default function BookingSuccess({ booking, onClose }) {
                   Parcel Dispatch Booked Successfully!
                 </h3>
                 <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-                  Registered in the Hotbox Postcode Verified Network. Give your 6-digit Pickup OTP to the dispatch rider when handing over your parcel.
+                  Registered in the Hotbox Postcode Verified Network. Your rider will send a 6-digit handover code to you by SMS and email when they arrive.
                 </p>
               </div>
 
@@ -53,24 +44,13 @@ export default function BookingSuccess({ booking, onClose }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 space-y-1">
                     <span className="text-[10px] font-black uppercase text-emerald-800 tracking-wider block">
-                      Sender Pickup OTP (Give to Rider)
+                      Pickup Handover Code
                     </span>
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-2xl font-black text-emerald-700 tracking-widest">
-                        {bookedResult.pickupOtp}
-                      </span>
-                      <button
-                        onClick={() => handleCopy(bookedResult.pickupOtp, 'otp')}
-                        className="text-[10px] font-bold text-emerald-800 bg-white px-2 py-0.5 rounded border border-emerald-300 hover:bg-emerald-100 transition cursor-pointer"
-                      >
-                        {copiedOtp ? 'Copied!' : 'Copy'}
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-emerald-600 leading-tight">
-                      Confirms physical package handover from your doorway. Valid for 10 minutes, single-use.
+                    <p className="text-[11px] text-emerald-800 leading-tight">
+                      Sent on arrival. When your rider gets here, a 6-digit code will be sent to your phone and email, valid for 10 minutes.
                     </p>
                     <p className="text-[10px] text-emerald-700 leading-tight font-semibold">
-                      {otpDeliveryNote}
+                      No code is needed until the rider arrives.
                     </p>
                   </div>
 
