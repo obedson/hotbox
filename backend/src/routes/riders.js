@@ -11,6 +11,7 @@ const documentStorage = require('../services/documentStorage');
 const settingsService = require('../services/settingsService');
 const { PLACEHOLDER_LICENCE } = require('../utils/riderClearance');
 const { normalizePhone, digitsOf } = require('../lib/phone');
+const pickupOtpService = require('../services/pickupOtpService');
 
 // Rider job payloads carry no custody credentials. A rider proves possession
 // by reading the code presented at the door, never by reading it back from the
@@ -270,12 +271,106 @@ router.post('/jobs/:id/accept', requireVerifiedRider, async (req, res) => {
       return res.status(400).json({ error: 'Job is no longer available or already assigned.' });
     }
 
+    const shipment = updateRes.rows[0];
+
+    // Let the sender know a rider is coming. No OTP here: the handover code is
+    // issued only when the rider actually arrives, so its 10-minute window
+    // covers the handover instead of expiring during travel.
+    try {
+      await pickupOtpService.notifyRiderOnTheWay({
+        shipment,
+        riderName: req.user.name,
+        riderPhone: req.user.phone
+      });
+    } catch (notifyErr) {
+      console.warn('[riders] Rider-assigned notification failed:', notifyErr.message);
+    }
+
     res.json({
       message: 'Job successfully accepted by rider.',
-      shipment: updateRes.rows[0]
+      shipment
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to accept job: ' + err.message });
+  }
+});
+
+// POST /api/v1/riders/jobs/:id/arrived
+// The rider marks arrival at the sender. A fresh pickup OTP is issued and sent
+// to the sender by SMS + email. The code is never returned to the rider client.
+router.post('/jobs/:id/arrived', requireVerifiedRider, async (req, res) => {
+  const shipmentId = req.params.id;
+  try {
+    const riderRes = await db.query('SELECT id FROM riders WHERE user_id = $1', [req.user.id]);
+    const riderId = riderRes.rows.length > 0 ? riderRes.rows[0].id : null;
+    const isStaff = ['ops_admin', 'super_admin'].includes(req.user.role);
+
+    const shipRes = await db.query('SELECT * FROM shipments WHERE id = $1', [shipmentId]);
+    const shipment = shipRes.rows[0];
+    if (!shipment) return res.status(404).json({ error: 'Shipment not found.' });
+    if (!isStaff && shipment.assigned_rider_id !== riderId) {
+      return res.status(403).json({ error: 'Only the assigned rider may issue the pickup code.' });
+    }
+    if (shipment.status !== 'RIDER_ASSIGNED') {
+      return res.status(409).json({ error: 'The pickup code can only be issued while the parcel is assigned for pickup.' });
+    }
+
+    const email = await pickupOtpService.senderEmailOf(shipment.sender_id);
+    const result = await pickupOtpService.issuePickupOtp({
+      shipmentId,
+      trackingCode: shipment.tracking_code,
+      phone: shipment.sender_phone,
+      email,
+      arrived: true
+    });
+
+    res.json({
+      success: true,
+      message: 'Pickup code issued and sent to the sender by SMS and email.',
+      pickupOtpExpiresAt: result.pickupOtpExpiresAt,
+      pickupOtpDelivery: result.receipt
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to issue the pickup code: ' + err.message });
+  }
+});
+
+// POST /api/v1/riders/jobs/:id/resend-pickup-otp
+// Reissues a fresh 10-minute code, e.g. when the sender missed the first one.
+router.post('/jobs/:id/resend-pickup-otp', requireVerifiedRider, async (req, res) => {
+  const shipmentId = req.params.id;
+  try {
+    const riderRes = await db.query('SELECT id FROM riders WHERE user_id = $1', [req.user.id]);
+    const riderId = riderRes.rows.length > 0 ? riderRes.rows[0].id : null;
+    const isStaff = ['ops_admin', 'super_admin'].includes(req.user.role);
+
+    const shipRes = await db.query('SELECT * FROM shipments WHERE id = $1', [shipmentId]);
+    const shipment = shipRes.rows[0];
+    if (!shipment) return res.status(404).json({ error: 'Shipment not found.' });
+    if (!isStaff && shipment.assigned_rider_id !== riderId) {
+      return res.status(403).json({ error: 'Only the assigned rider may resend the pickup code.' });
+    }
+    if (shipment.status !== 'RIDER_ASSIGNED') {
+      return res.status(409).json({ error: 'The pickup code can no longer be reissued for this parcel.' });
+    }
+
+    const email = await pickupOtpService.senderEmailOf(shipment.sender_id);
+    const result = await pickupOtpService.issuePickupOtp({
+      shipmentId,
+      trackingCode: shipment.tracking_code,
+      phone: shipment.sender_phone,
+      email,
+      arrived: false
+    });
+
+    res.json({
+      success: true,
+      message: 'A fresh pickup code was sent to the sender.',
+      pickupOtpExpiresAt: result.pickupOtpExpiresAt,
+      pickupOtpDelivery: result.receipt
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to resend the pickup code: ' + err.message });
   }
 });
 

@@ -49,6 +49,8 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [claimingId, setClaimingId] = useState(null);
+  const [arrivedId, setArrivedId] = useState(null);
+  const [resendingId, setResendingId] = useState(null);
   const [kyc, setKyc] = useState(null);
   const [kycForm, setKycForm] = useState({
     nin: '',
@@ -220,6 +222,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
   const activeJobs = myJobs.filter(job => RIDER_ACTIVE_STATUSES.includes(job.status));
 
   const activeRouteStops = activeJobs.map((job, idx) => ({
+    id: job.id,
     stopNumber: idx + 1,
     type: job.service_type === 'HUB_TO_DOOR' ? 'DOOR_DELIVERY' : job.service_type === 'DOOR_TO_HUB' ? 'CLAIMED_PICKUP' : 'HUB_HANDOFF',
     title: `${serviceLabel(job.service_type)} \u2022 ${job.tracking_code}`,
@@ -367,6 +370,34 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
       if (showToast) showToast(err.message);
     } finally {
       setClaimingId(null);
+    }
+  };
+
+  const handleArrived = async (stop) => {
+    setArrivedId(stop.id);
+    try {
+      const res = await apiFetch(`/api/v1/riders/jobs/${stop.id}/arrived`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not issue the pickup code.');
+      if (showToast) showToast('Pickup code sent to the sender by SMS and email.');
+    } catch (err) {
+      if (showToast) showToast(err.message);
+    } finally {
+      setArrivedId(null);
+    }
+  };
+
+  const handleResendPickupOtp = async (stop) => {
+    setResendingId(stop.id);
+    try {
+      const res = await apiFetch(`/api/v1/riders/jobs/${stop.id}/resend-pickup-otp`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not resend the pickup code.');
+      if (showToast) showToast('A fresh pickup code was sent to the sender.');
+    } catch (err) {
+      if (showToast) showToast(err.message);
+    } finally {
+      setResendingId(null);
     }
   };
 
@@ -699,6 +730,25 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
                     <Phone className="w-3.5 h-3.5" />
                   </button>
 
+                  {stop.type === 'CLAIMED_PICKUP' && (
+                    <>
+                      <button
+                        onClick={() => handleArrived(stop)}
+                        disabled={arrivedId === stop.id}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition shadow-sm"
+                      >
+                        {arrivedId === stop.id ? 'Sending...' : 'Arrived at sender'}
+                      </button>
+                      <button
+                        onClick={() => handleResendPickupOtp(stop)}
+                        disabled={resendingId === stop.id}
+                        className="px-3 py-1.5 border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-slate-700 rounded-xl text-xs font-bold transition"
+                      >
+                        {resendingId === stop.id ? 'Sending...' : 'Resend code'}
+                      </button>
+                    </>
+                  )}
+
                   <button
                     onClick={() => setActiveNav('scanner')}
                     className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
@@ -726,7 +776,7 @@ export default function RiderRadarConsole({ activeNav, setActiveNav, hubs, showT
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-blue-900 text-xs flex items-center justify-between">
             <div className="flex items-center gap-2">
               <QrCode className="w-4 h-4 text-blue-700" />
-              <span><strong>Custody Handover:</strong> Confirm the sender's Pickup OTP at collection, or the recipient's Delivery OTP for doorstep proof. Hub intake is completed by the hub host.</span>
+              <span><strong>Custody Handover:</strong> Tap "Arrived at sender" to send the sender their 10-minute handover code, then confirm it at collection. For doorstep delivery, confirm the recipient's Delivery OTP. Hub intake is completed by the hub host.</span>
             </div>
             <span className="font-bold text-[11px] bg-blue-200 px-2 py-0.5 rounded text-blue-900">
               GPS Geolocation Active
