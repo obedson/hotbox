@@ -1,8 +1,14 @@
 import { ArrowLeft, RefreshCw, Check } from 'lucide-react';
+import { PARCEL_SIZE_PRICES, clampParcelQuantity, formatNaira } from '../../lib/parcelPricing';
+
 export default function BookingStep4({ booking }) {
   const {
-    handleBooking, loading, priceMap, selectedHubObj, senderAddress, senderName, senderPostcode, serviceType, setStep, size, walletBalance
+    handleBooking, loading, selectedHubObj, senderAddress, senderName, senderPostcode,
+    serviceType, setStep, size, quantity, walletBalance
   } = booking;
+
+  const unitPrice = PARCEL_SIZE_PRICES[size] || PARCEL_SIZE_PRICES.medium;
+  const totalPrice = unitPrice * clampParcelQuantity(quantity);
 
   return (
                 <div className="space-y-5 animate-fadeIn">
@@ -35,13 +41,24 @@ export default function BookingStep4({ booking }) {
                         <span className="font-mono text-[10px] font-bold text-emerald-700">{selectedHubObj?.postcode}</span>
                       </div>
                     </div>
+
+                    <div className="text-xs flex items-center justify-between pt-2 border-t border-slate-200">
+                      <span className="text-slate-500">Parcel Size & Quantity</span>
+                      <span className="font-bold text-slate-900">
+                        {size.toUpperCase()} <span className="text-slate-400">×</span> {clampParcelQuantity(quantity)} parcel{clampParcelQuantity(quantity) === 1 ? '' : 's'}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Price Calculation */}
                   <div className="p-4 bg-white rounded-2xl border border-slate-200 space-y-2 text-xs">
                     <div className="flex items-center justify-between text-slate-600">
-                      <span>Delivery Fee ({size.toUpperCase()} package):</span>
-                      <span className="font-bold text-slate-900">₦{priceMap[size].toLocaleString('en-NG', { minimumFractionDigits: 2 })}</span>
+                      <span>Per-Parcel Rate ({size.toUpperCase()}):</span>
+                      <span className="font-bold text-slate-900">{formatNaira(unitPrice)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-slate-600">
+                      <span>Delivery Fee ({size.toUpperCase()} × {clampParcelQuantity(quantity)}):</span>
+                      <span className="font-bold text-slate-900">{formatNaira(totalPrice)}</span>
                     </div>
                     <div className="flex items-center justify-between text-slate-600">
                       <span>Hotbox Cargo Protection:</span>
@@ -54,18 +71,16 @@ export default function BookingStep4({ booking }) {
                     <div className="flex items-center justify-between text-slate-600">
                       <span>Prepaid Wallet Balance:</span>
                       <span className="font-bold text-slate-900">
-                        {walletBalance === null ? '—' : `₦${walletBalance.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`}
+                        {walletBalance === null ? '—' : formatNaira(walletBalance)}
                       </span>
                     </div>
                     <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
                       <span className="font-bold text-sm text-slate-900">Total Delivery Amount:</span>
-                      <span className="text-lg font-black text-emerald-800">
-                        ₦{priceMap[size].toLocaleString('en-NG', { minimumFractionDigits: 2 })}
-                      </span>
+                      <span className="text-lg font-black text-emerald-800">{formatNaira(totalPrice)}</span>
                     </div>
-                    {walletBalance !== null && walletBalance < Number(priceMap[size] || 0) && (
+                    {walletBalance !== null && walletBalance < totalPrice && (
                       <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                        Your wallet is short by ₦{(Number(priceMap[size] || 0) - walletBalance).toLocaleString('en-NG', { minimumFractionDigits: 2 })}. A secure card checkout will open to cover the difference before dispatch is confirmed.
+                        Your wallet is short by {formatNaira(totalPrice - walletBalance)}. A secure card checkout will open to cover the difference before dispatch is confirmed.
                       </p>
                     )}
                   </div>

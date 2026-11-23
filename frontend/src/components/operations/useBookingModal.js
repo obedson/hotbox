@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { apiFetch } from '../../lib/api';
 import { fetchWithHardTimeout } from '../../lib/apiTimeout';
 import { fundWalletWithCard } from '../../lib/walletFunding';
+import { PARCEL_SIZE_PRICES, PARCEL_QUANTITY_MIN, clampParcelQuantity } from '../../lib/parcelPricing';
 
 export default function useBookingModal({ isOpen, hubs, currentUser, prefilledSender, prefilledRecipient, onBookSuccess }) {
 
@@ -42,15 +43,18 @@ export default function useBookingModal({ isOpen, hubs, currentUser, prefilledSe
   
   // Package specifications
   const [size, setSize] = useState('medium');
+  const [quantity, setQuantity] = useState(PARCEL_QUANTITY_MIN);
   const [packageDescription, setPackageDescription] = useState('Verified merchandise & documents');
   const [declaredValue, setDeclaredValue] = useState('25000');
   const [isFragile, setIsFragile] = useState(false);
+
+  const handleQuantityChange = (value) => setQuantity(clampParcelQuantity(value));
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [bookedResult, setBookedResult] = useState(null);
 
-  const priceMap = { small: 1200, medium: 1600, large: 2400 };
+  const priceMap = PARCEL_SIZE_PRICES;
 
   // Prepaid wallet balance, used to show the review step whether card checkout
   // will be needed to cover the dispatch fee.
@@ -302,6 +306,7 @@ export default function useBookingModal({ isOpen, hubs, currentUser, prefilledSe
       }
 
       // 3. Reset workflow steps & feedback
+      setQuantity(PARCEL_QUANTITY_MIN);
       setStep(1);
       setError(null);
       setBookedResult(null);
@@ -383,13 +388,14 @@ export default function useBookingModal({ isOpen, hubs, currentUser, prefilledSe
         recipientAddressText: recipientAddress.trim(),
         destinationHubId,
         size,
+        quantity: clampParcelQuantity(quantity),
         packageDescription: packageDescription.trim() + (isFragile ? ' [FRAGILE]' : ''),
         declaredValueNgn: parseFloat(declaredValue) || 0
       };
 
       if (currentUser?.role === 'customer') {
         let dispatchFee = Number(priceMap[size] || 0);
-        const quoteRes = await apiFetch(`/api/v1/shipments/quote?size=${encodeURIComponent(size)}`, { headers });
+        const quoteRes = await apiFetch(`/api/v1/shipments/quote?size=${encodeURIComponent(size)}&quantity=${clampParcelQuantity(quantity)}`, { headers });
         if (quoteRes.ok) {
           const quote = await quoteRes.json();
           if (quote && Number(quote.priceNgn) > 0) dispatchFee = Number(quote.priceNgn);
@@ -461,6 +467,7 @@ export default function useBookingModal({ isOpen, hubs, currentUser, prefilledSe
     error,
     handleBooking,
     handleCopy,
+    handleQuantityChange,
     handleRecipientPostcodeChange,
     handleSelectRecipientArea,
     handleSenderPostcodeChange,
@@ -472,6 +479,7 @@ export default function useBookingModal({ isOpen, hubs, currentUser, prefilledSe
     loading,
     packageDescription,
     priceMap,
+    quantity,
     recipientAbortRef,
     recipientAddress,
     recipientEmail,

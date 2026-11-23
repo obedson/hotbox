@@ -49,11 +49,21 @@ async function deliverPickupOtp({ phone, email, otp, trackingCode, expiryMinutes
 // endpoint so the wallet check before checkout never drifts from the charge.
 const SIZE_PRICES_NGN = { small: 1200.00, medium: 1600.00, large: 2400.00 };
 
+const PARCEL_QUANTITY_MIN = 1;
+const PARCEL_QUANTITY_MAX = 50;
+
+function clampQuantity(value) {
+  const parsed = Math.floor(Number(value));
+  if (!Number.isFinite(parsed)) return PARCEL_QUANTITY_MIN;
+  return Math.min(PARCEL_QUANTITY_MAX, Math.max(PARCEL_QUANTITY_MIN, parsed));
+}
+
 // GET /api/v1/shipments/quote - dispatch fee estimate for a parcel size
 router.get('/quote', authenticate, (req, res) => {
   const size = String(req.query.size || 'medium').toLowerCase();
-  const priceNgn = SIZE_PRICES_NGN[size] || SIZE_PRICES_NGN.medium;
-  res.json({ size, priceNgn });
+  const unitPriceNgn = SIZE_PRICES_NGN[size] || SIZE_PRICES_NGN.medium;
+  const quantity = clampQuantity(req.query.quantity);
+  res.json({ size, quantity, unitPriceNgn, priceNgn: unitPriceNgn * quantity });
 });
 
 // POST /api/v1/shipments/book
@@ -71,6 +81,7 @@ router.post('/book', authenticate, validate(bookingSchema), async (req, res) => 
     recipientAddressText,
     destinationHubId,
     size = 'medium',
+    quantity = 1,
     weightKg = 1.0,
     packageDescription,
     declaredValueNgn = 0.00
@@ -87,18 +98,20 @@ router.post('/book', authenticate, validate(bookingSchema), async (req, res) => 
     const deliveryOtp = generateOtp();
     const collectionQrToken = `QR-PASS-${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
 
-    // Calculate base pricing
-    const pricingTotal = SIZE_PRICES_NGN[size] || SIZE_PRICES_NGN.medium;
+    // Dispatch fee is charged per parcel: unit rate multiplied by quantity.
+    const parcelQuantity = clampQuantity(quantity);
+    const unitPriceNgn = SIZE_PRICES_NGN[size] || SIZE_PRICES_NGN.medium;
+    const pricingTotal = unitPriceNgn * parcelQuantity;
 
     const result = await db.query(
       `INSERT INTO shipments (
          tracking_code, service_type, sender_id, sender_name, sender_phone,
          sender_postcode, sender_address_text, recipient_name, recipient_phone,
          recipient_email, recipient_postcode, recipient_address_text,
-         destination_hub_id, size, weight_kg, package_description,
+         destination_hub_id, size, quantity, weight_kg, package_description,
          declared_value_ngn, pickup_otp, pickup_otp_expires_at, delivery_otp, collection_qr_token,
          status, pricing_total_ngn, expires_at
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, 'BOOKED', $22, NOW() + INTERVAL '3 days')
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, 'BOOKED', $23, NOW() + INTERVAL '3 days')
        RETURNING *`,
       [
         trackingCode,
@@ -115,6 +128,7 @@ router.post('/book', authenticate, validate(bookingSchema), async (req, res) => 
         recipientAddressText || 'Recipient Destination',
         destinationHubId || null,
         size,
+        parcelQuantity,
         weightKg,
         packageDescription || 'Parcel',
         declaredValueNgn,

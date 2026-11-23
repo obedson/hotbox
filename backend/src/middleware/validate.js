@@ -86,6 +86,7 @@ const bookingSchema = z.object({
   recipientAddressText: z.string().min(3),
   destinationHubId: z.string().optional().nullable(),
   size: z.enum(['small', 'medium', 'large']).default('medium'),
+  quantity: z.number().int().min(1).max(50).default(1),
   weightKg: z.number().positive().optional().default(1.0),
   packageDescription: z.string().optional(),
   declaredValueNgn: z.number().nonnegative().optional().default(0.00)

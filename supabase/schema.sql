@@ -313,6 +313,7 @@ CREATE TABLE IF NOT EXISTS shipments (
   assigned_bay_id UUID REFERENCES hub_storage_bays(id) ON DELETE SET NULL,
 
   size VARCHAR(15) NOT NULL DEFAULT 'medium' CHECK (size IN ('small', 'medium', 'large')),
+  quantity INT NOT NULL DEFAULT 1 CHECK (quantity >= 1 AND quantity <= 50),
   weight_kg DECIMAL(5, 2) DEFAULT 1.0,
   package_description TEXT,
   declared_value_ngn DECIMAL(12, 2) DEFAULT 0.00,

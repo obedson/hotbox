@@ -1,23 +1,32 @@
-import { ShieldCheck, ArrowRight, ArrowLeft, Box } from 'lucide-react';
+import { ShieldCheck, ArrowRight, ArrowLeft, Box, Minus, Plus } from 'lucide-react';
+import {
+  PARCEL_SIZE_OPTIONS,
+  PARCEL_SIZE_PRICES,
+  PARCEL_QUANTITY_MIN,
+  PARCEL_QUANTITY_MAX,
+  clampParcelQuantity,
+  formatNaira
+} from '../../lib/parcelPricing';
+
 export default function BookingStep3({ booking }) {
   const {
-    canProceedStep3, declaredValue, isFragile, packageDescription, setDeclaredValue, setIsFragile, setPackageDescription, setSize, setStep, size, step
+    canProceedStep3, declaredValue, handleQuantityChange, isFragile, packageDescription,
+    quantity, setDeclaredValue, setIsFragile, setPackageDescription, setSize, setStep, size
   } = booking;
+
+  const unitPrice = PARCEL_SIZE_PRICES[size] || PARCEL_SIZE_PRICES.medium;
+  const totalPrice = unitPrice * clampParcelQuantity(quantity);
 
   return (
                 <div className="space-y-5 animate-fadeIn">
                   <div>
                     <h3 className="text-sm font-black text-slate-900">3. Package Specifications & Protection</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">Select parcel size and packaging specifications.</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Select parcel size, quantity and packaging specifications.</p>
                   </div>
 
                   {/* Size Preset Cards */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {[
-                      { id: 'small', label: 'Small Pouch', weight: 'Up to 1 kg', desc: 'Documents, flyers, phones, cards', price: '₦1,200' },
-                      { id: 'medium', label: 'Standard Box', weight: '1 kg – 5 kg', desc: 'Shoebox, apparel, electronics', price: '₦1,600' },
-                      { id: 'large', label: 'Heavy Carton', weight: '5 kg – 15 kg', desc: 'Bulk goods, hampers, appliances', price: '₦2,400' }
-                    ].map(sz => {
+                    {PARCEL_SIZE_OPTIONS.map(sz => {
                       const isSelected = size === sz.id;
                       return (
                         <button
@@ -39,12 +48,49 @@ export default function BookingStep3({ booking }) {
                             <p className="text-[11px] text-slate-500 mt-2 leading-tight">{sz.desc}</p>
                           </div>
                           <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
-                            <span className="text-[10px] text-slate-400">Flat Rate:</span>
-                            <span className="text-sm font-black text-emerald-700">{sz.price}</span>
+                            <span className="text-[10px] text-slate-400">Per Parcel:</span>
+                            <span className="text-sm font-black text-emerald-700">{formatNaira(PARCEL_SIZE_PRICES[sz.id])}</span>
                           </div>
                         </button>
                       );
                     })}
+                  </div>
+
+                  {/* Parcel Quantity */}
+                  <div className="p-4 rounded-2xl border border-slate-200 bg-white">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <span className="font-bold text-xs text-slate-800 block">Number of Parcels</span>
+                        <span className="text-[10px] text-slate-500">Charged per parcel at the selected size rate.</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleQuantityChange(quantity - 1)}
+                          disabled={quantity <= PARCEL_QUANTITY_MIN}
+                          className="w-8 h-8 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="w-10 text-center text-sm font-black text-slate-900">{quantity}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleQuantityChange(quantity + 1)}
+                          disabled={quantity >= PARCEL_QUANTITY_MAX}
+                          className="w-8 h-8 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                      <span className="text-slate-500">
+                        Rate per parcel: <span className="font-bold text-slate-800">{formatNaira(unitPrice)}</span>
+                      </span>
+                      <span className="font-bold text-slate-900">
+                        Subtotal: <span className="text-emerald-700">{formatNaira(totalPrice)}</span>
+                      </span>
+                    </div>
                   </div>
 
                   {/* Package Description */}

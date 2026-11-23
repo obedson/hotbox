@@ -112,7 +112,35 @@ test('bookingSchema applies service defaults', () => {
   });
   assert.equal(parsed.serviceType, 'DOOR_TO_HUB');
   assert.equal(parsed.size, 'medium');
+  assert.equal(parsed.quantity, 1);
   assert.equal(parsed.weightKg, 1.0);
+});
+
+test('bookingSchema accepts a quantity within the parcel ceiling', () => {
+  const parsed = bookingSchema.parse({
+    senderPhone: '+2348037778899',
+    senderPostcode: 'FC-01-A03-FK-01',
+    senderAddressText: 'Plot 10',
+    recipientName: 'Amina Bello',
+    recipientPhone: '+2348033334445',
+    recipientPostcode: 'FC-01-A03-FK-01',
+    recipientAddressText: 'Jabi Lake Mall',
+    quantity: 12
+  });
+  assert.equal(parsed.quantity, 12);
+});
+
+test('bookingSchema rejects a quantity above the parcel ceiling', () => {
+  assert.throws(() => bookingSchema.parse({
+    senderPhone: '+2348037778899',
+    senderPostcode: 'FC-01-A03-FK-01',
+    senderAddressText: 'Plot 10',
+    recipientName: 'Amina Bello',
+    recipientPhone: '+2348033334445',
+    recipientPostcode: 'FC-01-A03-FK-01',
+    recipientAddressText: 'Jabi Lake Mall',
+    quantity: 51
+  }));
 });
 
 test('custodyTransferSchema defaults the verification method to OTP', () => {
