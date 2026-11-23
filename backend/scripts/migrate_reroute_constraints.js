@@ -20,7 +20,7 @@ async function main() {
     await db.query(`ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_transaction_type_check;`);
     await db.query(`
       ALTER TABLE transactions ADD CONSTRAINT transactions_transaction_type_check
-      CHECK (transaction_type IN ('BOOKING_PAYMENT', 'HUB_COMMISSION', 'RIDER_PAYOUT', 'HOLDING_FEE', 'ESCROW_HOLD', 'ESCROW_RELEASE', 'DISPUTE_REFUND', 'WITHDRAWAL', 'WALLET_TOPUP', 'REROUTE_SMS_FEE', 'REROUTE_WHATSAPP_FEE', 'REROUTE_ALERT_FEE'));
+      CHECK (transaction_type IN ('BOOKING_PAYMENT', 'HUB_COMMISSION', 'RIDER_PAYOUT', 'HOLDING_FEE', 'ESCROW_HOLD', 'ESCROW_RELEASE', 'DISPUTE_REFUND', 'WITHDRAWAL', 'LEGACY_LINK_FEE', 'LEGACY_LINK_PLATFORM_FEE', 'WALLET_TOPUP', 'REROUTE_SMS_FEE', 'REROUTE_WHATSAPP_FEE', 'REROUTE_ALERT_FEE'));
     `);
     console.log('✅ transactions_transaction_type_check migrated to allow REROUTE fees');
   } catch (err) {
