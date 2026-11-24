@@ -101,9 +101,27 @@ function DeliveryAddressCard({ digitalBox, profile, onChangeAddress, showToast }
 }
 
 function SubscriptionCard({ digitalBox, wallet, onRenew, isRenewing }) {
-  const daysRemaining = digitalBox?.daysRemaining ?? 365;
+  const daysRemaining = digitalBox?.daysRemaining ?? 0;
   const status = digitalBox?.subscriptionStatus || 'ACTIVE';
   const annualFee = digitalBox?.annualFeeNgn || 3500;
+  const expiresAt = digitalBox?.expiresAt ? new Date(digitalBox.expiresAt) : null;
+  const startedAt = digitalBox?.lastRenewedAt || digitalBox?.subscriptionStartedAt || null;
+  let progress = null;
+  if (expiresAt && startedAt) {
+    const total = expiresAt.getTime() - new Date(startedAt).getTime();
+    if (total > 0) {
+      progress = Math.max(0, Math.min(100, Math.round(((expiresAt.getTime() - Date.now()) / total) * 100)));
+    }
+  }
+  const statusTone = status === 'ACTIVE'
+    ? 'text-emerald-700 bg-emerald-100'
+    : status === 'GRACE'
+      ? 'text-amber-700 bg-amber-100'
+      : 'text-rose-700 bg-rose-100';
+  const progressBar = status === 'ACTIVE' ? 'bg-emerald-500' : status === 'GRACE' ? 'bg-amber-500' : 'bg-rose-500';
+  const expiryLabel = expiresAt
+    ? expiresAt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+    : '—';
 
   return (
     <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
@@ -120,11 +138,18 @@ function SubscriptionCard({ digitalBox, wallet, onRenew, isRenewing }) {
       <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2">
         <div className="flex items-center justify-between text-xs">
           <span className="text-slate-500">Status</span>
-          <span className={`font-black px-2 py-0.5 rounded text-[10px] ${
-            status === 'ACTIVE' ? 'text-emerald-700 bg-emerald-100' : 'text-amber-700 bg-amber-100'
-          }`}>
+          <span className={`font-black px-2 py-0.5 rounded text-[10px] ${statusTone}`}>
             {status} · {daysRemaining} days left
           </span>
+        </div>
+        {progress != null && (
+          <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
+            <div className={`h-full rounded-full ${progressBar}`} style={{ width: `${progress}%` }} />
+          </div>
+        )}
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-slate-500">Renews until</span>
+          <span className="font-bold text-slate-900">{expiryLabel}</span>
         </div>
         <div className="flex items-center justify-between text-xs">
           <span className="text-slate-500">Annual fee</span>

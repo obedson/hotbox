@@ -9,7 +9,8 @@ import {
   capturePaymentReturn,
   readPaymentReturn,
   clearPaymentReturn,
-  startHostedCheckout
+  startHostedCheckout,
+  runPaymentResume
 } from './hostedCheckout';
 
 describe('hosted checkout storage', () => {
@@ -78,5 +79,29 @@ describe('hosted checkout storage', () => {
     window.history.replaceState({}, '', '/?payment=success');
 
     expect(capturePaymentReturn()).toEqual({ status: 'success', reference: 'HBX-FALLBACK' });
+  });
+});
+
+describe('payment resume actions', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    vi.clearAllMocks();
+  });
+
+  it('resumes a digital box activation against the activation endpoint', async () => {
+    sessionStorage.setItem('hotbox_payment_intent', JSON.stringify({
+      reference: 'HBX-ACT',
+      amountNgn: 3500,
+      email: 'payer@example.com',
+      resume: { kind: 'activateDigitalBox' },
+      startedAt: 1
+    }));
+    apiFetch.mockResolvedValue({ ok: true, json: async () => ({ boxNumber: 'HBX-0042' }) });
+
+    const result = await runPaymentResume();
+
+    expect(result).toEqual({ kind: 'activateDigitalBox', ok: true, data: { boxNumber: 'HBX-0042' } });
+    expect(apiFetch).toHaveBeenCalledWith('/api/v1/customer/digital-box/activate', { method: 'POST' });
+    expect(readStoredIntent()).toBeNull();
   });
 });

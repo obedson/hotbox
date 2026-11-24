@@ -21,6 +21,7 @@ router.post('/verify-address', authenticate, async (req, res) => {
     const userColumns = `
       u.id, u.name, u.phone, u.postcode,
       b.id AS box_id, b.box_number, b.is_ground_truth_verified,
+      b.status AS box_status, b.expires_at AS box_expires_at,
       pc.neighbourhood, pc.lga, pc.state`;
 
     let userRes;
@@ -72,6 +73,39 @@ router.post('/verify-address', authenticate, async (req, res) => {
     const isGroundTruthVerified = Boolean(user.is_ground_truth_verified);
     const boxNumber = user.box_number;
 
+    // The certificate is the credential a service provider relies on, so its
+    // lifecycle state is reported explicitly rather than inferred from a flag.
+    const certRes = await db.query(
+      `SELECT * FROM proof_of_address_certificates
+        WHERE user_id = $1
+        ORDER BY issued_at DESC LIMIT 1`,
+      [user.id]
+    );
+    const cert = certRes.rows[0] || null;
+
+    let credentialStatus = 'NOT_VERIFIED';
+    if (cert) {
+      if (cert.status === 'MOVED') credentialStatus = 'MOVED';
+      else if (cert.status === 'SUPERSEDED') credentialStatus = 'SUPERSEDED';
+      else if (cert.status === 'REVOKED') credentialStatus = 'REVOKED';
+      else if (!cert.expires_at || new Date(cert.expires_at) <= new Date()) credentialStatus = 'EXPIRED';
+      else credentialStatus = 'GROUND_TRUTH_VERIFIED';
+    }
+
+    const boxStatus = user.box_id
+      ? digitalBoxService.effectiveBoxState({ status: user.box_status, expires_at: user.box_expires_at })
+      : 'NONE';
+
+    const PROOF_STATUS_LABELS = {
+      GROUND_TRUTH_VERIFIED: 'Ground-Truth Verified',
+      MOVED: 'Moved',
+      EXPIRED: 'Expired',
+      SUPERSEDED: 'Superseded',
+      REVOKED: 'Revoked',
+      NOT_VERIFIED: 'Registry Verified'
+    };
+    const proofOfAddressStatus = PROOF_STATUS_LABELS[credentialStatus] || 'Registry Verified';
+
     let relocationStatus = 'ACTIVE_RESIDENT';
     let forwardingPostcode = null;
     if (cleanPostcode && cleanPostcode !== user.postcode && user.box_id) {
@@ -86,6 +120,29 @@ router.post('/verify-address', authenticate, async (req, res) => {
       }
     }
 
+    if (credentialStatus === 'MOVED') {
+      // The holder was verified at the address on the certificate and has since
+      // relocated. Report the move and the certified address, never the new one.
+      return res.json({
+        verified: true,
+        citizenName: user.name,
+        digitalBoxNumber: boxNumber,
+        boxStatus,
+        activePostcode: cert.postcode,
+        physicalAddress: null,
+        hierarchy: null,
+        proofOfAddressStatus,
+        credentialStatus,
+        isGroundTruthVerified: true,
+        currentAddressDisclosed: false,
+        movedAt: cert.moved_at,
+        relocationStatus: 'RELOCATED',
+        forwardingPostcode: null,
+        feeChargedNgn: microChargeNgn,
+        verifiedAt: new Date().toISOString()
+      });
+    }
+
     res.json({
       verified: true,
       citizenName: user.name,
@@ -97,7 +154,9 @@ router.post('/verify-address', authenticate, async (req, res) => {
         lga: user.lga || 'Abuja Municipal',
         state: user.state || 'Federal Capital Territory'
       },
-      proofOfAddressStatus: isGroundTruthVerified ? 'Ground-Truth Verified' : 'Registry Verified',
+      proofOfAddressStatus,
+      credentialStatus,
+      boxStatus,
       isGroundTruthVerified,
       relocationStatus,
       forwardingPostcode,

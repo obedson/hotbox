@@ -10,16 +10,17 @@ function Metric({ label, children }) {
 }
 
 export default function DigitalBoxHero({ digitalBox, profile, onOpenCertificate, showToast }) {
-  const boxNumber = digitalBox?.boxNumber || 'Allocating…';
+  const activated = digitalBox?.activated !== false;
+  const boxNumber = activated ? (digitalBox?.boxNumber || 'Allocating…') : 'Not activated';
   const postcode = digitalBox?.activePostcode || profile?.postcode || 'Not set';
   const verified = Boolean(digitalBox?.isGroundTruthVerified);
-  const daysRemaining = digitalBox?.daysRemaining ?? 365;
+  const daysRemaining = activated ? (digitalBox?.daysRemaining ?? 0) : 0;
   const moveCount = (digitalBox?.relocations || []).length;
   const certificate = digitalBox?.certificate || null;
 
   const copyBoxNumber = () => {
     if (!digitalBox?.boxNumber) {
-      showToast('Your Digital P.O. Box number is still being allocated. Refresh in a moment.', 'error');
+      showToast('You have not activated a Digital P.O. Box yet.', 'error');
       return;
     }
     navigator.clipboard?.writeText(digitalBox.boxNumber);
@@ -96,7 +97,9 @@ export default function DigitalBoxHero({ digitalBox, profile, onOpenCertificate,
           </p>
         </Metric>
         <Metric label="Subscription">
-          <p className="text-xs font-bold text-white">{daysRemaining} days remaining</p>
+          <p className="text-xs font-bold text-white">
+            {activated ? `${daysRemaining} days remaining` : 'Not subscribed'}
+          </p>
         </Metric>
         <Metric label="Recorded Moves">
           <p className="text-xs font-bold text-white">

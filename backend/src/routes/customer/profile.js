@@ -174,16 +174,27 @@ router.put('/profile', authenticate, async (req, res) => {
         }
 
         // Record the forwarding trail in the registry so the history survives
-        // independently of the user row.
-        const box = await digitalBoxService.ensureDigitalBox(req.user.id);
-        await digitalBoxService.addRelocation(box.id, {
-          oldPostcode: currUser.postcode,
-          oldAddress: currUser.postcode_neighbourhood || 'Previous Residence',
-          newPostcode: cleanPostcode,
-          newAddress: updatedUser.postcode_neighbourhood || 'New Verified Address',
-          phone: updatedUser.phone,
-          changedAt: new Date().toISOString()
-        });
+        // independently of the user row. Relocation also moves any standing
+        // certificate out of ACTIVE so it can no longer be presented as proof
+        // of residence at the old address; the holder revalidates on the next
+        // cycle rather than holding a silently false credential.
+        const box = await digitalBoxService.getDigitalBoxByUserId(req.user.id);
+        if (box) {
+          await digitalBoxService.addRelocation(box.id, {
+            oldPostcode: currUser.postcode,
+            oldAddress: currUser.postcode_neighbourhood || 'Previous Residence',
+            newPostcode: cleanPostcode,
+            newAddress: updatedUser.postcode_neighbourhood || 'New Verified Address',
+            phone: updatedUser.phone,
+            changedAt: new Date().toISOString()
+          });
+        }
+        await digitalBoxService.markCertificatesMoved(req.user.id, 'RELOCATION');
+        await db.query(
+          `INSERT INTO notifications (user_id, title, message, type, is_read, created_at)
+           VALUES ($1, 'Delivery address updated', 'Your mail now follows your new postcode. Revalidate your Proof of Address certificate to keep it current.', 'SYSTEM_NOTICE', FALSE, NOW())`,
+          [req.user.id]
+        );
       } catch (rerouteErr) {
         console.warn('[RelocationReroute] Auto-reroute error:', rerouteErr.message);
       }
@@ -318,9 +329,11 @@ router.get('/digital-box', authenticate, async (req, res) => {
     if (userRes.rows.length === 0) return res.status(404).json({ error: 'User not found' });
     const user = userRes.rows[0];
 
-    const box = await digitalBoxService.ensureDigitalBox(user.id);
-    const relocations = await digitalBoxService.listRelocations(box.id);
-    const certificate = await digitalBoxService.getCertificate(box.id);
+    const fees = await settingsService.getDigitalBoxFees();
+    await digitalBoxService.sweepBoxExpiries({ gracePeriodDays: fees.gracePeriodDays });
+    await digitalBoxService.sendDueBoxReminders();
+
+    const box = await digitalBoxService.getDigitalBoxByUserId(user.id);
 
     const pendingInspection = await db.query(
       `SELECT 1 FROM verification_records
@@ -330,14 +343,72 @@ router.get('/digital-box', authenticate, async (req, res) => {
       [user.id]
     );
 
+    const legacyFees = await settingsService.getLegacyBoxLinkFees();
+
+    if (!box) {
+      return res.json({
+        activated: false,
+        boxNumber: null,
+        status: 'NOT_ACTIVATED',
+        subscriptionStatus: 'NOT_ACTIVATED',
+        boxStatus: 'NONE',
+        daysRemaining: 0,
+        expiresAt: null,
+        annualFeeNgn: fees.annualSubscriptionFeeNgn,
+        revalidationMonths: fees.revalidationMonths,
+        gracePeriodDays: fees.gracePeriodDays,
+        freeTrialDays: fees.freeTrialDays,
+        groundTruthingFeeNgn: fees.doorwayInspectionFeeNgn,
+        doorwayInspectionFeeNgn: fees.doorwayInspectionFeeNgn,
+        revalidationFeeNgn: fees.revalidationFeeNgn,
+        legacyLinkFees: {
+          nipostVerificationFeeNgn: legacyFees.nipostVerificationFeeNgn,
+          hotboxPlatformFeeNgn: legacyFees.hotboxPlatformFeeNgn,
+          totalNgn: legacyFees.totalNgn
+        },
+        legacyBoxNumber: null,
+        legacyLinkedAt: null,
+        legacyBoxStatus: 'UNLINKED',
+        legacyBoxApprovedAt: null,
+        legacyRequest: null,
+        relocations: [],
+        certificate: null,
+        isGroundTruthVerified: false,
+        hasPendingInspection: pendingInspection.rows.length > 0,
+        proofOfAddressStatus: 'Not Verified',
+        activePostcode: user.postcode || 'FC-01-A03-FK-01',
+        hierarchy: {
+          district: user.postcode_neighbourhood || 'Wuse 2',
+          lga: user.postcode_lga || 'Abuja Municipal',
+          state: user.postcode_state || 'Federal Capital Territory'
+        },
+        coordinates: {
+          lat: user.postcode_lat != null ? Number(user.postcode_lat) : null,
+          lng: user.postcode_lng != null ? Number(user.postcode_lng) : null
+        }
+      });
+    }
+
+    const relocations = await digitalBoxService.listRelocations(box.id);
+    const certificate = await digitalBoxService.getCertificate(box.id);
+
+    const boxState = digitalBoxService.effectiveBoxState(box, { gracePeriodDays: fees.gracePeriodDays });
     const expiresAt = box.expires_at ? new Date(box.expires_at) : new Date(Date.now() + 300 * 24 * 3600 * 1000);
     const daysRemaining = Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 3600 * 24)));
-    const fees = await settingsService.getDigitalBoxFees();
-    const legacyFees = await settingsService.getLegacyBoxLinkFees();
     const latestLinkRequest = await legacyBoxLinkService.getLatestRequestForUser(user.id);
 
     res.json({
+      activated: true,
       boxNumber: box.box_number,
+      boxStatus: boxState,
+      revalidationMonths: fees.revalidationMonths,
+      gracePeriodDays: fees.gracePeriodDays,
+      freeTrialDays: fees.freeTrialDays,
+      poaCertificateId: box.poa_certificate_id || null,
+      issuedBy: box.issued_by || null,
+      subscriptionStartedAt: box.subscription_started_at ? new Date(box.subscription_started_at).toISOString() : null,
+      lastRenewedAt: box.last_renewed_at ? new Date(box.last_renewed_at).toISOString() : null,
+      pricePaidNgn: box.price_paid_ngn != null ? Number(box.price_paid_ngn) : null,
       activePostcode: user.postcode || 'FC-01-A03-FK-01',
       hierarchy: {
         district: user.postcode_neighbourhood || 'Wuse 2',
@@ -351,7 +422,7 @@ router.get('/digital-box', authenticate, async (req, res) => {
       proofOfAddressStatus: box.is_ground_truth_verified ? 'Ground-Truth Verified' : 'Registry Verified',
       isGroundTruthVerified: Boolean(box.is_ground_truth_verified),
       hasPendingInspection: pendingInspection.rows.length > 0,
-      subscriptionStatus: box.status === 'ACTIVE' && daysRemaining > 0 ? 'ACTIVE' : 'EXPIRED',
+      subscriptionStatus: boxState === 'ACTIVE' || boxState === 'GRACE' ? boxState : 'EXPIRED',
       expiresAt: expiresAt.toISOString(),
       daysRemaining,
       annualFeeNgn: fees.annualSubscriptionFeeNgn,
@@ -438,8 +509,14 @@ router.post('/renew-digital-box', authenticate, async (req, res) => {
       JSON.stringify({ description: 'Annual Hotbox Digital P.O. Box & Address Forwarding Subscription Renewal (365 Days)' })
     ]);
 
-    const box = await digitalBoxService.ensureDigitalBox(req.user.id);
-    const renewed = await digitalBoxService.renewBox(box.id);
+    const box = await digitalBoxService.getDigitalBoxByUserId(req.user.id);
+    if (!box) {
+      return res.status(409).json({ error: 'No Digital P.O. Box to renew. Activate one first.' });
+    }
+    if (box.status === 'CANCELLED') {
+      return res.status(409).json({ error: 'This Digital P.O. Box was cancelled and cannot be renewed. Please contact Hotbox support.' });
+    }
+    const renewed = await digitalBoxService.renewBox(box.id, { pricePaidNgn: annualFee });
     const newExpiresAt = new Date(renewed.expires_at).toISOString();
 
     await db.query(`
@@ -479,7 +556,10 @@ router.post('/link-legacy-box', authenticate, async (req, res) => {
   }
 
   try {
-    const box = await digitalBoxService.ensureDigitalBox(req.user.id);
+    const box = await digitalBoxService.getDigitalBoxByUserId(req.user.id);
+    if (!box) {
+      return res.status(409).json({ error: 'Activate your Digital P.O. Box before linking an old P.O. Box number.' });
+    }
     const request = await legacyBoxLinkService.createRequest({
       userId: req.user.id,
       boxId: box.id,
@@ -556,8 +636,9 @@ router.post('/request-ground-truthing', authenticate, async (req, res) => {
     const user = userRes.rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const box = await digitalBoxService.ensureDigitalBox(user.id);
-    const isRenewal = Boolean(box.is_ground_truth_verified);
+    const box = await digitalBoxService.getDigitalBoxByUserId(user.id);
+    const certificate = await digitalBoxService.getActiveCertificateForUser(user.id);
+    const isRenewal = Boolean(certificate) || Boolean(box && box.is_ground_truth_verified);
     const fees = await settingsService.getDigitalBoxFees();
     const verificationFee = isRenewal ? fees.revalidationFeeNgn : fees.doorwayInspectionFeeNgn;
 
@@ -615,7 +696,7 @@ router.post('/request-ground-truthing', authenticate, async (req, res) => {
       VALUES ('user', $1, 'TRACK_A_ADDRESS', 'PHYSICAL_INSPECTION_REPORT', $2, 'PENDING', $3, $4, NOW())
     `, [
       req.user.id,
-      box.box_number,
+      box ? box.box_number : (user.postcode || null),
       geo.lat != null ? Number(geo.lat) : null,
       geo.lng != null ? Number(geo.lng) : null
     ]);
@@ -748,6 +829,139 @@ router.post('/reset-verification', authenticate, async (req, res) => {
     }
     const userRes = await db.query('SELECT id, name, phone, email, is_phone_verified, is_email_verified FROM users WHERE id = $1', [req.user.id]);
     res.json({ message: 'Verification status reset.', user: userRes.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/v1/customer/digital-box/activate
+// Activation is the only path that issues a number. It requires a currently
+// valid Proof of Address certificate and charges the annual fee from the
+// customer's prepaid wallet, unless an administrator has configured a trial.
+router.post('/digital-box/activate', authenticate, async (req, res) => {
+  try {
+    const existing = await digitalBoxService.getDigitalBoxByUserId(req.user.id);
+    if (existing && existing.status === 'CANCELLED') {
+      return res.status(409).json({
+        error: 'This Digital P.O. Box was cancelled and cannot be reactivated. Please contact Hotbox support.'
+      });
+    }
+    if (existing) {
+      return res.json({
+        message: 'Your Digital P.O. Box is already active.',
+        alreadyActive: true,
+        boxNumber: existing.box_number,
+        expiresAt: existing.expires_at ? new Date(existing.expires_at).toISOString() : null
+      });
+    }
+
+    const certificate = await digitalBoxService.getActiveCertificateForUser(req.user.id);
+    if (!certificate) {
+      return res.status(409).json({
+        error: 'A validated Proof of Address is required before a Digital P.O. Box can be issued. Request doorway verification first.',
+        reason: 'POA_REQUIRED'
+      });
+    }
+
+    const fees = await settingsService.getDigitalBoxFees();
+    const annualFee = fees.annualSubscriptionFeeNgn;
+    const trialDays = Math.max(0, Number(fees.freeTrialDays) || 0);
+    const price = trialDays > 0 ? 0 : annualFee;
+
+    const walletRes = await db.query('SELECT * FROM wallets WHERE user_id = $1', [req.user.id]);
+    let wallet = walletRes.rows[0];
+    if (!wallet) {
+      const created = await db.query('INSERT INTO wallets (user_id, balance_ngn, ledger_balance_ngn) VALUES ($1, 0, 0) RETURNING *', [req.user.id]);
+      wallet = created.rows[0];
+    }
+
+    const currentBalance = parseFloat(wallet.balance_ngn || 0);
+    if (currentBalance < price) {
+      return res.status(400).json({
+        error: `Insufficient prepaid wallet balance to activate your Digital P.O. Box (₦${price.toFixed(2)} required). Please top up your wallet.`,
+        required: price,
+        currentBalance,
+        reason: 'INSUFFICIENT_FUNDS'
+      });
+    }
+
+    const newBalance = currentBalance - price;
+    await db.query('UPDATE wallets SET balance_ngn = $1, ledger_balance_ngn = $1, updated_at = NOW() WHERE id = $2', [newBalance, wallet.id]);
+
+    let reference = null;
+    if (price > 0) {
+      reference = `BOX-ACT-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+      await db.query(`
+        INSERT INTO transactions (
+          wallet_id, transaction_type, amount_ngn, fee_ngn, net_amount_ngn, balance_before_ngn,
+          balance_after_ngn, reference, payment_gateway, gateway_reference, status, metadata
+        ) VALUES ($1, 'BOOKING_PAYMENT', $2, 0.00, $2, $3, $4, $5, 'WALLET', $5, 'COMPLETED', $6)
+      `, [
+        wallet.id,
+        price,
+        currentBalance,
+        newBalance,
+        reference,
+        JSON.stringify({ description: 'Hotbox Digital P.O. Box Annual Subscription (365 Days)' })
+      ]);
+    }
+
+    const lengthDays = trialDays > 0 ? trialDays : digitalBoxService.BOX_TTL_DAYS;
+    const box = await digitalBoxService.issueDigitalBox({
+      userId: req.user.id,
+      poaCertificateId: certificate.id,
+      issuedBy: trialDays > 0 ? 'TRIAL' : 'USER',
+      source: 'CUSTOMER_ACTIVATION',
+      pricePaidNgn: price,
+      lengthDays
+    });
+
+    await db.query(`
+      INSERT INTO notifications (user_id, title, message, type, is_read, created_at)
+      VALUES ($1, 'Digital P.O. Box Activated', $2, 'SYSTEM_NOTICE', FALSE, NOW())
+    `, [
+      req.user.id,
+      `Your Digital P.O. Box ${box.box_number} is active. Mail sent to it now reaches you and follows you when you relocate.`
+    ]);
+
+    res.status(201).json({
+      message: trialDays > 0
+        ? `Your Digital P.O. Box is active on a ${trialDays}-day trial.`
+        : 'Your Digital P.O. Box is active.',
+      boxNumber: box.box_number,
+      expiresAt: box.expires_at ? new Date(box.expires_at).toISOString() : null,
+      daysRemaining: trialDays > 0 ? trialDays : 365,
+      pricePaidNgn: price,
+      isTrial: trialDays > 0,
+      newBalance,
+      reference
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/v1/customer/digital-box/cancel
+// Cancelling stops resolution immediately. Numbers are never recycled, so a
+// cancelled box can never deliver somebody else's mail.
+router.post('/digital-box/cancel', authenticate, async (req, res) => {
+  try {
+    const box = await digitalBoxService.getDigitalBoxByUserId(req.user.id);
+    if (!box) return res.status(404).json({ error: 'No Digital P.O. Box found.' });
+    if (box.status === 'CANCELLED') {
+      return res.json({ message: 'Your Digital P.O. Box is already cancelled.', status: 'CANCELLED' });
+    }
+
+    const cancelled = await digitalBoxService.cancelBox(box.id);
+    await db.query(`
+      INSERT INTO notifications (user_id, title, message, type, is_read, created_at)
+      VALUES ($1, 'Digital P.O. Box Cancelled', 'Your Digital P.O. Box subscription is cancelled and will no longer resolve for delivery.', 'SYSTEM_NOTICE', FALSE, NOW())
+    `, [req.user.id]);
+
+    res.json({
+      message: 'Your Digital P.O. Box subscription has been cancelled. It will no longer resolve for delivery.',
+      status: cancelled.status
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

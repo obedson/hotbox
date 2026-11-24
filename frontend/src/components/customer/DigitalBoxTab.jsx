@@ -5,6 +5,7 @@ import CertificateModal from './CertificateModal';
 import DigitalBoxHero from './digitalbox/DigitalBoxHero';
 import AddressAndForwarding from './digitalbox/AddressAndForwarding';
 import ProofOfAddress from './digitalbox/ProofOfAddress';
+import DigitalBoxActivation from './digitalbox/DigitalBoxActivation';
 
 function ActLabel({ index, title, hint }) {
   return (
@@ -25,6 +26,7 @@ export default function DigitalBoxTab({
 }) {
   const [isRenewingBox, setIsRenewingBox] = useState(false);
   const [isRequestingGroundTruth, setIsRequestingGroundTruth] = useState(false);
+  const [isActivatingBox, setIsActivatingBox] = useState(false);
 
   const handleRenewDigitalBox = async () => {
     setIsRenewingBox(true);
@@ -55,6 +57,40 @@ export default function DigitalBoxTab({
       showToast('Network error during renewal', 'error');
     } finally {
       setIsRenewingBox(false);
+    }
+  };
+
+  const handleActivateBox = async () => {
+    setIsActivatingBox(true);
+    try {
+      const annualFee = digitalBox?.annualFeeNgn || 3500;
+      const trialDays = Number(digitalBox?.freeTrialDays) || 0;
+      const price = trialDays > 0 ? 0 : annualFee;
+      const balance = Number(wallet?.balance || 0);
+      if (balance < price) {
+        await fundWalletWithCard({
+          amountNgn: price - balance,
+          email: currentUser?.email || '',
+          metadata: { reason: 'box_activation' },
+          resume: { kind: 'activateDigitalBox' },
+          onCredited: () => fetchCustomerData()
+        });
+      }
+      const res = await apiFetch('/api/v1/customer/digital-box/activate', {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(data.message || 'Your Digital P.O. Box is active!');
+        fetchCustomerData();
+      } else {
+        showToast(data.error || 'Could not activate your Digital P.O. Box', 'error');
+      }
+    } catch (err) {
+      showToast('Network error during activation', 'error');
+    } finally {
+      setIsActivatingBox(false);
     }
   };
 
@@ -93,6 +129,8 @@ export default function DigitalBoxTab({
     }
   };
 
+  const activated = digitalBox?.activated !== false;
+
   return (
     <div className="space-y-6">
       <DigitalBoxHero
@@ -102,24 +140,42 @@ export default function DigitalBoxTab({
         onOpenCertificate={() => setIsCertificateModalOpen(true)}
       />
 
-      <div className="space-y-4">
-        <ActLabel index="01" title="Address & Forwarding" hint="Where your mail reaches, and how it follows you." />
-        <AddressAndForwarding
-          digitalBox={digitalBox}
-          profile={profile}
-          wallet={wallet}
-          relocations={digitalBox?.relocations || []}
-          onRenew={handleRenewDigitalBox}
-          isRenewing={isRenewingBox}
-          onChangeAddress={onChangeAddress}
-          getAuthHeaders={getAuthHeaders}
-          fetchCustomerData={fetchCustomerData}
-          showToast={showToast}
-        />
-      </div>
+      {activated ? (
+        <div className="space-y-4">
+          <ActLabel index="01" title="Address & Forwarding" hint="Where your mail reaches, and how it follows you." />
+          <AddressAndForwarding
+            digitalBox={digitalBox}
+            profile={profile}
+            wallet={wallet}
+            relocations={digitalBox?.relocations || []}
+            onRenew={handleRenewDigitalBox}
+            isRenewing={isRenewingBox}
+            onChangeAddress={onChangeAddress}
+            getAuthHeaders={getAuthHeaders}
+            fetchCustomerData={fetchCustomerData}
+            showToast={showToast}
+          />
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <ActLabel index="01" title="Activate Your Digital P.O. Box" hint="Optional mail reception and rerouting, billed yearly." />
+          <DigitalBoxActivation
+            digitalBox={digitalBox}
+            wallet={wallet}
+            isActivating={isActivatingBox}
+            onActivate={handleActivateBox}
+            onRequestGroundTruth={handleRequestGroundTruth}
+            isRequestingGroundTruth={isRequestingGroundTruth}
+          />
+        </div>
+      )}
 
       <div className="space-y-4">
-        <ActLabel index="02" title="Proof of Address" hint="A verifiable certificate for banks and service providers." />
+        <ActLabel
+          index="02"
+          title="Proof of Address"
+          hint={activated ? 'A verifiable certificate for banks and service providers.' : 'Required before your Digital P.O. Box can be issued.'}
+        />
         <ProofOfAddress
           digitalBox={digitalBox}
           onRequestGroundTruth={handleRequestGroundTruth}

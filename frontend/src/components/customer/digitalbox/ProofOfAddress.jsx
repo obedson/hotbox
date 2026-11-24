@@ -25,8 +25,11 @@ export default function ProofOfAddress({
   const pending = Boolean(digitalBox?.hasPendingInspection);
   const inspectionFee = digitalBox?.doorwayInspectionFeeNgn || 2500;
   const revalidationFee = digitalBox?.revalidationFeeNgn || 2500;
+  const revalidationMonths = digitalBox?.revalidationMonths || 12;
+  const certificateStatus = certificate?.status || null;
+  const certificateLive = Boolean(certificate) && certificateStatus === 'ACTIVE';
   const status = certificate
-    ? 'Certificate Issued'
+    ? (certificateLive ? 'Certificate Issued' : `Certificate ${certificateStatus || 'Inactive'}`)
     : verified
       ? 'Ground-Truth Verified'
       : pending
@@ -45,7 +48,7 @@ export default function ProofOfAddress({
   };
 
   let action;
-  if (certificate) {
+  if (certificateLive) {
     action = (
       <button
         type="button"
@@ -116,16 +119,16 @@ export default function ProofOfAddress({
       <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2">
         <Fact label="Verification level" value={verified ? 'Ground-Truth Verified' : 'Registry Verified'} tone={verified ? 'emerald' : 'amber'} />
         <Fact label="Doorway inspection" value={`₦${Number(inspectionFee).toLocaleString('en-NG')} (one-time)`} />
-        <Fact label="Revalidation" value={`₦${Number(revalidationFee).toLocaleString('en-NG')} / 12 months`} />
-        <Fact label="Certificate validity" value={certificate ? '12 months from issue' : '12 months once issued'} />
+        <Fact label="Revalidation" value={`₦${Number(revalidationFee).toLocaleString('en-NG')} / ${revalidationMonths} months`} />
+        <Fact label="Certificate validity" value={certificate ? `${revalidationMonths} months from issue` : `${revalidationMonths} months once issued`} />
       </div>
 
       <div className="space-y-2 pt-1">
         {action}
         <p className="text-[10px] text-center text-slate-400">
-          {certificate
-            ? 'Your certificate is active and can be verified publicly by serial. Revalidation is due every 12 months.'
-            : 'An inspection is ordered immediately; the certificate is issued once the report is approved. Revalidation applies every 12 months.'}
+          {certificateLive
+            ? `Your certificate is active and can be verified publicly by serial. Revalidation is due every ${revalidationMonths} months.`
+            : 'An inspection is ordered immediately; the certificate is issued once the report is approved. Revalidation applies per the configured interval.'}
         </p>
       </div>
 

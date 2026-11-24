@@ -667,7 +667,7 @@ router.post('/review/:id', async (req, res) => {
       await client.query('COMMIT');
 
       if (issuesCertificate) {
-        const box = await digitalBoxService.ensureDigitalBox(record.entity_id);
+        const box = await digitalBoxService.getDigitalBoxByUserId(record.entity_id);
         const userRes = await db.query('SELECT * FROM users WHERE id = $1', [record.entity_id]);
         const owner = userRes.rows[0];
         const pcRes = await db.query(
@@ -676,15 +676,17 @@ router.post('/review/:id', async (req, res) => {
         );
         const pc = pcRes.rows[0] || {};
         const hierarchy = { district: pc.neighbourhood, lga: pc.lga, state: pc.state };
+        const fees = await settingsService.getDigitalBoxFees();
         await digitalBoxService.issueCertificate({
-          box: { id: box.id },
+          box: box ? { id: box.id } : null,
           user: owner,
           verificationRecordId: record.id,
           postcode: owner ? owner.postcode : null,
           addressText: pc.description || [pc.neighbourhood, pc.lga, pc.state].filter(Boolean).join(', '),
           hierarchy,
           lat: record.lat != null ? Number(record.lat) : (pc.lat != null ? Number(pc.lat) : null),
-          lng: record.lng != null ? Number(record.lng) : (pc.lng != null ? Number(pc.lng) : null)
+          lng: record.lng != null ? Number(record.lng) : (pc.lng != null ? Number(pc.lng) : null),
+          validityMonths: fees.revalidationMonths
         });
       }
 

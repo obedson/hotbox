@@ -119,6 +119,11 @@ export async function runPaymentResume({ onResult } = {}) {
       const data = await res.json().catch(() => ({}));
       return report({ kind: resume.kind, ok: res.ok, data });
     }
+    if (resume.kind === 'activateDigitalBox') {
+      const res = await apiFetch('/api/v1/customer/digital-box/activate', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      return report({ kind: resume.kind, ok: res.ok, data });
+    }
     if (resume.kind === 'requestGroundTruth') {
       const res = await apiFetch('/api/v1/customer/request-ground-truthing', { method: 'POST' });
       const data = await res.json().catch(() => ({}));

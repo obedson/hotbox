@@ -8,6 +8,10 @@
 -- Existing boxes are labelled LEGACY_AUTO rather than reassigned. Box numbers
 -- are drawn from a monotonic sequence and are never recycled.
 
+-- Box numbers come from a monotonic sequence that is never reset, so a
+-- cancelled or lapsed number can never be reissued to somebody else.
+CREATE SEQUENCE IF NOT EXISTS digital_box_number_seq START WITH 1;
+
 ALTER TABLE digital_boxes
   ADD COLUMN IF NOT EXISTS subscription_started_at TIMESTAMP WITH TIME ZONE,
   ADD COLUMN IF NOT EXISTS last_renewed_at TIMESTAMP WITH TIME ZONE,

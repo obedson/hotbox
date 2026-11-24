@@ -81,7 +81,7 @@ router.get('/lookup', requireVerifiedRider, async (req, res) => {
 
   const userColumns = `
     u.id, u.name, u.phone, u.postcode,
-    b.box_number, b.is_ground_truth_verified,
+    b.box_number, b.is_ground_truth_verified, b.status AS box_status, b.expires_at AS box_expires_at,
     pc.neighbourhood, pc.lga, pc.state`;
 
   const postcodeJoin = `
@@ -148,6 +148,44 @@ router.get('/lookup', requireVerifiedRider, async (req, res) => {
       }
     }
 
+    const fees = await settingsService.getDigitalBoxFees();
+    const gracePeriodDays = fees.gracePeriodDays;
+
+    const decoratedRows = userRows.map((row) => ({
+      ...row,
+      box_state: row.box_number
+        ? digitalBoxService.effectiveBoxState(
+          { status: row.box_status, expires_at: row.box_expires_at },
+          { gracePeriodDays }
+        )
+        : null
+    }));
+
+    const requestedBoxState = decoratedRows.length > 0 && decoratedRows[0].box_state
+      ? decoratedRows[0].box_state
+      : null;
+
+    if (requestedBoxState === 'LAPSED' || requestedBoxState === 'CANCELLED') {
+      return res.json({
+        input,
+        inputType,
+        matched: false,
+        boxStatus: requestedBoxState,
+        reason: requestedBoxState === 'LAPSED'
+          ? 'This Digital P.O. Box subscription has lapsed. Do not deliver here; return the item to sender.'
+          : 'This Digital P.O. Box was cancelled and is no longer in service.',
+        postcodeValid: false,
+        hierarchy: null,
+        residents: [],
+        relocatedMatches: []
+      });
+    }
+
+    // A lapsed or cancelled box must never resolve to a delivery address.
+    userRows = decoratedRows.filter(
+      (row) => row.box_state === null || row.box_state === 'ACTIVE' || row.box_state === 'GRACE'
+    );
+
     const pcRes = await db.query(
       `SELECT * FROM postcode_cache
        WHERE postcode = $1 OR ndaps_code = $1 OR legacy_code = $1 OR replace(postcode, '-', '') = replace($1, '-', '')
@@ -166,6 +204,7 @@ router.get('/lookup', requireVerifiedRider, async (req, res) => {
         name: user.name,
         phone: user.phone,
         digitalBoxNumber: user.box_number,
+        boxStatus: user.box_state || null,
         proofOfAddressStatus: isGroundTruthVerified ? 'Ground-Truth Verified' : 'Registry Verified',
         isGroundTruthVerified,
         deliveryAddress: {
@@ -210,6 +249,7 @@ router.get('/lookup', requireVerifiedRider, async (req, res) => {
       input,
       inputType,
       matched: residents.length > 0,
+      boxStatus: residents.length > 0 ? (residents[0].boxStatus || null) : (requestedBoxState || null),
       reason: residents.length > 0 ? null : 'No registered resident found for this code.',
       postcodeValid: Boolean(pc),
       hierarchy: pc ? { district: pc.neighbourhood, lga: pc.lga, state: pc.state } : null,

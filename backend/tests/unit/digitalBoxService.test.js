@@ -23,21 +23,22 @@ test('the registry only ever issues the short HBX prefix', () => {
   assert.equal(digitalBoxService.REVALIDATION_FEE_NGN, 2500);
 });
 
-test('ensureDigitalBox allocates a sequential number once', async () => {
+test('issueDigitalBox allocates a sequential number once', async () => {
   calls = [];
   handler = async (sql) => {
     if (sql.startsWith('INSERT INTO digital_boxes')) return { rows: [{ id: 'box-1', box_number: 'HBX-0003' }] };
     return { rows: [{ id: 'box-1', box_number: 'HBX-0003' }] };
   };
 
-  const created = await digitalBoxService.ensureDigitalBox('user-1');
+  const created = await digitalBoxService.issueDigitalBox({ userId: 'user-1' });
   assert.equal(created.box_number, 'HBX-0003');
   assert.match(calls[0].sql, /INSERT INTO digital_boxes/);
   assert.match(calls[0].sql, /digital_box_number_seq/);
+  assert.match(calls[0].sql, /WHERE NOT EXISTS/);
   assert.equal(calls[0].params[0], 'user-1');
 });
 
-test('ensureDigitalBox falls back to the existing box when the insert won the race', async () => {
+test('issueDigitalBox falls back to the existing box when the insert lost the race', async () => {
   calls = [];
   handler = async (sql) => {
     if (sql.startsWith('INSERT INTO digital_boxes')) return { rows: [] };
@@ -45,8 +46,46 @@ test('ensureDigitalBox falls back to the existing box when the insert won the ra
     return { rows: [] };
   };
 
-  const existing = await digitalBoxService.ensureDigitalBox('user-9');
+  const existing = await digitalBoxService.issueDigitalBox({ userId: 'user-9' });
   assert.equal(existing.box_number, 'HBX-0009');
+});
+
+test('reading the registry never mints a number', async () => {
+  calls = [];
+  handler = async () => ({ rows: [{ id: 'box-1', box_number: 'HBX-0001' }] });
+
+  const box = await digitalBoxService.getDigitalBoxByUserId('user-1');
+  assert.equal(box.box_number, 'HBX-0001');
+  assert.match(calls[0].sql, /^SELECT \* FROM digital_boxes WHERE user_id/);
+  assert.doesNotMatch(calls[0].sql, /INSERT/);
+});
+
+test('effectiveBoxState reports NONE without a box', () => {
+  assert.equal(digitalBoxService.effectiveBoxState(null), 'NONE');
+});
+
+test('effectiveBoxState degrades ACTIVE to GRACE and then LAPSED', () => {
+  const box = { status: 'ACTIVE', expires_at: new Date('2026-10-24T12:00:00Z') };
+  const insideGrace = new Date('2026-11-10T12:00:00Z');
+  const pastGrace = new Date('2026-11-26T12:00:00Z');
+
+  assert.equal(digitalBoxService.effectiveBoxState(box, { gracePeriodDays: 30, now: insideGrace }), 'GRACE');
+  assert.equal(digitalBoxService.effectiveBoxState(box, { gracePeriodDays: 30, now: pastGrace }), 'LAPSED');
+});
+
+test('effectiveBoxState never lapses a cancelled box early', () => {
+  assert.equal(digitalBoxService.effectiveBoxState({ status: 'CANCELLED', expires_at: null }), 'CANCELLED');
+});
+
+test('sweepBoxExpiries lapses boxes past their grace window and returns them', async () => {
+  calls = [];
+  handler = async () => ({ rows: [{ id: 'box-7' }] });
+
+  const lapsed = await digitalBoxService.sweepBoxExpiries({ gracePeriodDays: 30 });
+  assert.deepEqual(lapsed, [{ id: 'box-7' }]);
+  assert.match(calls[0].sql, /SET status = 'LAPSED'/);
+  assert.match(calls[0].sql, /WHERE status IN \('ACTIVE', 'GRACE'\) AND expires_at < \$1/);
+  assert.match(calls[1].sql, /SET status = 'GRACE'/);
 });
 
 test('findBoxByNumber canonicalises the input before querying', async () => {
@@ -108,14 +147,34 @@ test('addRelocation persists the old and new address', async () => {
   ]);
 });
 
-
-test('renewBox extends the box by a year and reactivates it', async () => {
+test('renewBox extends the box by the requested plan and reactivates it', async () => {
   calls = [];
   handler = async () => ({ rows: [{ id: 'box-1', status: 'ACTIVE' }] });
 
   const renewed = await digitalBoxService.renewBox('box-1');
   assert.equal(renewed.status, 'ACTIVE');
-  assert.match(calls[0].sql, /expires_at = NOW\(\) \+ INTERVAL '365 days'/);
+  assert.match(calls[0].sql, /expires_at = NOW\(\) \+ \(\$2 \|\| ' days'\)::INTERVAL/);
+  assert.equal(calls[0].params[0], 'box-1');
+  assert.equal(calls[0].params[1], '365');
+});
+
+test('renewBox records a custom plan length and price paid', async () => {
+  calls = [];
+  handler = async () => ({ rows: [{ id: 'box-1', status: 'ACTIVE' }] });
+
+  await digitalBoxService.renewBox('box-1', { lengthDays: 180, pricePaidNgn: 1750 });
+  assert.equal(calls[0].params[1], '180');
+  assert.equal(calls[0].params[2], 1750);
+  assert.match(calls[0].sql, /price_paid_ngn = COALESCE\(\$3, price_paid_ngn\)/);
+});
+
+test('cancelBox terminates the subscription permanently', async () => {
+  calls = [];
+  handler = async () => ({ rows: [{ id: 'box-1', status: 'CANCELLED' }] });
+
+  const box = await digitalBoxService.cancelBox('box-1');
+  assert.equal(box.status, 'CANCELLED');
+  assert.match(calls[0].sql, /SET status = 'CANCELLED'/);
 });
 
 test('setGroundTruthVerified flips the verification flag', async () => {
@@ -137,6 +196,29 @@ test('getCertificate returns the newest active certificate only', async () => {
   assert.match(calls[0].sql, /ORDER BY issued_at DESC LIMIT 1/);
 });
 
+test('getActiveCertificateForUser requires an unexpired active certificate', async () => {
+  calls = [];
+  handler = async () => ({ rows: [{ certificate_serial: 'HBX-CERT-0002' }] });
+
+  const cert = await digitalBoxService.getActiveCertificateForUser('user-1');
+  assert.equal(cert.certificate_serial, 'HBX-CERT-0002');
+  assert.match(calls[0].sql, /status = 'ACTIVE' AND expires_at > NOW\(\)/);
+  assert.equal(calls[0].params[0], 'user-1');
+});
+
+test('markCertificatesMoved moves every active certificate once and records why', async () => {
+  calls = [];
+  handler = async () => ({ rowCount: 2, rows: [] });
+
+  const moved = await digitalBoxService.markCertificatesMoved('user-1', 'RELOCATION');
+  assert.equal(moved, 2);
+  assert.match(calls[0].sql, /SET status = 'MOVED'/);
+  assert.match(calls[0].sql, /moved_at = COALESCE\(moved_at, NOW\(\)\)/);
+  assert.match(calls[0].sql, /supersede_reason = \$2/);
+  assert.equal(calls[0].params[0], 'user-1');
+  assert.equal(calls[0].params[1], 'RELOCATION');
+});
+
 test('issueCertificate serialises and stores the certificate with coordinates', async () => {
   calls = [];
   handler = async (sql) => {
@@ -156,8 +238,52 @@ test('issueCertificate serialises and stores the certificate with coordinates', 
   });
 
   assert.equal(cert.certificate_serial, 'HBX-CERT-0001');
-  assert.match(calls[1].sql, /INSERT INTO proof_of_address_certificates/);
-  assert.equal(calls[1].params[0], 'HBX-CERT-0001');
-  assert.equal(calls[1].params[9], 9.0772);
-  assert.equal(calls[1].params[10], 7.499);
+  assert.match(calls[0].sql, /SET status = 'SUPERSEDED'/);
+  assert.equal(calls[0].params[0], 'user-1');
+  assert.match(calls[2].sql, /INSERT INTO proof_of_address_certificates/);
+  assert.equal(calls[2].params[0], 'HBX-CERT-0001');
+  assert.equal(calls[2].params[1], 'box-1');
+  assert.equal(calls[2].params[9], 9.0772);
+  assert.equal(calls[2].params[10], 7.499);
+  assert.equal(calls[2].params[11], '12');
+  assert.match(calls[2].sql, /NOW\(\) \+ \(\$12 \|\| ' months'\)::INTERVAL/);
+  assert.match(calls[2].sql, /last_validated_at/);
+});
+
+test('issueCertificate works standalone without a box', async () => {
+  calls = [];
+  handler = async (sql) => {
+    if (sql.includes('count(*)')) return { rows: [{ n: 5 }] };
+    return { rows: [{ certificate_serial: 'HBX-CERT-0006' }] };
+  };
+
+  const cert = await digitalBoxService.issueCertificate({
+    box: null,
+    user: { id: 'user-1', postcode: 'FC-01-A03-FK-01' },
+    postcode: 'FC-01-A03-FK-01'
+  });
+
+  assert.equal(cert.certificate_serial, 'HBX-CERT-0006');
+  assert.equal(calls[0].params[0], 'user-1');
+  assert.equal(calls[2].params[0], 'HBX-CERT-0006');
+  assert.equal(calls[2].params[1], null);
+  assert.equal(calls[2].params[11], '12');
+});
+
+test('issueCertificate honours the configured revalidation interval', async () => {
+  calls = [];
+  handler = async (sql) => {
+    if (sql.includes('count(*)')) return { rows: [{ n: 0 }] };
+    return { rows: [{ certificate_serial: 'HBX-CERT-0007' }] };
+  };
+
+  await digitalBoxService.issueCertificate({
+    box: null,
+    user: { id: 'user-1', postcode: 'FC-01-A03-FK-01' },
+    postcode: 'FC-01-A03-FK-01',
+    validityMonths: 6
+  });
+
+  assert.equal(calls[2].params[11], '6');
+  assert.match(calls[2].sql, /NOW\(\) \+ \(\$12 \|\| ' months'\)::INTERVAL/);
 });
