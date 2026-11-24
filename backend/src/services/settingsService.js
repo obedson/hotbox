@@ -11,9 +11,21 @@ const RIDER_REGISTRATION_FEES_KEY = 'rider_registration_fees';
 
 const MATCH_POLICIES = ['name_or_phone', 'name_only', 'phone_only'];
 
+// Numbers read from administrator settings. An explicit zero is meaningful
+// (free trial off, no grace window) and must survive, so coercion only replaces
+// missing or non-numeric values.
+function numOr(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 const DEFAULT_DIGITAL_BOX_FEES = {
+  annual_subscription_fee_ngn: 3500,
   doorway_inspection_fee_ngn: 2500,
-  poa_revalidation_fee_ngn: 2500
+  poa_revalidation_fee_ngn: 2500,
+  poa_revalidation_months: 12,
+  grace_period_days: 30,
+  free_trial_days: 0
 };
 
 // Legacy link fees default to zero so the feature is inert until an
@@ -51,8 +63,12 @@ async function getDigitalBoxFees() {
   const stored = await getSettingValue(DIGITAL_BOX_FEES_KEY, null);
   const fees = stored && typeof stored === 'object' ? stored : {};
   return {
-    doorwayInspectionFeeNgn: Number(fees.doorway_inspection_fee_ngn) || DEFAULT_DIGITAL_BOX_FEES.doorway_inspection_fee_ngn,
-    revalidationFeeNgn: Number(fees.poa_revalidation_fee_ngn) || DEFAULT_DIGITAL_BOX_FEES.poa_revalidation_fee_ngn
+    annualSubscriptionFeeNgn: numOr(fees.annual_subscription_fee_ngn, DEFAULT_DIGITAL_BOX_FEES.annual_subscription_fee_ngn),
+    doorwayInspectionFeeNgn: numOr(fees.doorway_inspection_fee_ngn, DEFAULT_DIGITAL_BOX_FEES.doorway_inspection_fee_ngn),
+    revalidationFeeNgn: numOr(fees.poa_revalidation_fee_ngn, DEFAULT_DIGITAL_BOX_FEES.poa_revalidation_fee_ngn),
+    revalidationMonths: numOr(fees.poa_revalidation_months, DEFAULT_DIGITAL_BOX_FEES.poa_revalidation_months),
+    gracePeriodDays: numOr(fees.grace_period_days, DEFAULT_DIGITAL_BOX_FEES.grace_period_days),
+    freeTrialDays: numOr(fees.free_trial_days, DEFAULT_DIGITAL_BOX_FEES.free_trial_days)
   };
 }
 

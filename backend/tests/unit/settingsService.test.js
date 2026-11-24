@@ -107,3 +107,25 @@ test('nipost registry survives a settings read failure', async () => {
   const registry = await settingsService.getNipostRegistry();
   assert.equal(registry.enabled, false);
 });
+test('digital box fees expose subscription, interval, grace and trial defaults', async () => {
+  handler = async () => ({ rows: [] });
+  const fees = await settingsService.getDigitalBoxFees();
+  assert.equal(fees.annualSubscriptionFeeNgn, 3500);
+  assert.equal(fees.revalidationMonths, 12);
+  assert.equal(fees.gracePeriodDays, 30);
+  assert.equal(fees.freeTrialDays, 0);
+});
+
+test('digital box fee zeros are respected rather than replaced by defaults', async () => {
+  handler = async () => ({ rows: [{ setting_value: { free_trial_days: 0, grace_period_days: 0 } }] });
+  const fees = await settingsService.getDigitalBoxFees();
+  assert.equal(fees.freeTrialDays, 0);
+  assert.equal(fees.gracePeriodDays, 0);
+});
+
+test('digital box subscription settings read the admin override', async () => {
+  handler = async () => ({ rows: [{ setting_value: { annual_subscription_fee_ngn: 4000, poa_revalidation_months: 6 } }] });
+  const fees = await settingsService.getDigitalBoxFees();
+  assert.equal(fees.annualSubscriptionFeeNgn, 4000);
+  assert.equal(fees.revalidationMonths, 6);
+});

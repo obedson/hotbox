@@ -354,7 +354,7 @@ router.get('/digital-box', authenticate, async (req, res) => {
       subscriptionStatus: box.status === 'ACTIVE' && daysRemaining > 0 ? 'ACTIVE' : 'EXPIRED',
       expiresAt: expiresAt.toISOString(),
       daysRemaining,
-      annualFeeNgn: digitalBoxService.ANNUAL_FEE_NGN,
+      annualFeeNgn: fees.annualSubscriptionFeeNgn,
       groundTruthingFeeNgn: fees.doorwayInspectionFeeNgn,
       doorwayInspectionFeeNgn: fees.doorwayInspectionFeeNgn,
       revalidationFeeNgn: fees.revalidationFeeNgn,
