@@ -52,7 +52,7 @@ BEGIN
     'hub_owner',
     'hub_staff',
     'rider',
-    'courier_company',
+    'logistics_partner',
     'enterprise_shipper',
     'ops_admin',
     'compliance_officer',

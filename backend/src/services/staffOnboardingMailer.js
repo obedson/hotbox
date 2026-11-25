@@ -22,7 +22,7 @@ const ROLE_LABELS = {
   hub_owner: 'Hub owner',
   hub_staff: 'Hub staff',
   rider: 'Rider',
-  courier_company: 'Courier company',
+  logistics_partner: 'Logistics partner',
   enterprise_shipper: 'Enterprise shipper',
   customer: 'Customer'
 };

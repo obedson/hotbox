@@ -6,7 +6,7 @@ const ROLES = {
   HUB_OWNER: 'hub_owner',
   HUB_STAFF: 'hub_staff',
   RIDER: 'rider',
-  COURIER_COMPANY: 'courier_company',
+  LOGISTICS_PARTNER: 'logistics_partner',
   ENTERPRISE_SHIPPER: 'enterprise_shipper',
   OPS_ADMIN: 'ops_admin',
   COMPLIANCE_OFFICER: 'compliance_officer',
@@ -32,21 +32,24 @@ const STAFF_ROLES = [
   ROLES.FINANCE_OFFICER,
   ROLES.SUPPORT_AGENT,
   ROLES.HUB_STAFF,
-  ROLES.COURIER_COMPANY,
+  ROLES.LOGISTICS_PARTNER,
   ROLES.SUPER_ADMIN
 ];
 
 // Roles an administrator may provision from the Team screen. Self-service roles
 // are excluded on purpose: customers, riders and enterprise shippers register
 // themselves. `hub_staff` is excluded because a staff seat is only meaningful
-// once it is linked to an accredited hub.
+// once it is linked to an accredited hub. A logistics partner is provisioned
+// rather than self-registered because its fleet has to be vetted before it can
+// see dispatch work.
 const PROVISIONABLE_ROLES = [
   ROLES.OPS_ADMIN,
   ROLES.COMPLIANCE_OFFICER,
   ROLES.NIPOST_VERIFIER,
   ROLES.FINANCE_OFFICER,
   ROLES.SUPPORT_AGENT,
-  ROLES.HUB_OWNER
+  ROLES.HUB_OWNER,
+  ROLES.LOGISTICS_PARTNER
 ];
 
 // `super_admin` is deliberately absent from PROVISIONABLE_ROLES. It is
@@ -62,7 +65,7 @@ function canGrantRole(actorRole, targetRole) {
 const PORTAL_BY_ROLE = {
   [ROLES.CUSTOMER]: 'customer',
   [ROLES.ENTERPRISE_SHIPPER]: 'enterprise',
-  [ROLES.COURIER_COMPANY]: 'enterprise',
+  [ROLES.LOGISTICS_PARTNER]: 'enterprise',
   [ROLES.HUB_OWNER]: 'hub_owner',
   [ROLES.HUB_STAFF]: 'hub_owner',
   [ROLES.RIDER]: 'rider',

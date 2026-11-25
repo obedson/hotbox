@@ -3,7 +3,7 @@ const router = express.Router();
 const { authenticate, requireRoles } = require('../middleware/auth');
 
 // Enterprise endpoints are restricted to shipping organizations and admins.
-router.use(authenticate, requireRoles('enterprise_shipper', 'courier_company', 'ops_admin'));
+router.use(authenticate, requireRoles('enterprise_shipper', 'logistics_partner', 'ops_admin'));
 
 router.use(require('./enterprise/account'));
 router.use(require('./enterprise/webhooks'));

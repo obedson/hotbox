@@ -9,9 +9,9 @@ export const PORTALS = [
 ];
 
 const OPERATIONS_ROLES = ['ops_admin', 'compliance_officer', 'nipost_verifier', 'super_admin'];
-const ENTERPRISE_ROLES = ['enterprise_shipper', 'courier_company', 'ops_admin', 'super_admin'];
+const ENTERPRISE_ROLES = ['enterprise_shipper', 'logistics_partner', 'ops_admin', 'super_admin'];
 const HUB_ROLES = ['hub_owner', 'hub_staff', 'ops_admin', 'super_admin'];
-const RIDER_ROLES = ['rider', 'courier_company', 'ops_admin', 'super_admin'];
+const RIDER_ROLES = ['rider', 'logistics_partner', 'ops_admin', 'super_admin'];
 
 // Single source of truth for portal access. Both the router guard and the
 // portal switcher read this, so the dropdown can never offer a surface the
@@ -44,7 +44,8 @@ export const PROVISIONABLE_ROLES = [
   'nipost_verifier',
   'finance_officer',
   'support_agent',
-  'hub_owner'
+  'hub_owner',
+  'logistics_partner'
 ];
 
 // Every role Hotbox employs rather than a visitor registers for itself. Mirrors
@@ -56,7 +57,7 @@ export const STAFF_ROLES = [
   'finance_officer',
   'support_agent',
   'hub_staff',
-  'courier_company',
+  'logistics_partner',
   'super_admin'
 ];
 

@@ -45,12 +45,23 @@ const RIDER_JOB_COLUMNS = [
   's.updated_at'
 ].join(', ');
 
-// Rider endpoints are restricted to riders and operations staff.
-router.use(authenticate, requireRoles('rider', 'ops_admin'));
+// Rider endpoints serve an individual rider, a logistics partner overseeing its
+// own fleet, and operations staff. This gate is deliberately coarse: the routes
+// that act as a rider re-check the role, and the fleet radar is scoped per
+// company, so widening the list here cannot expose the city-wide job board.
+router.use(authenticate, requireRoles('rider', 'logistics_partner', 'ops_admin'));
+
+// Only a natural rider, or an operations override, may perform a rider action.
+// A logistics partner manages a fleet; it must never claim or progress a job as
+// though it were the courier on the road.
+const RIDER_ACTOR_ROLES = ['rider', 'ops_admin', 'super_admin'];
+const canActAsRider = (role) => RIDER_ACTOR_ROLES.includes(role);
 
 // A rider account is created at signup, but it must clear regulatory review
-// before it can operate. Staff keep full access. `GET /riders/me` stays open so
-// the console can show the rider their own verification state.
+// before it can operate. Staff keep full access, and a logistics partner holds no
+// individual clearance record, so it passes here and is scoped to its own fleet
+// by the radar query instead. `GET /riders/me` stays open so the console can
+// show the rider their own verification state.
 const requireVerifiedRider = async (req, res, next) => {
   if (req.user.role !== 'rider') return next();
   try {
@@ -264,6 +275,23 @@ router.get('/lookup', requireVerifiedRider, async (req, res) => {
 // GET /api/v1/riders/radar/jobs (Active jobs within rider operational zone)
 router.get('/radar/jobs', requireVerifiedRider, async (req, res) => {
   try {
+    const params = [];
+    let fleetScope = '';
+
+    if (req.user.role === 'logistics_partner') {
+      // A logistics partner monitors its own fleet, never the shared board:
+      // listing every live job would expose other operators' customers.
+      const companyRes = await db.query(
+        'SELECT id FROM courier_companies WHERE user_id = $1',
+        [req.user.id]
+      );
+      if (companyRes.rows.length === 0) {
+        return res.json({ jobs: [], total: 0 });
+      }
+      params.push(companyRes.rows[0].id);
+      fleetScope = ' AND s.assigned_rider_id IN (SELECT id FROM riders WHERE courier_id = $1)';
+    }
+
     // Find active jobs waiting for pickup or in-transit
     const result = await db.query(`
       SELECT 
@@ -278,10 +306,10 @@ router.get('/radar/jobs', requireVerifiedRider, async (req, res) => {
       FROM shipments s
       LEFT JOIN hubs h ON s.destination_hub_id = h.id
       LEFT JOIN hubs oh ON s.origin_hub_id = oh.id
-      WHERE s.status IN ('BOOKED', 'RIDER_ASSIGNED')
+      WHERE s.status IN ('BOOKED', 'RIDER_ASSIGNED')${fleetScope}
       ORDER BY s.created_at DESC
       LIMIT 30
-    `);
+    `, params);
 
     res.json({ jobs: result.rows, total: result.rows.length });
   } catch (err) {
@@ -292,6 +320,9 @@ router.get('/radar/jobs', requireVerifiedRider, async (req, res) => {
 // POST /api/v1/riders/jobs/:id/accept
 router.post('/jobs/:id/accept', requireVerifiedRider, async (req, res) => {
   const shipmentId = req.params.id;
+  if (!canActAsRider(req.user.role)) {
+    return res.status(403).json({ error: 'Only a verified rider may accept a dispatch job.' });
+  }
   try {
     // Find rider id linked to authenticated user
     const riderRes = await db.query('SELECT id, status FROM riders WHERE user_id = $1', [req.user.id]);

@@ -8,13 +8,13 @@ const STAFF_OVERRIDE_ROLES = [ROLES.OPS_ADMIN, ROLES.SUPER_ADMIN];
 
 const HANDOVER_TYPE_ROLES = {
   // A rider collects the parcel from the sender.
-  SENDER_TO_RIDER: [ROLES.RIDER, ROLES.COURIER_COMPANY],
+  SENDER_TO_RIDER: [ROLES.RIDER, ROLES.LOGISTICS_PARTNER],
   // A hub host scans the parcel QR pass and shelves it.
   RIDER_TO_HUB: [ROLES.HUB_OWNER, ROLES.HUB_STAFF],
   // A hub host releases the parcel to the recipient.
   HUB_TO_RECIPIENT: [ROLES.HUB_OWNER, ROLES.HUB_STAFF],
   // A rider completes a door delivery.
-  RIDER_TO_RECIPIENT: [ROLES.RIDER, ROLES.COURIER_COMPANY],
+  RIDER_TO_RECIPIENT: [ROLES.RIDER, ROLES.LOGISTICS_PARTNER],
   // Hub dispatch back to a rider, and hub return to sender, are staff-run.
   HUB_TO_RIDER: [ROLES.HUB_OWNER, ROLES.HUB_STAFF],
   HUB_TO_RETURN: [ROLES.HUB_OWNER, ROLES.HUB_STAFF]

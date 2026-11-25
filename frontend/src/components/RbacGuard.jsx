@@ -19,12 +19,12 @@ const ROLE_PERMISSIONS_MAP = {
   },
   rider: {
     portalName: 'Rider Radar & Dispatch Console',
-    requiredRoles: ['rider', 'courier_company', 'super_admin'],
+    requiredRoles: ['rider', 'logistics_partner', 'super_admin'],
     reason: 'Only vetted riders with valid vehicle and license credentials may accept live dispatch jobs and take physical custody of parcels.'
   },
   enterprise: {
     portalName: 'Enterprise B2B Console',
-    requiredRoles: ['enterprise_shipper', 'courier_company', 'super_admin'],
+    requiredRoles: ['enterprise_shipper', 'logistics_partner', 'super_admin'],
     reason: 'Restricted to registered corporate shippers managing negotiated commercial rate agreements, API credentials, and bulk webhooks.'
   }
 };

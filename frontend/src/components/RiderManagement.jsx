@@ -298,7 +298,7 @@ export default function RiderManagement({ onSelectShipment }) {
           <div className="text-2xl font-black text-slate-900">
             {counts.total || riders.length || 0}
           </div>
-          <div className="text-xs text-blue-600 font-semibold mt-1 truncate" title="Independent riders and courier company fleets">
+          <div className="text-xs text-blue-600 font-semibold mt-1 truncate" title="Independent riders and logistics partner fleets">
             Active roster
           </div>
         </div>
